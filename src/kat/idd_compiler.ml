@@ -4,6 +4,7 @@ open Hom
 type b = Bdd.t
 type k = Idd.t
 
+(** [get_ba mgr] produces an instance of [Bdd.t ba] given a BDD manager [mgr] *)
 let get_ba mgr = {
     ctrue = Bdd.ctrue;
     cfalse = Bdd.cfalse;
@@ -12,6 +13,9 @@ let get_ba mgr = {
     neg = Bdd.neg mgr;
   }
 
+(** [interp_test_mgr mgr interp_fields test] is the BDD resulting from testing
+    the variable specificed by [interp_fields test.name] according to 
+    [test.value] *)
 let interp_test_mgr mgr interp_fields ({ name; value }:Packet_ast.test) = 
   Bdd.test mgr (Var.inp (interp_fields name)) value
 
