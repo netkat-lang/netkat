@@ -1,10 +1,9 @@
 (library
-  (name katblib)
-  (public_name netkat.katblib)
+  (name kat)
+  (public_name netkat.kat)
   (wrapped true)
   (libraries
     base
-    netkat
     idds
   )
   (preprocess (pps

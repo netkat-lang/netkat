@@ -20,7 +20,8 @@ build: [
 depends: [
   "dune" {build}
   "base"
-  "bitstring"
+  "core"
+  "idds"
   "ppx_jane"
   "ppx_inline_test"
 ]
