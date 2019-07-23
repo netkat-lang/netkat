@@ -1,4 +1,4 @@
-open Idd_
+open Idds
 open Hom
 
 type b = Bdd.t

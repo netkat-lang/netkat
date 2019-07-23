@@ -1,4 +1,4 @@
-open Idd_
+open Idds
 
 type b = Bdd.t
 type k = Idd.t

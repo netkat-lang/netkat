@@ -4,7 +4,7 @@
   (wrapped true)
   (libraries
     base
-    idd
+    idds
   )
   (preprocess (pps
     ppx_jane
