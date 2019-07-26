@@ -1,0 +1,28 @@
+(lang dune 1.10)
+(using menhir 2.0)
+(generate_opam_files true)
+
+(name netkat)
+(source (github netkat-lang/netkat))
+(license MIT)
+(authors "Steffen Smolka <smolka@cs.cornell.edu>" "Nate Foster <jnfoster@cs.cornell.edu>")
+(maintainers "Steffen Smolka <smolka@cs.cornell.edu>")
+
+(package
+  (name netkat)
+  (synopsis "A clean slate implementation of NetKAT")
+  (depends
+    (ocaml (>= 4.07.0))
+    (dune (and :build (>= 1.10)))
+    (menhir (and :build (>= 20190626)))
+    (base (>= v0.12.0))
+    (core (>= v0.12.0))
+    (stdio (>= v0.12.0))
+    (odoc :with-doc)
+    (open (>= 0))
+    (idds (<> 0))
+    (ppx_deriving (>= 4.3))
+    (ppx_inline_test (and :with-test (>= v0.12.0)))
+    (ppx_jane (>= v0.12.0))
+  )
+)

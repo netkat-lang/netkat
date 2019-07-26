@@ -1,0 +1,26 @@
+language: c
+cache:
+  directories:
+  - "/home/travis/.opam/"
+env:
+  global:
+  - PACKAGE=netkat
+  - DEPNAME=idds
+  - DEPREPO=https://github.com/netkat-lang/idds.git
+  - secure: cNZMcXoZbEsjqFrW/ToF8jc/snvnmITr2Xe71EqSOmf5J66WY4qK+g7LyVX9c+9VbE5bSGE6pfyviMXMkP8nK3yHJ2GrIAtgDyU/+5ujrpk5bmelUiTcNLkZOfSy8Wez+W0Eomq/aeq9EW+1PXy2tfh340MQi73AuhwI+pchr5NCqD0ofIXLTOfULRDTz0iaA9wRoQ8SCaH5w4SFc5ux9aOr2IHP6EZsLxJQ7aDuiWC/lIEU6Hzb3azklYuTs1J7yerrz63tHTN6rSDzrhXBMzmqDqcxOIsGwurv3eP6pXZ9nvs2AAkqo7ceWH8I/8k8L0KkSlsswLs83g7Dk+Fxqr8SaP+5xTZA/hlcFfWNdaaK9qlxSayMHZtQVIyE1XUSvd8ZF9Wq2dlksYDG6aHr1S47V82DlGbAVGOwwD+B1s9m5ghVjzFCUZ4vuOCaAnPjunW2RwKoiKY48xFqx8QXn0J3x0bG1sLRDw65Wm4BeTL0vcPNlFkwMj6sRUmfIVKifEtMm/68gAgp8p0mzvDhORsZNKsftINsHnMS2WDV7BmqLZPqjS2ziOCleRH4rXiPJo03/9ROCZ+YV+K3svlGZypkFhWvwiMzj67asKz8oJj+UWsw1hDU+L7MLJs5IsSM7ZXA/UDnBgTPwW/3Z+X8RzVIO0I6Oaqtik60M5sfKVI=
+  matrix:
+  - OCAML=4.07.1
+  - OCAML=4.08.0
+script:
+- echo "yes" | sudo add-apt-repository ppa:avsm/ppa
+- sudo apt-get update -qq
+- sudo apt-get install -qq opam
+- export OPAMYES=1
+- opam init --auto-setup --compiler=$OCAML
+- eval `opam config env`
+- opam pin add --yes --no-action $DEPNAME $DEPREPO
+- opam upgrade --yes --all
+- opam pin add --yes --no-action $PACKAGE .
+- opam install --yes --deps-only $PACKAGE
+- opam install --yes --verbose --build-doc --build-test --keep-build-dir $PACKAGE
+- bash -ex .travis.docgen.sh

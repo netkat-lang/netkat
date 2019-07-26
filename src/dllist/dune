@@ -1,0 +1,5 @@
+(library
+  (name dllist)
+  (public_name netkat.dllist)
+  (wrapped false)
+)

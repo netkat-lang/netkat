@@ -1,0 +1,6 @@
+(library
+  (name parsing)
+  (public_name netkat.parsing)
+  (wrapped false)
+  (libraries stdio compiler-libs.common)
+)
