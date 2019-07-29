@@ -1,0 +1,13 @@
+(library
+  (name katbbv_lib)
+  (public_name netkat.katbbv_lib)
+  (wrapped true)
+  (libraries
+    base
+    netkat.kat
+    netkat.katbb_lib
+  )
+  (preprocess (pps
+    ppx_jane
+  ))
+)
