@@ -23,7 +23,7 @@ let kat : (Katbb_lib.Ast.exp, Katbb_lib.Ast.bexp) Kat.Hom.kat = {
   star = (fun a -> Kat.Ast.Star a);
 }
 
-let map_test ({ var; value }:test) : Katbb_lib.Ast.bexp = 
+let map_test { var; value } = 
   List.mapi value
     ~f:(fun i bl -> 
       Kat.Ast.Test Katbb_lib.Ast.{ var = var ^ Int.to_string i; value = bl})
