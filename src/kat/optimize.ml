@@ -63,13 +63,13 @@ let star e =
 let ite b e1 e2 =
   union (seq (assrt b) e1) (seq (assrt (neg b)) e2)
 
-let big_disj = List.fold_left ~init:cfalse ~f:(fun acc bexp -> disj acc bexp)
+let big_disj = List.fold_left ~init:cfalse ~f:disj
 
-let big_conj = List.fold_left ~init:ctrue ~f:(fun acc bexp -> conj acc bexp)
+let big_conj = List.fold_left ~init:ctrue ~f:conj
 
-let big_union = List.fold_left ~init:abort ~f:(fun acc exp -> union acc exp)
+let big_union = List.fold_left ~init:abort ~f:union
 
-let big_seq = List.fold_left ~init:skip ~f:(fun acc exp -> seq acc exp)
+let big_seq = List.fold_left ~init:skip ~f:seq
 
 let optimize_bexp ?(negate=false) ?neg_test b =
   let neg_test = match neg_test with
