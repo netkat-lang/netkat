@@ -15,21 +15,33 @@ type t = {states: state list;
 let to_string (ch_lst : character list) : string =
   List.fold_left (fun acc elt -> 
       match elt with
-      | Empty -> acc ^ "empty"
+      | Empty -> acc
       | Char e -> acc ^ (string_of_int e)) "" ch_lst
 
 let make_transition_function trans_lst =
   let extracted_lst = List.fold_left 
       (fun acc elt -> acc @ [elt |> to_list |> filter_int]) [] trans_lst in
-  let transition_helper acc elt = 
+  let transition_matrix = Hashtbl.create 10 in
+  let transition_helper elt =
+    let transition_matrix = Hashtbl.create 10 in
     match elt with
-    | start::ch::next::[] -> (fun s c -> 
-        match c with 
-        | Empty -> start
-        | Char c' -> if s = start && c' = ch then next else acc s c)
-    | _ -> failwith "invalid json format" in
-  (* dummy function as accumulator- shouldn't ever get called *)
-  List.fold_left transition_helper (fun s c -> s) extracted_lst
+    | start::char::next::[] ->
+      begin
+        match Hashtbl.find_opt transition_matrix start with
+        | Some tbl -> Hashtbl.add tbl char next
+        | None ->
+          begin
+            let tbl = Hashtbl.create 10 in
+            Hashtbl.add tbl char next;
+            Hashtbl.add transition_matrix start tbl
+          end
+      end    
+    | _ -> () in
+  List.iter transition_helper extracted_lst;
+  let transition_function st ch =
+    let tbl = Hashtbl.find transition_matrix st in
+    Hashtbl.find tbl ch in                                        
+  transition_function
 
 let json_to_dfa json = 
   {
