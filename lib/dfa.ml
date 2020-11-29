@@ -1,12 +1,24 @@
 open Yojson.Basic
 open Yojson.Basic.Util
-open Fa
 open Nfa
+open Alphabet
 
 module MakeDfa (A : Alphabet) = struct
 
   module Nfa = MakeNfa(A)
   open Nfa
+
+  type state = int
+
+  module CharOrdered = struct
+
+    type t = A.symbol
+
+    let compare = A.compare
+
+  end
+
+  module CharMap = Map.Make(CharOrdered)
 
   type t = {
     start : state;
@@ -16,9 +28,9 @@ module MakeDfa (A : Alphabet) = struct
 
   let dfa_to_nfa dfa =
     let update_char ch st acc =
-      CharMap.add ch (States.singleton st) acc in
+      Nfa.CharMap.add (Nfa.CharOrdered.Char ch) (States.singleton st) acc in
     let update_state st ch_map acc = 
-      let char_map = CharMap.fold update_char ch_map CharMap.empty in
+      let char_map = CharMap.fold update_char ch_map Nfa.CharMap.empty in
       StateMap.add st char_map acc in
     let transition = StateMap.fold update_state dfa.transition StateMap.empty in
     let open Nfa in
@@ -26,80 +38,57 @@ module MakeDfa (A : Alphabet) = struct
       start = States.singleton dfa.start;
       final = dfa.final;
       transition = transition
-    } 
-end
+    }
 
+  let to_string (ch_lst : A.symbol list) : string =
+    List.fold_left (fun acc elt -> 
+        acc ^ (A.to_string elt)) "" ch_lst
 
-(*type t = {states: state list;
-          start: state; 
-          transition: state -> character -> state; 
-          final: state list;
-          alphabet : character list}
+  let make_transitions trans_lst : (state CharMap.t) StateMap.t =
+    let extracted_lst = List.fold_left 
+        (fun acc elt -> 
+           match elt with 
+           | `List [`Int start; ch; `Int next] -> 
+             (start, A.extract_json ch, next)::acc
+           | _ -> failwith "invalid json format") [] trans_lst in
+    let transition_helper state_map (start, char, next) =
+      match StateMap.find_opt start state_map with
+      | Some char_map -> 
+        let char_map' = CharMap.add char next char_map in
+        StateMap.add start char_map' state_map 
+      | None ->
+        let char_map = CharMap.empty in
+        let char_map' = CharMap.add char next char_map in
+        StateMap.add start char_map' state_map in
+    List.fold_left transition_helper StateMap.empty extracted_lst
 
-  let to_string (ch_lst : character list) : string =
-  List.fold_left (fun acc elt -> 
-      match elt with
-      | Empty -> acc
-      | Char e -> acc ^ (string_of_int e)) "" ch_lst
-
-  let make_transition_function trans_lst =
-  let extracted_lst = List.fold_left 
-      (fun acc elt -> acc @ [elt |> to_list |> filter_int]) [] trans_lst in
-  let transition_matrix = Hashtbl.create 10 in
-  let transition_helper elt =
-    let transition_matrix = Hashtbl.create 10 in
-    match elt with
-    | start::char::next::[] ->
-      begin
-        match Hashtbl.find_opt transition_matrix start with
-        | Some tbl -> Hashtbl.add tbl char next
-        | None ->
-          begin
-            let tbl = Hashtbl.create 10 in
-            Hashtbl.add tbl char next;
-            Hashtbl.add transition_matrix start tbl
-          end
-      end    
-    | _ -> () in
-  List.iter transition_helper extracted_lst;
-  let transition_function st ch =
-    let tbl = Hashtbl.find transition_matrix st in
-    Hashtbl.find tbl ch in                                        
-  transition_function
+  let make_final (state_lst : int list) : States.t =
+    List.fold_left (fun acc elt -> States.add elt acc) States.empty state_lst
 
   let json_to_dfa json = 
-  {
-    states =  json |> member "states" |> to_list |> filter_int;
-    start = json |> member "start" |> to_int;
-    transition = json |> member "trans" |> to_list |> make_transition_function;
-    final = json |> member "final" |> to_list |> filter_int;
-    alphabet = json |> member "alphabet" |> to_list |> filter_int |> 
-               (List.map (fun elt -> Char elt))
-  }
+    {
+      start = json |> member "start" |> to_int;
+      transition = json |> member "trans" |> to_list |> make_transitions;
+      final = json |> member "final" |> to_list |> filter_int |> make_final;
+    }
 
-  let make_transition_json dfa acc state =
-  let transition_from_alpha lst alpha =
-    match alpha with
-    | Char a -> `List [`Int state; `Int a; `Int (dfa.transition state alpha)]::lst
-    | Empty -> failwith "invariant violated" in
-  List.fold_left transition_from_alpha acc dfa.alphabet
+  let make_transition_json dfa state char_map (acc : Yojson.Basic.t list) =
+    let transition_from_char ch next acc =
+      `List [`Int state; A.to_json ch; `Int next]::acc in 
+    CharMap.fold transition_from_char char_map acc
 
   let dfa_to_json dfa =
-  let states_json = `List (List.map (fun elt -> `Int elt) dfa.states) in
-  let start_json = `Int dfa.start in
-  let transition_json = `List (List.fold_left (make_transition_json dfa) [] dfa.states) in
-  let final_json = `List (List.map (fun elt -> `Int elt) dfa.final) in
-  let alphabet_json = `List (List.map (fun elt -> 
-      match elt with
-      | Char c -> `Int c
-      | Empty -> failwith "rep invariant violated") dfa.alphabet) in
-  `Assoc [
-    ("states", states_json);
-    ("start", start_json);
-    ("trans", transition_json);
-    ("final", final_json);
-    ("alphabet", alphabet_json)
-  ]
+    let start_json = `Int dfa.start in
+    let transition_json = 
+      `List (StateMap.fold (make_transition_json dfa) dfa.transition []) in
+    let final_json = 
+      `List (States.fold (fun elt acc -> (`Int elt)::acc) dfa.final []) in
+    `Assoc [
+      ("start", start_json);
+      ("trans", transition_json);
+      ("final", final_json);
+    ]
 
   let dfa_to_file dfa file = dfa |> dfa_to_json |> (to_file file)
-*)
+
+end

@@ -1,16 +1,24 @@
-open Fa
+open Alphabet
 
 module MakeNfa (A : Alphabet) : sig
 
+  module IntOrdered : sig
+
+    type t = int
+
+    val compare : t -> t -> int
+
+  end
+
   module CharOrdered : sig
 
-    type t = Empty | Char of A.t
+    type t = Empty | Char of A.symbol
 
     val compare : t -> t -> int
   end
 
-  module States : Set.S with type elt = int32
-  module StateMap : Map.S with type key = int32
+  module States : Set.S with type elt = IntOrdered.t
+  module StateMap : Map.S with type key = IntOrdered.t
   module CharMap : Map.S with type key = CharOrdered.t
 
   type t = {

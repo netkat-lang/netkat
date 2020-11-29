@@ -1,10 +1,18 @@
-open Fa
+open Alphabet
 
 module MakeNfa (A : Alphabet) = struct
 
+  module IntOrdered = struct
+
+    type t = int
+
+    let compare = Stdlib.compare
+
+  end
+
   module CharOrdered = struct
 
-    type t = Empty | Char of A.t
+    type t = Empty | Char of A.symbol
 
     let compare c1 c2 = match c1, c2 with
       | Empty, Empty -> 0
@@ -13,8 +21,8 @@ module MakeNfa (A : Alphabet) = struct
       | Char char1, Char char2 -> A.compare char1 char2
   end
 
-  module States = Set.Make(Int32)
-  module StateMap = Map.Make(Int32)
+  module States = Set.Make(IntOrdered)
+  module StateMap = Map.Make(IntOrdered)
   module CharMap = Map.Make(CharOrdered)
 
   type t = {
@@ -26,20 +34,20 @@ module MakeNfa (A : Alphabet) = struct
   let empty nfa = nfa.start = States.empty
 
   let combine_nfas m1 m2 = StateMap.union (fun k _ _ -> 
-      failwith ("duplicate key, invariant violated" ^ (Int32.to_string k))) m1 m2
+      failwith ("duplicate key, invariant violated" ^ (string_of_int k))) m1 m2
 
-  let find_max k _ acc = max (Int32.to_int k) (Int32.to_int acc) |> Int32.of_int
+  let find_max k _ acc = max k acc
 
   let get_max_state nfa1 nfa2 = 
-    let map1_max = StateMap.fold find_max nfa1.transition Int32.zero in
-    let map2_max = StateMap.fold find_max nfa2.transition Int32.zero in
-    max (Int32.to_int map1_max) (Int32.to_int map2_max) |> Int32.of_int
+    let map1_max = StateMap.fold find_max nfa1.transition 0 in
+    let map2_max = StateMap.fold find_max nfa2.transition 0 in
+    max  map1_max map2_max
 
   let union nfa1 nfa2 =
     let nfa_union = combine_nfas nfa1.transition nfa2.transition in
     let max_state = get_max_state nfa1 nfa2 in
-    let start_state = Int32.succ max_state in
-    let final_state = Int32.succ start_state in
+    let start_state = max_state + 1 in
+    let final_state = start_state + 1 in
     let old_start_states = States.union nfa1.start nfa2.start in
     let transition = StateMap.add start_state
         (CharMap.add Empty old_start_states (CharMap.empty)) nfa_union in
@@ -66,9 +74,9 @@ module MakeNfa (A : Alphabet) = struct
     }
 
   let kleene nfa = 
-    let max_state = StateMap.fold find_max nfa.transition Int32.zero in
-    let start_state = Int32.succ max_state in
-    let final_state = Int32.succ start_state in
+    let max_state = StateMap.fold find_max nfa.transition 0 in
+    let start_state = max_state + 1 in
+    let final_state = start_state + 1 in
     let cycle_added = States.fold (fun st acc ->
         StateMap.add st (CharMap.add Empty nfa.start CharMap.empty) acc) 
         nfa.final nfa.transition in
