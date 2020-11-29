@@ -1,0 +1,8 @@
+(** @canonical Nerode.Dfa *)
+module Dfa = Nerode__Dfa
+
+(** @canonical Nerode.Fa *)
+module Fa = Nerode__Fa
+
+(** @canonical Nerode.Nfa *)
+module Nfa = Nerode__Nfa

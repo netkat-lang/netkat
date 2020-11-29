@@ -1,0 +1,26 @@
+(lang dune 2.7)
+(name nerode)
+(version 0.0.1)
+(library
+ (name nerode)
+ (kind normal)
+ (archives (byte nerode.cma) (native nerode.cmxa))
+ (plugins (byte nerode.cma) (native nerode.cmxs))
+ (native_archives nerode.a)
+ (requires yojson)
+ (main_module_name Nerode)
+ (modes byte native)
+ (modules
+  (wrapped
+   (main_module_name Nerode)
+   (modules
+    ((name Dfa) (obj_name nerode__Dfa) (visibility public) (impl) (intf))
+    ((name Fa) (obj_name nerode__Fa) (visibility public) (impl))
+    ((name Nfa) (obj_name nerode__Nfa) (visibility public) (impl) (intf)))
+   (alias_module
+    (name Nerode)
+    (obj_name nerode)
+    (visibility public)
+    (kind alias)
+    (impl))
+   (wrapped true))))
