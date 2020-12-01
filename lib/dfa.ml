@@ -91,4 +91,70 @@ module MakeDfa (A : Alphabet) = struct
 
   let dfa_to_file dfa file = dfa |> dfa_to_json |> (to_file file)
 
+  let get_alphabet dfa =
+    let char_map = dfa.transition |> StateMap.choose |> snd in
+    char_map |> CharMap.bindings |> (List.map fst)
+
+  let get_states dfa = StateMap.fold (fun st _ acc -> States.add st acc) 
+      dfa.transition States.empty 
+
+  let complement dfa =
+    let states = get_states dfa in
+    {dfa with final = States.diff states dfa.final}
+
+  module MinimizeOrdered = struct
+
+    type t = state * state
+
+    let compare (a, b) (c, d) =
+      if a = c && b = d then 0 else
+      if a = d && b = c then 0 else -1
+
+  end
+
+  module MinimizeSet = Set.Make(MinimizeOrdered)
+
+  let rec minimize dfa marked unmarked = 
+    let mark_pairs (s1, s2) (b, m, u) =
+      if b then (b, m, u) else
+        begin
+          let char_set1 = StateMap.find s1 dfa.transition in
+          let char_set2 = StateMap.find s2 dfa.transition in
+          CharMap.fold (fun ch st (b, m', u') -> 
+              if b then (b, m', u') else
+                let next_state = CharMap.find ch char_set2 in
+                if MinimizeSet.mem (next_state, st) m' then
+                  (* mark s1 and s2 *)
+                  (true, 
+                   MinimizeSet.add (s1, s2) m',
+                   MinimizeSet.remove (s1, s2) u') else
+                  (b, m', u')) 
+            char_set1 (b, m, u)
+        end in
+    let (b, m, u) = MinimizeSet.fold 
+        mark_pairs unmarked (false, marked, unmarked) in
+    if b then minimize dfa m u else u
+
+  let minimize_dfa dfa = 
+    let states = get_states dfa in
+    let unmarked = States.fold (fun st1 acc1 -> 
+        States.fold (fun st2 acc2 -> MinimizeSet.add (st1, st2) acc2)
+          states acc1) states MinimizeSet.empty in
+    let (marked, unmarked') = MinimizeSet.fold (fun (st1, st2) (m, u) -> 
+        let st1_final = States.mem st1 dfa.final in
+        let st2_final = States.mem st2 dfa.final in
+        if (st1_final && (not st2_final)) || (st2_final && (not st1_final)) then
+          (MinimizeSet.add (st1, st2) m, MinimizeSet.remove (st1, st2) u) 
+        else (m, u)) unmarked (MinimizeSet.empty, MinimizeSet.empty) in
+    let unmarked'' = (minimize dfa) marked unmarked' in
+    let remove_state_transitions (st1, st2) acc =
+      StateMap.fold (fun st ch_map acc ->
+          if st = st2 then StateMap.remove st acc else
+            let ch_map' = CharMap.fold (fun ch state acc -> 
+                if state = st2 then CharMap.add ch st1 acc else acc
+              ) ch_map ch_map in
+            StateMap.add st ch_map' acc
+        ) acc acc in
+    MinimizeSet.fold remove_state_transitions unmarked'' dfa.transition
+
 end

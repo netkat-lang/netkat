@@ -1,4 +1,5 @@
 open Alphabet
+open Format
 
 module MakeNfa (A : Alphabet) = struct
 
@@ -19,6 +20,7 @@ module MakeNfa (A : Alphabet) = struct
       | Empty, _ -> -1
       | _, Empty -> 1
       | Char char1, Char char2 -> A.compare char1 char2
+
   end
 
   module States = Set.Make(IntOrdered)
@@ -101,6 +103,26 @@ module MakeNfa (A : Alphabet) = struct
         step next_states t in
     step nfa.start str
 
-  let to_dot nfa = failwith "unimplemented"
+  (*let to_dot nfa file = 
+    let dot_lst_chars curr ch (next_states : States.t) acc =
+      let edge_label = match ch with
+        | CharOrdered.Char c -> A.to_string c
+        | CharOrdered.Empty -> "eps" in
+      States.fold (fun st acc ->
+          let edge = (string_of_int curr) ^  " -> " ^ (string_of_int st) ^ 
+                     " [ label= \" " ^ edge_label ^ " \" ]; " in
+          edge::acc) next_states acc in
+    let dot_lst_states st char_map acc =
+      CharMap.fold (dot_lst_chars st) char_map acc in
+    match nfa with
+    | {start; final; transition} ->
+      let transitions = StateMap.fold dot_lst_states transition [] in
+      let dot_lst = ["digraph D {"] @ transitions @ ["}"] in
+      let out_ch = open_out file in
+      let fmt = formatter_of_out_channel out_ch in
+      pp_print_list (fun fmt elt -> pp_print_string fmt elt;
+                      pp_print_newline fmt ()) fmt dot_lst;
+      pp_print_flush fmt ();
+      close_out out_ch *)
 
-end
+end 
