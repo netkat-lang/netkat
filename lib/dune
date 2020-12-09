@@ -5,4 +5,4 @@
 (library
   (name nerode)
   (public_name nerode)
-  (libraries yojson))
+  (libraries core_kernel yojson))
