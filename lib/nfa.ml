@@ -88,7 +88,7 @@ module MakeNfa (A : Alphabet) = struct
       transition = transition'
     }
 
-  let intersection nfa1 nfa2 = 
+  let concatenation nfa1 nfa2 = 
     let nfa_union = combine_nfas nfa1.transition nfa2.transition in
     let transition = States.fold (fun st map ->
         StateMap.add st (CharMap.add Empty nfa2.start CharMap.empty) map) 
@@ -151,7 +151,9 @@ module MakeNfa (A : Alphabet) = struct
 
   let accept nfa str =
     let rec step st = function
-      | [] -> States.disjoint nfa.final st |> not 
+      | [] -> 
+        let final_states = transition_from_empty nfa st in
+        States.disjoint nfa.final final_states |> not 
       | h::t -> 
         let init_states = transition_from_empty nfa st  in
         let next_states = transition_from_char nfa h init_states in

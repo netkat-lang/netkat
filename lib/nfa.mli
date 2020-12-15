@@ -33,12 +33,12 @@ module MakeNfa (A : Alphabet) : sig
 
   val kleene : t -> t
 
-  val intersection : t -> t -> t
+  val concatenation : t -> t -> t
 
   val accept : t -> CharOrdered.t list -> bool 
 
 end
 
-(*)   val concatenation : t -> t -> t
+(*)   val intersection : t -> t -> t
 
    val equivalence : t -> t -> bool*)

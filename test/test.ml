@@ -42,18 +42,33 @@ let transition_2 =
   let state_map = StateMap.add 2 char_map_2 StateMap.empty in
   StateMap.add 3 char_map_4 state_map
 
+let transition_3 = 
+  let char_map_1 = CharMap.add (Char 0) (States.singleton 7) CharMap.empty in
+  let char_map_2 = CharMap.add (Char 0) (States.singleton 8) CharMap.empty in
+  let char_map_3 = CharMap.add (Char 0) (States.singleton 9) CharMap.empty in
+  let state_map_1 = StateMap.add 6 char_map_1 StateMap.empty in
+  let state_map_2 = StateMap.add 7 char_map_2 state_map_1 in
+  StateMap.add 8 char_map_3 state_map_2
+
 let int_nfa_1 = 
   {
-    start = States.add 0 States.empty;
-    final = States.add 0 States.empty;
+    start = States.singleton 0;
+    final = States.singleton 0;
     transition = transition_1;
   }
 
 let int_nfa_2 = 
   {
-    start = States.add 2 States.empty;
-    final = States.add 2 States.empty;
+    start = States.singleton 2;
+    final = States.singleton 2;
     transition = transition_2;
+  }
+
+let int_nfa_3 = 
+  {
+    start = States.singleton 6;
+    final = States.singleton 9;
+    transition = transition_3;
   }
 
 let int_nfa_empty =
@@ -89,6 +104,38 @@ let union_rejects_odd_ones_and_zeroes () =
   Alcotest.(check bool) "same bool" false 
     (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Char 1; Char 0])
 
+let concatenation_accepts_even_ones_even_zeroes () = 
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
+       [Char 1; Char 1; Char 0; Char 0])
+
+let concatenation_rejects_odd_ones_odd_zeroes () = 
+  Alcotest.(check bool) "same bool" false 
+    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
+       [Char 1; Char 1; Char 1; Char 0;])
+
+let concatenation_accepts_odd_ones () = 
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
+       [Char 1; Char 1; Char 1; Char 0; Char 0])
+
+let kleene_accepts_empty () = 
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.kleene int_nfa_3) [])
+
+let kleene_accepts_three_zeroes () = 
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Char 0; Char 0; Char 0])
+
+let kleene_accepts_six_zeroes () = 
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.kleene int_nfa_3)
+       [Char 0; Char 0; Char 0; Char 0; Char 0; Char 0])
+
+let kleene_rejects_four_zeroes () = 
+  Alcotest.(check bool) "same bool" false 
+    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Char 0; Char 0; Char 0; Char 0])
+
 let () =
   Alcotest.run "Nfa"
     [
@@ -106,7 +153,24 @@ let () =
       ( "union",
         [ 
           Alcotest.test_case "accept 00" `Quick union_accepts_even_zeroes;
-          Alcotest.test_case "reject 10" `Quick union_rejects_odd_ones_and_zeroes;
+          Alcotest.test_case "reject 10" `Quick 
+            union_rejects_odd_ones_and_zeroes;
+        ]);
+      ( "concatenation",
+        [ 
+          Alcotest.test_case "accept 1100" `Quick 
+            concatenation_accepts_even_ones_even_zeroes;
+          Alcotest.test_case "reject 1110" `Quick 
+            concatenation_rejects_odd_ones_odd_zeroes;
+          Alcotest.test_case "accept 11100" `Quick 
+            concatenation_accepts_odd_ones;
+        ]);
+      ( "kleene",
+        [ 
+          Alcotest.test_case "accept 000" `Quick kleene_accepts_three_zeroes;
+          Alcotest.test_case "accept eps" `Quick kleene_accepts_empty;
+          Alcotest.test_case "accept 000000" `Quick kleene_accepts_six_zeroes;
+          Alcotest.test_case "accept 0000" `Quick kleene_rejects_four_zeroes;
         ]);
 
 
