@@ -33,10 +33,33 @@ module MakeNfa (A : Alphabet) = struct
     transition : (States.t CharMap.t) StateMap.t
   } 
 
+  let print_transitions nfa =
+    StateMap.iter (fun st char_map -> 
+        print_endline ("state: " ^ (string_of_int st));
+        CharMap.iter (fun ch states -> 
+            let char_str = match ch with
+              | Empty -> "eps"
+              | Char c -> A.to_string c in
+            print_endline ("char: " ^ char_str);
+            States.iter (fun st -> print_endline (string_of_int st)) states;
+            print_endline "" 
+          ) 
+          char_map; print_endline "") nfa.transition
+
+  let find_in_state_map map key default =
+    match StateMap.find_opt key map with
+    | Some value -> value 
+    | None -> default
+
+  let find_in_char_map map key default = 
+    match CharMap.find_opt key map with 
+    | Some value -> value 
+    | None -> default
+
   let empty nfa = nfa.start = States.empty
 
   let combine_nfas m1 m2 = StateMap.union (fun k _ _ -> 
-      failwith ("duplicate key, invariant violated" ^ (string_of_int k))) m1 m2
+      failwith ("duplicate key, invariant violated " ^ (string_of_int k))) m1 m2
 
   let find_max k _ acc = max k acc
 
@@ -55,8 +78,9 @@ module MakeNfa (A : Alphabet) = struct
         (CharMap.add Empty old_start_states (CharMap.empty)) nfa_union in
     let old_final_states = States.union nfa1.final nfa2.final in
     let transition' = States.fold (fun st map -> 
+        let init_char_map = find_in_state_map map st CharMap.empty in
         StateMap.add st
-          (CharMap.add Empty (States.singleton final_state) CharMap.empty) map)
+          (CharMap.add Empty (States.singleton final_state) init_char_map) map)
         old_final_states transition in
     {
       start = States.singleton start_state;
@@ -83,7 +107,8 @@ module MakeNfa (A : Alphabet) = struct
         StateMap.add st (CharMap.add Empty nfa.start CharMap.empty) acc) 
         nfa.final nfa.transition in
     let final_transition_added = States.fold (fun st acc ->
-        StateMap.add st (CharMap.add Empty (States.singleton final_state) CharMap.empty) acc)
+        StateMap.add st (CharMap.add Empty (States.singleton final_state) 
+                           CharMap.empty) acc)
         nfa.final cycle_added in
     let start_transition_added = StateMap.add start_state 
         (CharMap.add Empty (States.add final_state nfa.start) CharMap.empty) 
@@ -94,13 +119,44 @@ module MakeNfa (A : Alphabet) = struct
       transition = start_transition_added
     }
 
+  let rec get_next_states_empty state_map tbl curr =
+    match CharMap.find_opt Empty tbl with
+    | Some states -> 
+      if States.subset states curr then curr else
+        let new_states = States.diff states curr in
+        let new_curr = States.union states curr in
+        States.fold (fun st acc -> 
+            match StateMap.find_opt st state_map with 
+            | Some tbl' -> get_next_states_empty state_map tbl' acc
+            | None -> acc
+          ) new_states new_curr
+    | None -> curr
+
+  let get_next_states_char state_map ch tbl curr =
+    let states = find_in_char_map tbl ch States.empty in
+    States.union states curr
+
+  let transition_from_empty nfa st = 
+    States.fold (fun st acc ->
+        match StateMap.find_opt st nfa.transition with
+        | Some st_tbl -> get_next_states_empty nfa.transition st_tbl acc
+        | None -> acc) st st
+
+  let transition_from_char nfa char init_states =
+    States.fold (fun st acc ->
+        match StateMap.find_opt st nfa.transition with
+        | Some st_tbl -> get_next_states_char nfa.transition char st_tbl acc 
+        | None -> acc)
+      init_states States.empty
+
   let accept nfa str =
     let rec step st = function
-      | [] -> States.is_empty (States.inter nfa.final st)
-      | h::t -> let next_states = States.fold (fun st acc ->
-          let st_tbl = StateMap.find st nfa.transition in
-          States.union acc (CharMap.find h st_tbl)) st States.empty in
-        step next_states t in
+      | [] -> States.disjoint nfa.final st |> not 
+      | h::t -> 
+        let init_states = transition_from_empty nfa st  in
+        let next_states = transition_from_char nfa h init_states in
+        let final_states = transition_from_empty nfa next_states in
+        step final_states t in
     step nfa.start str
 
   (*let to_dot nfa file = 

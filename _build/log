@@ -1,0 +1,6 @@
+# dune ocaml-merlin --no-print-directory
+# OCAMLPARAM: unset
+# Workspace root:
+# /Users/alaiasolko-breslin/Cornell/2020fa/netkat-learning/nerode
+$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/_r/x_zgfnx94mqd_phrq67xh2n80000gn/T/dune0b0198.output 2> /dev/null
+# Auto-detected concurrency: 12
