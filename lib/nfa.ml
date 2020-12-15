@@ -88,6 +88,56 @@ module MakeNfa (A : Alphabet) = struct
       transition = transition'
     }
 
+  let map_state_pairs nfa1 nfa2 start =
+    let count = ref start in
+    let tbl = Hashtbl.create 10 in
+    StateMap.iter (fun st1 _ -> StateMap.iter (fun st2 _ -> 
+        Hashtbl.add tbl (st1, st2) !count; count := !count + 1) 
+        nfa2.transition) nfa1.transition; tbl
+
+  let create_transition pair_state st1 st2 char_map1 char_map2 curr tbl =
+    let char_map_new = CharMap.fold (fun ch states1 acc ->
+        match CharMap.find_opt ch char_map2 with
+        | Some states2 -> 
+          States.fold (fun st1' acc1 -> 
+              States.fold (fun st2' acc2 -> 
+                  let next_state = Hashtbl.find tbl (st1', st2') 
+                                   |> States.singleton in
+                  CharMap.add ch next_state acc2) states2 acc1) states1 acc
+        | None -> acc) char_map1 CharMap.empty in
+    StateMap.add pair_state char_map_new curr
+
+  let make_intersection_transitions nfa1 nfa2 tbl =
+    StateMap.fold (fun st1 char_map1 acc1 -> 
+        StateMap.fold (fun st2 char_map2 acc2 ->
+            let pair_state = Hashtbl.find tbl (st1, st2) in
+            create_transition pair_state st1 st2 char_map1 char_map2 acc2 tbl) 
+          nfa2.transition acc1) nfa1.transition StateMap.empty
+
+  let get_intersection_start_final_states nfa1 nfa2 tbl =
+    StateMap.fold (fun st1 _ acc1 -> 
+        StateMap.fold (fun st2 _ acc2 -> 
+            let pair_state = Hashtbl.find tbl (st1, st2) in
+            let start = if States.mem st1 nfa1.start && 
+                           States.mem st2 nfa2.start then
+                States.add pair_state (fst acc2) else fst acc2 in
+            let final = if States.mem st1 nfa1.final &&
+                           States.mem st2 nfa2.final then
+                States.add pair_state (snd acc2) else snd acc2 in
+            start, final) nfa2.transition acc1) 
+      nfa1.transition (States.empty, States.empty)
+
+  let intersection nfa1 nfa2 = 
+    let max_state = get_max_state nfa1 nfa2 in
+    let tbl = map_state_pairs nfa1 nfa2 (max_state + 1) in
+    let state_map = make_intersection_transitions nfa1 nfa2 tbl in
+    let start, final = get_intersection_start_final_states nfa1 nfa2 tbl in
+    {
+      start = start;
+      final = final;
+      transition = state_map;
+    }
+
   let concatenation nfa1 nfa2 = 
     let nfa_union = combine_nfas nfa1.transition nfa2.transition in
     let transition = States.fold (fun st map ->

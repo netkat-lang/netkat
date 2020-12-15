@@ -37,8 +37,8 @@ module MakeNfa (A : Alphabet) : sig
 
   val accept : t -> CharOrdered.t list -> bool 
 
+  val intersection : t -> t -> t
+
 end
 
-(*)   val intersection : t -> t -> t
-
-   val equivalence : t -> t -> bool*)
+(*val equivalence : t -> t -> bool*)
