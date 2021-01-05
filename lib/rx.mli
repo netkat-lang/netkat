@@ -1,4 +1,3 @@
-open Core_kernel
 open Alphabet
 
 module MakeRx (A : Alphabet) : sig
@@ -7,7 +6,7 @@ module MakeRx (A : Alphabet) : sig
       | Epsilon
       | Char of A.symbol
       | Seq of t list
-      | Union of t * t
+      | Union of t list
       | Star of t
     val compare : t -> t -> int
 
@@ -15,6 +14,7 @@ module MakeRx (A : Alphabet) : sig
     val equiv : t -> t -> bool
 
     val seq : t list -> t
-    val union : t -> t -> t
+    val union : t list -> t
+    val union_pair : t -> t -> t
     val star : t -> t
 end
