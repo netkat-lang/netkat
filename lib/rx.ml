@@ -1,5 +1,5 @@
-open Core_kernel
 open Alphabet
+open Core_kernel
 
 module MakeRx (A : Alphabet) : sig
     type t =
