@@ -1,5 +1,4 @@
 open Alphabet
-open Format
 
 module MakeNfa (A : Alphabet) = struct
 
@@ -88,12 +87,20 @@ module MakeNfa (A : Alphabet) = struct
       transition = transition'
     }
 
+  let get_all_states nfa =
+    StateMap.fold (fun st char_map acc ->
+        CharMap.fold (fun ch states total -> 
+            States.union states total) char_map (States.add st acc)
+      ) nfa.transition States.empty
+
   let map_state_pairs nfa1 nfa2 start =
     let count = ref start in
     let tbl = Hashtbl.create 10 in
-    StateMap.iter (fun st1 _ -> StateMap.iter (fun st2 _ -> 
+    let nfa1_states = get_all_states nfa1 in
+    let nfa2_states = get_all_states nfa2 in
+    States.iter (fun st1 -> States.iter (fun st2 ->
         Hashtbl.add tbl (st1, st2) !count; count := !count + 1) 
-        nfa2.transition) nfa1.transition; tbl
+        nfa2_states) nfa1_states; tbl
 
   let create_transition pair_state st1 st2 char_map1 char_map2 curr tbl =
     let char_map_new = CharMap.fold (fun ch states1 acc ->

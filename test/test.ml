@@ -42,6 +42,7 @@ let transition_2 =
   let state_map = StateMap.add 2 char_map_2 StateMap.empty in
   StateMap.add 3 char_map_4 state_map
 
+(* accepts three 0s *)
 let transition_3 = 
   let char_map_1 = CharMap.add (Char 0) (States.singleton 7) CharMap.empty in
   let char_map_2 = CharMap.add (Char 0) (States.singleton 8) CharMap.empty in
@@ -96,6 +97,10 @@ let reject_many_zeroes () =
   Alcotest.(check bool) "same bool" true
     (IntNfa.accept int_nfa_1 [Char 1; Char 0; Char 1; Char 0])
 
+let accept_three_zeroes () = 
+  Alcotest.(check bool) "same bool" true
+    (IntNfa.accept int_nfa_3 [Char 0; Char 0; Char 0])
+
 let union_accepts_even_zeroes () =
   Alcotest.(check bool) "same bool" true 
     (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Char 0; Char 0])
@@ -136,6 +141,23 @@ let kleene_rejects_four_zeroes () =
   Alcotest.(check bool) "same bool" false 
     (IntNfa.accept (IntNfa.kleene int_nfa_3) [Char 0; Char 0; Char 0; Char 0])
 
+let intersection_accepts_even_ones_even_zeroes () =
+  Alcotest.(check bool) "same bool" true 
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 0; Char 1; Char 0; Char 1])
+
+let intersection_rejects_odd_ones () =
+  Alcotest.(check bool) "same bool" false 
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 0; Char 1; Char 0])
+
+let intersection_rejects_odd_zeroes () =
+  Alcotest.(check bool) "same bool" false 
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 1; Char 0; Char 1])
+
+let intersection_rejects_three_zeroes () =
+  Alcotest.(check bool) "same bool" false
+    (IntNfa.accept (IntNfa.intersection int_nfa_2 int_nfa_3) [Char 0; Char 0; Char 0])
+
+
 let () =
   Alcotest.run "Nfa"
     [
@@ -149,6 +171,7 @@ let () =
           Alcotest.test_case "accept 11" `Quick reject_two_ones;
           Alcotest.test_case "accept 1010" `Quick reject_many_zeroes; 
           Alcotest.test_case "reject 111" `Quick reject_odd_ones;
+          Alcotest.test_case "accept 000" `Quick accept_three_zeroes;
         ]);
       ( "union",
         [ 
@@ -172,6 +195,11 @@ let () =
           Alcotest.test_case "accept 000000" `Quick kleene_accepts_six_zeroes;
           Alcotest.test_case "accept 0000" `Quick kleene_rejects_four_zeroes;
         ]);
-
-
+      ( "intersection",
+        [ 
+          Alcotest.test_case "accept 0101" `Quick intersection_accepts_even_ones_even_zeroes;
+          Alcotest.test_case "reject 101" `Quick intersection_rejects_odd_zeroes;
+          Alcotest.test_case "reject 010" `Quick intersection_rejects_odd_ones;
+          Alcotest.test_case "reject 000" `Quick intersection_rejects_three_zeroes;
+        ]);
     ]
