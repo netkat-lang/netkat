@@ -22,10 +22,11 @@ rule next_token = parse
 
   (* actual tokens here *)
   | num { NUM (int_of_string (Lexing.lexeme lexbuf)) }
+  (*
   | "0" { ZERO } (* Alphabet? *)
   | "1" { ONE }
+  *)
   | "e" { E }
-  | '?' { QMARK }
   | '(' { LPAR }
   | ')' { RPAR }
   | '+' { PLUS }

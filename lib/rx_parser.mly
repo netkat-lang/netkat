@@ -1,30 +1,31 @@
 %token LPAR RPAR EOF
-%token PLUS DOT STAR QMARK
-%token NUM E
+%token PLUS DOT STAR (* QMARK *)
+%token E
+%token <int> NUM
 
-%start <Rx.t> rx_eof
+%start <Intrx.t> rx_eof
 
 %%
 
 rx_eof:
-  | r=rx; EOF { Rx.optimize r }
+  | r=rx; EOF { r }
   ;
 
 rx:
   | r=prx { r }
 
 prx:
-  | r1=drx; PLUS; r2=prx { Rx.Union(r1,r2) }
+  | r1=drx; PLUS; r2=prx { Intrx.union_pair r1 r2 }
   | r=drx { r }
 
 drx:
-  | r1=urx; DOT; r2=drx { Rx.Seq(r1,r2) }
-  | c1=cx; r2=drx { Rx.Seq(c1,r2) }
+  | r1=urx; DOT; r2=drx { Intrx.seq_pair r1 r2 }
+  | c1=cx; r2=drx { Intrx.seq_pair c1 r2 }
   | r=urx { r }
 
 urx:
-  | r=urx; QMARK { Rx.QMark r }
-  | r=urx; STAR { Rx.Star r }
+  (* | r=urx; QMARK { Intrx.QMark r } *)
+  | r=urx; STAR { Intrx.Star r }
   | r=arx { r }
 
 arx:
@@ -33,8 +34,8 @@ arx:
   ;
 
 cx:
-  | n = NUM { Rx.Char (n) }
-  | E { Rx.Epsilon }
+  | n = NUM { Intrx.Char (n) }
+  | E { Intrx.Epsilon }
   ;
 
 %%
