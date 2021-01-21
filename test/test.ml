@@ -26,27 +26,27 @@ open IntNfa
 
 (* accepts even number of 1s *)
 let transition_1 =
-  let char_map_1 = CharMap.add (Char 1) (States.singleton 1) CharMap.empty in
-  let char_map_2 = CharMap.add (Char 0) (States.singleton 0) char_map_1 in
-  let char_map_3 = CharMap.add (Char 1) (States.singleton 0) CharMap.empty in
-  let char_map_4 = CharMap.add (Char 0) (States.singleton 1) char_map_3 in
+  let char_map_1 = CharMap.add (Some 1) (States.singleton 1) CharMap.empty in
+  let char_map_2 = CharMap.add (Some 0) (States.singleton 0) char_map_1 in
+  let char_map_3 = CharMap.add (Some 1) (States.singleton 0) CharMap.empty in
+  let char_map_4 = CharMap.add (Some 0) (States.singleton 1) char_map_3 in
   let state_map = StateMap.add 0 char_map_2 StateMap.empty in
   StateMap.add 1 char_map_4 state_map
 
 (* accepts even number of 0s *)
 let transition_2 = 
-  let char_map_1 = CharMap.add (Char 1) (States.singleton 2) CharMap.empty in
-  let char_map_2 = CharMap.add (Char 0) (States.singleton 3) char_map_1 in
-  let char_map_3 = CharMap.add (Char 1) (States.singleton 3) CharMap.empty in
-  let char_map_4 = CharMap.add (Char 0) (States.singleton 2) char_map_3 in
+  let char_map_1 = CharMap.add (Some 1) (States.singleton 2) CharMap.empty in
+  let char_map_2 = CharMap.add (Some 0) (States.singleton 3) char_map_1 in
+  let char_map_3 = CharMap.add (Some 1) (States.singleton 3) CharMap.empty in
+  let char_map_4 = CharMap.add (Some 0) (States.singleton 2) char_map_3 in
   let state_map = StateMap.add 2 char_map_2 StateMap.empty in
   StateMap.add 3 char_map_4 state_map
 
 (* accepts three 0s *)
 let transition_3 = 
-  let char_map_1 = CharMap.add (Char 0) (States.singleton 7) CharMap.empty in
-  let char_map_2 = CharMap.add (Char 0) (States.singleton 8) CharMap.empty in
-  let char_map_3 = CharMap.add (Char 0) (States.singleton 9) CharMap.empty in
+  let char_map_1 = CharMap.add (Some 0) (States.singleton 7) CharMap.empty in
+  let char_map_2 = CharMap.add (Some 0) (States.singleton 8) CharMap.empty in
+  let char_map_3 = CharMap.add (Some 0) (States.singleton 9) CharMap.empty in
   let state_map_1 = StateMap.add 6 char_map_1 StateMap.empty in
   let state_map_2 = StateMap.add 7 char_map_2 state_map_1 in
   StateMap.add 8 char_map_3 state_map_2
@@ -87,42 +87,42 @@ let not_empty () =
 
 let reject_two_ones () =
   Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept int_nfa_1 [Char 1; Char 1])
+    (IntNfa.accept int_nfa_1 [Some 1; Some 1])
 
 let reject_odd_ones () =
   Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept int_nfa_1 [Char 1; Char 1; Char 1])
+    (IntNfa.accept int_nfa_1 [Some 1; Some 1; Some 1])
 
 let reject_many_zeroes () =
   Alcotest.(check bool) "same bool" true
-    (IntNfa.accept int_nfa_1 [Char 1; Char 0; Char 1; Char 0])
+    (IntNfa.accept int_nfa_1 [Some 1; Some 0; Some 1; Some 0])
 
 let accept_three_zeroes () = 
   Alcotest.(check bool) "same bool" true
-    (IntNfa.accept int_nfa_3 [Char 0; Char 0; Char 0])
+    (IntNfa.accept int_nfa_3 [Some 0; Some 0; Some 0])
 
 let union_accepts_even_zeroes () =
   Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Char 0; Char 0])
+    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Some 0; Some 0])
 
 let union_rejects_odd_ones_and_zeroes () =
   Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Char 1; Char 0])
+    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Some 1; Some 0])
 
 let concatenation_accepts_even_ones_even_zeroes () = 
   Alcotest.(check bool) "same bool" true 
     (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Char 1; Char 1; Char 0; Char 0])
+       [Some 1; Some 1; Some 0; Some 0])
 
 let concatenation_rejects_odd_ones_odd_zeroes () = 
   Alcotest.(check bool) "same bool" false 
     (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Char 1; Char 1; Char 1; Char 0;])
+       [Some 1; Some 1; Some 1; Some 0;])
 
 let concatenation_accepts_odd_ones () = 
   Alcotest.(check bool) "same bool" true 
     (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Char 1; Char 1; Char 1; Char 0; Char 0])
+       [Some 1; Some 1; Some 1; Some 0; Some 0])
 
 let kleene_accepts_empty () = 
   Alcotest.(check bool) "same bool" true 
@@ -130,32 +130,32 @@ let kleene_accepts_empty () =
 
 let kleene_accepts_three_zeroes () = 
   Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Char 0; Char 0; Char 0])
+    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Some 0; Some 0; Some 0])
 
 let kleene_accepts_six_zeroes () = 
   Alcotest.(check bool) "same bool" true 
     (IntNfa.accept (IntNfa.kleene int_nfa_3)
-       [Char 0; Char 0; Char 0; Char 0; Char 0; Char 0])
+       [Some 0; Some 0; Some 0; Some 0; Some 0; Some 0])
 
 let kleene_rejects_four_zeroes () = 
   Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Char 0; Char 0; Char 0; Char 0])
+    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Some 0; Some 0; Some 0; Some 0])
 
 let intersection_accepts_even_ones_even_zeroes () =
   Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 0; Char 1; Char 0; Char 1])
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 0; Some 1; Some 0; Some 1])
 
 let intersection_rejects_odd_ones () =
   Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 0; Char 1; Char 0])
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 0; Some 1; Some 0])
 
 let intersection_rejects_odd_zeroes () =
   Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Char 1; Char 0; Char 1])
+    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 1; Some 0; Some 1])
 
 let intersection_rejects_three_zeroes () =
   Alcotest.(check bool) "same bool" false
-    (IntNfa.accept (IntNfa.intersection int_nfa_2 int_nfa_3) [Char 0; Char 0; Char 0])
+    (IntNfa.accept (IntNfa.intersection int_nfa_2 int_nfa_3) [Some 0; Some 0; Some 0])
 
 
 let () =

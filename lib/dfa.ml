@@ -22,20 +22,20 @@ module MakeDfa (A : Alphabet) = struct
 
   type t = {
     start : state;
-    final : States.t;
+    final : StateSet.t;
     transition : (state CharMap.t) StateMap.t
   }
 
   let dfa_to_nfa dfa =
     let update_char ch st acc =
-      Nfa.CharMap.add (Nfa.CharOrdered.Char ch) (States.singleton st) acc in
+      Nfa.CharMap.add (Some ch) (StateSet.singleton st) acc in
     let update_state st ch_map acc = 
       let char_map = CharMap.fold update_char ch_map Nfa.CharMap.empty in
       StateMap.add st char_map acc in
     let transition = StateMap.fold update_state dfa.transition StateMap.empty in
     let open Nfa in
     {
-      start = States.singleton dfa.start;
+      start = StateSet.singleton dfa.start;
       final = dfa.final;
       transition = transition
     }
@@ -62,8 +62,8 @@ module MakeDfa (A : Alphabet) = struct
         StateMap.add start char_map' state_map in
     List.fold_left transition_helper StateMap.empty extracted_lst
 
-  let make_final (state_lst : int list) : States.t =
-    List.fold_left (fun acc elt -> States.add elt acc) States.empty state_lst
+  let make_final (state_lst : int list) : StateSet.t =
+    List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty state_lst
 
   let json_to_dfa json = 
     {
@@ -82,7 +82,7 @@ module MakeDfa (A : Alphabet) = struct
     let transition_json = 
       `List (StateMap.fold (make_transition_json dfa) dfa.transition []) in
     let final_json = 
-      `List (States.fold (fun elt acc -> (`Int elt)::acc) dfa.final []) in
+      `List (StateSet.fold (fun elt acc -> (`Int elt)::acc) dfa.final []) in
     `Assoc [
       ("start", start_json);
       ("trans", transition_json);
@@ -95,12 +95,12 @@ module MakeDfa (A : Alphabet) = struct
     let char_map = dfa.transition |> StateMap.choose |> snd in
     char_map |> CharMap.bindings |> (List.map fst)
 
-  let get_states dfa = StateMap.fold (fun st _ acc -> States.add st acc) 
-      dfa.transition States.empty 
+  let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc) 
+      dfa.transition StateSet.empty 
 
   let complement dfa =
     let states = get_states dfa in
-    {dfa with final = States.diff states dfa.final}
+    {dfa with final = StateSet.diff states dfa.final}
 
   module MinimizeOrdered = struct
 
@@ -137,12 +137,12 @@ module MakeDfa (A : Alphabet) = struct
 
   let minimize_dfa dfa = 
     let states = get_states dfa in
-    let unmarked = States.fold (fun st1 acc1 -> 
-        States.fold (fun st2 acc2 -> MinimizeSet.add (st1, st2) acc2)
+    let unmarked = StateSet.fold (fun st1 acc1 -> 
+        StateSet.fold (fun st2 acc2 -> MinimizeSet.add (st1, st2) acc2)
           states acc1) states MinimizeSet.empty in
     let (marked, unmarked') = MinimizeSet.fold (fun (st1, st2) (m, u) -> 
-        let st1_final = States.mem st1 dfa.final in
-        let st2_final = States.mem st2 dfa.final in
+        let st1_final = StateSet.mem st1 dfa.final in
+        let st2_final = StateSet.mem st2 dfa.final in
         if (st1_final && (not st2_final)) || (st2_final && (not st1_final)) then
           (MinimizeSet.add (st1, st2) m, MinimizeSet.remove (st1, st2) u) 
         else (m, u)) unmarked (MinimizeSet.empty, MinimizeSet.empty) in

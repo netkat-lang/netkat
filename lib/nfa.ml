@@ -2,34 +2,26 @@ open Alphabet
 
 module MakeNfa (A : Alphabet) = struct
 
-  module IntOrdered = struct
-
-    type t = int
-
-    let compare = Stdlib.compare
-
-  end
-
   module CharOrdered = struct
 
-    type t = Empty | Char of A.symbol
+    type t = A.symbol option
 
     let compare c1 c2 = match c1, c2 with
-      | Empty, Empty -> 0
-      | Empty, _ -> -1
-      | _, Empty -> 1
-      | Char char1, Char char2 -> A.compare char1 char2
+      | None, None -> 0
+      | None, _ -> -1
+      | _, None -> 1
+      | Some char1, Some char2 -> A.compare char1 char2
 
   end
 
-  module States = Set.Make(IntOrdered)
-  module StateMap = Map.Make(IntOrdered)
+  module StateSet = Set.Make(Int)
+  module StateMap = Map.Make(Int)
   module CharMap = Map.Make(CharOrdered)
 
   type t = {
-    start : States.t;
-    final : States.t;
-    transition : (States.t CharMap.t) StateMap.t
+    start : StateSet.t;
+    final : StateSet.t;
+    transition : (StateSet.t CharMap.t) StateMap.t
   } 
 
   let print_transitions nfa =
@@ -37,10 +29,10 @@ module MakeNfa (A : Alphabet) = struct
         print_endline ("state: " ^ (string_of_int st));
         CharMap.iter (fun ch states -> 
             let char_str = match ch with
-              | Empty -> "eps"
-              | Char c -> A.to_string c in
+              | None -> "eps"
+              | Some c -> A.to_string c in
             print_endline ("char: " ^ char_str);
-            States.iter (fun st -> print_endline (string_of_int st)) states;
+            StateSet.iter (fun st -> print_endline (string_of_int st)) states;
             print_endline "" 
           ) 
           char_map; print_endline "") nfa.transition
@@ -55,7 +47,7 @@ module MakeNfa (A : Alphabet) = struct
     | Some value -> value 
     | None -> default
 
-  let empty nfa = nfa.start = States.empty
+  let empty nfa = nfa.start = StateSet.empty
 
   let combine_nfas m1 m2 = StateMap.union (fun k _ _ -> 
       failwith ("duplicate key, invariant violated " ^ (string_of_int k))) m1 m2
@@ -72,33 +64,33 @@ module MakeNfa (A : Alphabet) = struct
     let max_state = get_max_state nfa1 nfa2 in
     let start_state = max_state + 1 in
     let final_state = start_state + 1 in
-    let old_start_states = States.union nfa1.start nfa2.start in
+    let old_start_states = StateSet.union nfa1.start nfa2.start in
     let transition = StateMap.add start_state
-        (CharMap.add Empty old_start_states (CharMap.empty)) nfa_union in
-    let old_final_states = States.union nfa1.final nfa2.final in
-    let transition' = States.fold (fun st map -> 
+        (CharMap.add None old_start_states (CharMap.empty)) nfa_union in
+    let old_final_states = StateSet.union nfa1.final nfa2.final in
+    let transition' = StateSet.fold (fun st map -> 
         let init_char_map = find_in_state_map map st CharMap.empty in
         StateMap.add st
-          (CharMap.add Empty (States.singleton final_state) init_char_map) map)
+          (CharMap.add None (StateSet.singleton final_state) init_char_map) map)
         old_final_states transition in
     {
-      start = States.singleton start_state;
-      final = States.singleton final_state;
+      start = StateSet.singleton start_state;
+      final = StateSet.singleton final_state;
       transition = transition'
     }
 
   let get_all_states nfa =
     StateMap.fold (fun st char_map acc ->
         CharMap.fold (fun ch states total -> 
-            States.union states total) char_map (States.add st acc)
-      ) nfa.transition States.empty
+            StateSet.union states total) char_map (StateSet.add st acc)
+      ) nfa.transition StateSet.empty
 
   let map_state_pairs nfa1 nfa2 start =
     let count = ref start in
     let tbl = Hashtbl.create 10 in
     let nfa1_states = get_all_states nfa1 in
     let nfa2_states = get_all_states nfa2 in
-    States.iter (fun st1 -> States.iter (fun st2 ->
+    StateSet.iter (fun st1 -> StateSet.iter (fun st2 ->
         Hashtbl.add tbl (st1, st2) !count; count := !count + 1) 
         nfa2_states) nfa1_states; tbl
 
@@ -106,10 +98,10 @@ module MakeNfa (A : Alphabet) = struct
     let char_map_new = CharMap.fold (fun ch states1 acc ->
         match CharMap.find_opt ch char_map2 with
         | Some states2 -> 
-          States.fold (fun st1' acc1 -> 
-              States.fold (fun st2' acc2 -> 
+          StateSet.fold (fun st1' acc1 -> 
+              StateSet.fold (fun st2' acc2 -> 
                   let next_state = Hashtbl.find tbl (st1', st2') 
-                                   |> States.singleton in
+                                   |> StateSet.singleton in
                   CharMap.add ch next_state acc2) states2 acc1) states1 acc
         | None -> acc) char_map1 CharMap.empty in
     StateMap.add pair_state char_map_new curr
@@ -125,14 +117,14 @@ module MakeNfa (A : Alphabet) = struct
     StateMap.fold (fun st1 _ acc1 -> 
         StateMap.fold (fun st2 _ acc2 -> 
             let pair_state = Hashtbl.find tbl (st1, st2) in
-            let start = if States.mem st1 nfa1.start && 
-                           States.mem st2 nfa2.start then
-                States.add pair_state (fst acc2) else fst acc2 in
-            let final = if States.mem st1 nfa1.final &&
-                           States.mem st2 nfa2.final then
-                States.add pair_state (snd acc2) else snd acc2 in
+            let start = if StateSet.mem st1 nfa1.start && 
+                           StateSet.mem st2 nfa2.start then
+                StateSet.add pair_state (fst acc2) else fst acc2 in
+            let final = if StateSet.mem st1 nfa1.final &&
+                           StateSet.mem st2 nfa2.final then
+                StateSet.add pair_state (snd acc2) else snd acc2 in
             start, final) nfa2.transition acc1) 
-      nfa1.transition (States.empty, States.empty)
+      nfa1.transition (StateSet.empty, StateSet.empty)
 
   let intersection nfa1 nfa2 = 
     let max_state = get_max_state nfa1 nfa2 in
@@ -147,8 +139,8 @@ module MakeNfa (A : Alphabet) = struct
 
   let concatenation nfa1 nfa2 = 
     let nfa_union = combine_nfas nfa1.transition nfa2.transition in
-    let transition = States.fold (fun st map ->
-        StateMap.add st (CharMap.add Empty nfa2.start CharMap.empty) map) 
+    let transition = StateSet.fold (fun st map ->
+        StateMap.add st (CharMap.add None nfa2.start CharMap.empty) map) 
         nfa1.final nfa_union in
     {
       start = nfa1.start;
@@ -160,29 +152,29 @@ module MakeNfa (A : Alphabet) = struct
     let max_state = StateMap.fold find_max nfa.transition 0 in
     let start_state = max_state + 1 in
     let final_state = start_state + 1 in
-    let cycle_added = States.fold (fun st acc ->
-        StateMap.add st (CharMap.add Empty nfa.start CharMap.empty) acc) 
+    let cycle_added = StateSet.fold (fun st acc ->
+        StateMap.add st (CharMap.add None nfa.start CharMap.empty) acc) 
         nfa.final nfa.transition in
-    let final_transition_added = States.fold (fun st acc ->
-        StateMap.add st (CharMap.add Empty (States.singleton final_state) 
+    let final_transition_added = StateSet.fold (fun st acc ->
+        StateMap.add st (CharMap.add None (StateSet.singleton final_state) 
                            CharMap.empty) acc)
         nfa.final cycle_added in
     let start_transition_added = StateMap.add start_state 
-        (CharMap.add Empty (States.add final_state nfa.start) CharMap.empty) 
+        (CharMap.add None (StateSet.add final_state nfa.start) CharMap.empty) 
         final_transition_added in
     {
-      start = States.singleton start_state;
-      final = States.singleton final_state;
+      start = StateSet.singleton start_state;
+      final = StateSet.singleton final_state;
       transition = start_transition_added
     }
 
   let rec get_next_states_empty state_map tbl curr =
-    match CharMap.find_opt Empty tbl with
+    match CharMap.find_opt None tbl with
     | Some states -> 
-      if States.subset states curr then curr else
-        let new_states = States.diff states curr in
-        let new_curr = States.union states curr in
-        States.fold (fun st acc -> 
+      if StateSet.subset states curr then curr else
+        let new_states = StateSet.diff states curr in
+        let new_curr = StateSet.union states curr in
+        StateSet.fold (fun st acc -> 
             match StateMap.find_opt st state_map with 
             | Some tbl' -> get_next_states_empty state_map tbl' acc
             | None -> acc
@@ -190,27 +182,27 @@ module MakeNfa (A : Alphabet) = struct
     | None -> curr
 
   let get_next_states_char state_map ch tbl curr =
-    let states = find_in_char_map tbl ch States.empty in
-    States.union states curr
+    let states = find_in_char_map tbl ch StateSet.empty in
+    StateSet.union states curr
 
   let transition_from_empty nfa st = 
-    States.fold (fun st acc ->
+    StateSet.fold (fun st acc ->
         match StateMap.find_opt st nfa.transition with
         | Some st_tbl -> get_next_states_empty nfa.transition st_tbl acc
         | None -> acc) st st
 
   let transition_from_char nfa char init_states =
-    States.fold (fun st acc ->
+    StateSet.fold (fun st acc ->
         match StateMap.find_opt st nfa.transition with
         | Some st_tbl -> get_next_states_char nfa.transition char st_tbl acc 
         | None -> acc)
-      init_states States.empty
+      init_states StateSet.empty
 
   let accept nfa str =
     let rec step st = function
       | [] -> 
         let final_states = transition_from_empty nfa st in
-        States.disjoint nfa.final final_states |> not 
+        StateSet.disjoint nfa.final final_states |> not 
       | h::t -> 
         let init_states = transition_from_empty nfa st  in
         let next_states = transition_from_char nfa h init_states in
