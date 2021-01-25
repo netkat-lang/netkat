@@ -47,16 +47,16 @@ module MakeRx (A : Alphabet) = struct
       match nonempty with
       | [] -> Empty
       | [r] -> r
-      | _ -> Union nonempty
+      | _ -> Union (List.sort ~compare:compare nonempty)
 
     let union_pair (r1:t) (r2:t) : t =
       match r1,r2 with 
       | Empty, _ -> r2
       | _, Empty -> r1
-      | Union t1, Union t2 -> Union (t1 @ t2)
-      | Union t1, _ -> if List.exists ~f:(fun x -> equiv x r2) t1 then r1 else Union (r2::t1)
-      | _, Union t2 -> if List.exists ~f:(fun x -> equiv x r1) t2 then r2 else Union (r1::t2)
-      | _, _ -> if equiv r1 r2 then r1 else Union [r1;r2]
+      | Union t1, Union t2 -> union (t1 @ t2)
+      | Union t1, _ -> if List.exists ~f:(fun x -> equiv x r2) t1 then r1 else union (r2::t1)
+      | _, Union t2 -> if List.exists ~f:(fun x -> equiv x r1) t2 then r2 else union (r1::t2)
+      | _, _ -> if equiv r1 r2 then r1 else union [r1;r2]
 
     let seq_pair (r1:t) (r2:t) : t =
       match r1,r2 with 
@@ -122,30 +122,49 @@ module MakeRx (A : Alphabet) = struct
       | Star r -> seq_pair (d c r) r0
       | _ -> failwith "d: improper rx\n%!"
 
-(*--- Construct dfa ---*)
-    (* Need to adapt  to interface to Dfa *)
+    let rec matches (r:t) (u:A.symbol list) : bool = 
+      match u with 
+      | [] -> 
+         e r 
+      | c::v -> 
+         matches (d c r) v
+  
 
-    (*
-    let goto (q: t) (c: A.symbol) (states: t list) (delta: A.symbol list) =
+(*--- Construct dfa ---*)
+    type trans = t * A.symbol * t
+    type dfa_graph = t list * trans list
+
+    (* Helper: return the index of the given rx in the given list *)
+    let index_of (lst:t list) (r:t) =
+      let rec idx_of_start (lst:t list) (r:t) (start:int) =
+        match lst with
+        | [] -> -1
+        | t0::tail -> if equiv r t0 then start else idx_of_start tail r (start+1) in
+      idx_of_start lst r 0
+
+    let rec goto (q: t) (c: A.symbol) (states: t list) (delta: trans list) =
       let qc = d c q in
       if List.exists ~f:(fun q -> equiv q qc) states then
-        { state_lst = states ; trans_lst = [q; c; qc]::delta }
+        (states, (q, c, qc)::delta)
       else
-        explore (qc :: states) ([q; c; qc]::delta ) qc
+        (* Append to preserve the first element of states is the start state *)
+        explore (states @ [qc]) ((q, c, qc)::delta ) qc
 
-    let explore (states: A.symbol list) (delta: A.symbol list) (q: A.symbol) = 
-      let acc = {state_lst = states; trans_lst = delta} in
-      List.fold_left alpha ~f:(fun acc c -> (goto q c acc.state_list acc.trans_lst)) ~init:acc
+    and explore (states: t list) (delta: trans list) (q: t) = 
+      let acc = (states, delta) in
+      A.fold (fun (s,d) c -> (goto q c s d)) acc
 
     let to_dfa (r:t): Dfa.t =
-      let qd = explore [r] [] r in
-      {
-        states =  qd.states_lst;
-        start = r;
-        transition = make_transition_function qd.trans_lst;
-        final = List.filter (fun x -> e x) qd.state_lst;
-        alphabet = alpha
-      }
-    *)
+      let (states, trans) = explore [r] [] r in
+      let idx (s: t) = index_of states s in
+      let final = List.map ~f:idx (List.filter ~f:e states) in
+      let trans_to_json (lst: trans list) = 
+        let rec trans_to_json_r lst json =
+          match lst with
+          | [] -> json
+          | (r0, x, r1)::tail -> trans_to_json_r tail (`List [`Int (idx r0); A.to_json x; `Int (idx r1)]::json) in
+        trans_to_json_r lst [] in
+
+      Dfa.mk_dfa (trans_to_json trans) final
 
 end

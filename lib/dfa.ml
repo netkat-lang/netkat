@@ -62,6 +62,14 @@ module MakeDfa (A : Alphabet) = struct
         StateMap.add start char_map' state_map in
     List.fold_left transition_helper StateMap.empty extracted_lst
 
+  
+  let mk_dfa (trans) (final_lst: int list) =
+    {
+        start = 0;
+        final = List.fold_left (fun acc elt -> States.add elt acc) States.empty final_lst;
+        transition = make_transitions trans
+    }
+
   let make_final (state_lst : int list) : States.t =
     List.fold_left (fun acc elt -> States.add elt acc) States.empty state_lst
 

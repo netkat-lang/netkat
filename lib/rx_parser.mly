@@ -25,7 +25,7 @@ drx:
 
 urx:
   (* | r=urx; QMARK { Intrx.QMark r } *)
-  | r=urx; STAR { Intrx.Star r }
+  | r=urx; STAR { Intrx.star r }
   | r=arx { r }
 
 arx:
