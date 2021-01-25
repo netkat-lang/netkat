@@ -4,6 +4,7 @@ module MakeRx (A : Alphabet) : sig
     
     module Dfa : sig
         type t
+        val dfa_to_json : t -> Yojson.Basic.t
     end
 
     type t =
@@ -29,14 +30,16 @@ module MakeRx (A : Alphabet) : sig
     (* Nullable *)
     val e : t -> bool
 
-    (* Brzowski derivative *)
+    (* Brzozowski derivative *)
     val d : A.symbol -> t -> t
 
     (* DFA construction *)
-    (*
-    val goto : A.symbol -> A.symbol -> A.symbol list -> A.symbol list
-    val explore : A.symbol list -> A.symbol list -> A.symbol
+
+    type trans
+    type dfa_graph = t list * trans list
+
+    val goto : t -> A.symbol -> t list -> trans list -> dfa_graph
+    val explore : t list -> trans list -> t -> dfa_graph
     val to_dfa : t -> Dfa.t
-    *)
 
 end
