@@ -6,11 +6,7 @@ module MakeNfa (A : Alphabet) = struct
 
     type t = A.symbol option
 
-    let compare c1 c2 = match c1, c2 with
-      | None, None -> 0
-      | None, _ -> -1
-      | _, None -> 1
-      | Some char1, Some char2 -> A.compare char1 char2
+    let compare c1 c2 = Option.compare A.compare c1 c2
 
   end
 
@@ -84,6 +80,10 @@ module MakeNfa (A : Alphabet) = struct
         CharMap.fold (fun ch states total -> 
             StateSet.union states total) char_map (StateSet.add st acc)
       ) nfa.transition StateSet.empty
+
+  let get_alphabet nfa =
+    let char_map = nfa.transition |> StateMap.choose |> snd in
+    char_map |> CharMap.bindings |> (List.map fst)
 
   let map_state_pairs nfa1 nfa2 start =
     let count = ref start in
@@ -209,6 +209,38 @@ module MakeNfa (A : Alphabet) = struct
         let final_states = transition_from_empty nfa next_states in
         step final_states t in
     step nfa.start str
+
+  let get_epsilon_transitions_from_char nfa closure st (transitions, start, final) ch =
+    let next_states = transition_from_char nfa ch closure in
+    let char_transition = match StateMap.find_opt st transitions with
+      | Some char_map -> CharMap.add ch next_states char_map
+      | None -> CharMap.add ch next_states CharMap.empty in
+    let transitions' = StateMap.add st char_transition transitions in
+    let final' = if StateSet.disjoint next_states final then final else 
+        StateSet.add st final in
+    let start' = if StateSet.disjoint closure start then start else
+        StateSet.add st start in
+    (transitions', start', final')
+
+  let get_epsilon_transitions nfa alphabet epsilon_closures =
+    Hashtbl.fold (fun st closure (transitions, start, final) ->
+        List.fold_left (get_epsilon_transitions_from_char nfa closure st) 
+          (transitions, start, final)
+          alphabet) epsilon_closures (StateMap.empty, nfa.start, nfa.final)
+
+  let epsilon_remove nfa =
+    let states = get_all_states nfa in
+    let epsilon_closures = Hashtbl.create 10 in
+    StateSet.iter (fun st -> 
+        Hashtbl.add epsilon_closures st 
+          (transition_from_empty nfa (StateSet.singleton st))) states;
+    let alphabet = get_alphabet nfa in
+    let (transitions, start, final) = get_epsilon_transitions nfa alphabet epsilon_closures in
+    {
+      start = start;
+      final = final;
+      transition = transitions;
+    }
 
   (*let to_dot nfa file = 
     let dot_lst_chars curr ch (next_states : States.t) acc =

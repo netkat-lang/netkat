@@ -31,6 +31,8 @@ module MakeNfa (A : Alphabet) : sig
 
   val intersection : t -> t -> t
 
+  val epsilon_remove : t -> t
+
 end
 
 (*val equivalence : t -> t -> bool*)
