@@ -210,7 +210,8 @@ module MakeNfa (A : Alphabet) = struct
         step final_states t in
     step nfa.start str
 
-  let get_epsilon_transitions_from_char nfa closure st (transitions, start, final) ch =
+  let get_epsilon_transitions_from_char nfa closure st 
+      (transitions, start, final) ch =
     let next_states = transition_from_char nfa ch closure in
     let char_transition = match StateMap.find_opt st transitions with
       | Some char_map -> CharMap.add ch next_states char_map
@@ -235,12 +236,15 @@ module MakeNfa (A : Alphabet) = struct
         Hashtbl.add epsilon_closures st 
           (transition_from_empty nfa (StateSet.singleton st))) states;
     let alphabet = get_alphabet nfa in
-    let (transitions, start, final) = get_epsilon_transitions nfa alphabet epsilon_closures in
+    let (transitions, start, final) = get_epsilon_transitions nfa alphabet 
+        epsilon_closures in
     {
       start = start;
       final = final;
       transition = transitions;
     }
+
+  let equivalence nfa1 nfa2 = failwith "unimplemented"
 
   (*let to_dot nfa file = 
     let dot_lst_chars curr ch (next_states : States.t) acc =

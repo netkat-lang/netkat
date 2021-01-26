@@ -64,9 +64,9 @@ module MakeDfa (A : Alphabet) = struct
 
   let mk_dfa (trans) (final_lst: int list) =
     {
-        start = 0;
-        final = List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty final_lst;
-        transition = make_transitions trans
+      start = 0;
+      final = List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty final_lst;
+      transition = make_transitions trans
     }
 
   let make_final (state_lst : int list) : StateSet.t =
@@ -163,5 +163,7 @@ module MakeDfa (A : Alphabet) = struct
             StateMap.add st ch_map' acc
         ) acc acc in
     MinimizeSet.fold remove_state_transitions unmarked'' dfa.transition
+
+  let determinize nfa = failwith "unimplemented"
 
 end

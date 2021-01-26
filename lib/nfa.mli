@@ -1,4 +1,5 @@
 open Alphabet
+open Dfa
 
 module MakeNfa (A : Alphabet) : sig
 
@@ -33,6 +34,6 @@ module MakeNfa (A : Alphabet) : sig
 
   val epsilon_remove : t -> t
 
-end
+  val equivalence : t -> t -> bool
 
-(*val equivalence : t -> t -> bool*)
+end
