@@ -1,5 +1,4 @@
 open Alphabet
-open Dfa
 
 module MakeNfa (A : Alphabet) : sig
 
