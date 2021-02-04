@@ -174,6 +174,59 @@ module MakeDfa (A : Alphabet) = struct
         ) acc acc in
     MinimizeSet.fold remove_state_transitions unmarked'' dfa.transition
 
-  let determinize nfa = failwith "unimplemented"
+  let get_max_state (nfa : Nfa.t) = 
+    StateMap.fold (fun k _ acc -> max k acc) nfa.transition 0
 
+  module PowerSet = Set.Make(StateSet)
+  let superset xs = 
+    StateSet.fold (fun x ps -> 
+        PowerSet.fold (fun ss -> PowerSet.add (StateSet.add x ss)) ps ps) xs 
+      (PowerSet.singleton StateSet.empty)
+
+  let get_state_powerset nfa start =
+    let count = ref start in
+    let tbl = Hashtbl.create 10 in
+    let states = Nfa.get_all_states nfa in
+    let powerset = superset states in
+    PowerSet.iter (fun subset -> 
+        Hashtbl.add tbl subset !count; count := !count + 1) powerset; tbl
+
+  let determinize_transition_update nfa tbl current_states current_states'
+      queue transition visited char =
+    let char' = match char with
+      | Some ch -> ch
+      | None -> failwith "postcondition of epsilon remove violated" in
+    let next_states = Nfa.transition_from_char nfa char current_states in 
+    let next_states' = Hashtbl.find tbl next_states in 
+    let char_map = match StateMap.find_opt current_states' !transition with
+      | None -> CharMap.empty
+      | Some char_map -> char_map in
+    let char_map' = CharMap.add char' next_states' char_map in
+    transition := StateMap.add current_states' char_map' !transition;
+    if not (PowerSet.mem next_states !visited) then
+      begin
+        visited := PowerSet.add next_states !visited;
+        Queue.add next_states queue
+      end else ()
+
+  let determinize (nfa : Nfa.t) =
+    let nfa' = Nfa.epsilon_remove nfa in
+    let tbl = get_state_powerset nfa' (get_max_state nfa' + 1) in
+    let queue = Queue.create () in
+    let visited = ref PowerSet.empty in
+    let transition = ref StateMap.empty in
+    let alphabet = Nfa.get_alphabet nfa' in
+    Queue.add nfa'.start queue;
+    while not (Queue.is_empty queue)
+    do
+      let current_states = Queue.pop queue in
+      let current_states' = Hashtbl.find tbl current_states in
+      List.iter (determinize_transition_update nfa' tbl current_states
+                   current_states' queue transition visited) alphabet
+    done;
+    {
+      start = Hashtbl.find tbl nfa'.start;
+      final = Hashtbl.find tbl nfa'.final |> StateSet.singleton;
+      transition = !transition
+    }
 end

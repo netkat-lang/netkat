@@ -35,4 +35,10 @@ module MakeNfa (A : Alphabet) : sig
 
   val equivalence : t -> t -> bool
 
+  val get_all_states : t -> StateSet.t
+
+  val get_alphabet : t -> CharOrdered.t list
+
+  val transition_from_char : t -> CharOrdered.t -> StateSet.t -> StateSet.t
+
 end
