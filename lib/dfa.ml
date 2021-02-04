@@ -26,10 +26,16 @@ module MakeDfa (A : Alphabet) = struct
     transition : (state CharMap.t) StateMap.t
   }
 
+  (* For modifying the machine in Rx.of_dfa.
+     Suspect there is a cleaner way that doesn't require the messy offset *)
+  let new_state (dfa:t) (offset:int) =
+    let find_max k _ acc = max k acc in
+    offset + StateMap.fold find_max dfa.transition 0
+
   let dfa_to_nfa dfa =
     let update_char ch st acc =
       Nfa.CharMap.add (Some ch) (StateSet.singleton st) acc in
-    let update_state st ch_map acc = 
+    let update_state st ch_map acc =
       let char_map = CharMap.fold update_char ch_map Nfa.CharMap.empty in
       StateMap.add st char_map acc in
     let transition = StateMap.fold update_state dfa.transition StateMap.empty in
@@ -41,21 +47,21 @@ module MakeDfa (A : Alphabet) = struct
     }
 
   let to_string (ch_lst : A.symbol list) : string =
-    List.fold_left (fun acc elt -> 
+    List.fold_left (fun acc elt ->
         acc ^ (A.to_string elt)) "" ch_lst
 
   let make_transitions trans_lst : (state CharMap.t) StateMap.t =
-    let extracted_lst = List.fold_left 
-        (fun acc elt -> 
-           match elt with 
-           | `List [`Int start; ch; `Int next] -> 
+    let extracted_lst = List.fold_left
+        (fun acc elt ->
+           match elt with
+           | `List [`Int start; ch; `Int next] ->
              (start, A.extract_json ch, next)::acc
            | _ -> failwith "invalid json format") [] trans_lst in
     let transition_helper state_map (start, char, next) =
       match StateMap.find_opt start state_map with
-      | Some char_map -> 
+      | Some char_map ->
         let char_map' = CharMap.add char next char_map in
-        StateMap.add start char_map' state_map 
+        StateMap.add start char_map' state_map
       | None ->
         let char_map = CharMap.empty in
         let char_map' = CharMap.add char next char_map in
@@ -72,7 +78,7 @@ module MakeDfa (A : Alphabet) = struct
   let make_final (state_lst : int list) : StateSet.t =
     List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty state_lst
 
-  let json_to_dfa json = 
+  let json_to_dfa json =
     {
       start = json |> member "start" |> to_int;
       transition = json |> member "trans" |> to_list |> make_transitions;
@@ -108,6 +114,10 @@ module MakeDfa (A : Alphabet) = struct
   let complement dfa =
     let states = get_states dfa in
     {dfa with final = StateSet.diff states dfa.final}
+
+  let intersection d1 d2 = Nfa.intersection (dfa_to_nfa d1) (dfa_to_nfa d2)
+
+  let difference d1 d2 = intersection d1 (complement d2)
 
   module MinimizeOrdered = struct
 
