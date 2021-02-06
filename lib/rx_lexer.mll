@@ -34,6 +34,9 @@ rule next_token = parse
   | '.' { DOT }
   | ';' { DOT }
   | '*' { STAR }
+  | '?' { QMARK}
+  | '^' { NEG }
+  | '&' { AND }
 
   (* EOF/illegal token *)
   | eof { EOF }

@@ -1,5 +1,5 @@
 %token LPAR RPAR EOF
-%token PLUS DOT STAR (* QMARK *)
+%token PLUS AND DOT STAR QMARK NEG
 %token E
 %token <int> NUM
 
@@ -15,7 +15,11 @@ rx:
   | r=prx { r }
 
 prx:
-  | r1=drx; PLUS; r2=prx { Intrx.union_pair r1 r2 }
+  | r1=irx; PLUS; r2=prx { Intrx.union_pair r1 r2 }
+  | r=irx { r }
+
+irx:
+  | r1=drx; AND; r2=irx { Intrx.intersect_pair r1 r2 }
   | r=drx { r }
 
 drx:
@@ -24,8 +28,9 @@ drx:
   | r=urx { r }
 
 urx:
-  (* | r=urx; QMARK { Intrx.QMark r } *)
+  | r=urx; QMARK { Intrx.qmark r }
   | r=urx; STAR { Intrx.star r }
+  | r=urx; NEG { Intrx.neg r }
   | r=arx { r }
 
 arx:

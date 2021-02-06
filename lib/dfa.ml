@@ -229,4 +229,25 @@ module MakeDfa (A : Alphabet) = struct
       final = Hashtbl.find tbl nfa'.final |> StateSet.singleton;
       transition = !transition
     }
+
+  let representative (dfa:t) : string =
+    (* Perform a BFS to get a representative string
+       q: Queue of (acc, state) pairs where acc is the string needed to get
+       from start to this state*)
+    let rec explore (q:(A.symbol list*state) list) (visited: StateSet.t) : A.symbol list =
+      match q with
+      | [] -> failwith "representative: language is empty"
+      | (acc,s)::rem ->
+        if StateSet.mem s visited then
+          explore rem visited
+        else if StateSet.mem s dfa.final then
+          acc
+        else
+          let trans = StateMap.find s dfa.transition in
+          let added = CharMap.fold (fun c ns a -> (acc @ [c],ns)::a) trans [] in
+          explore (rem @ added) (StateSet.add s visited) in
+
+    let rep = explore [([], dfa.start)] StateSet.empty in
+    Core_kernel.(String.concat ~sep:"" (List.map ~f:(A.to_string) rep))
+
 end
