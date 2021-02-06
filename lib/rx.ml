@@ -263,7 +263,6 @@ module MakeRx (A : Alphabet) = struct
         dfa_explore (states @ [qc]) ((q, c, qc)::delta ) qc
 
     and dfa_explore (states: t list) (delta: trans list) (q: t) : dfa_graph =
-      Printf.printf "exploring... states: %s\n" (String.concat ~sep:", " (List.map ~f:to_string states));
       let acc = (states, delta) in
       A.fold (fun (s,d) c -> (dfa_goto q c s d)) acc
 
@@ -303,9 +302,6 @@ module MakeRx (A : Alphabet) = struct
       (* Add in the transitions from the DFA *)
         StateMap.fold (fun s cm a1 ->
           Dfa.CharMap.fold (fun c ns a2 ->
-            (*
-            Printf.printf "updating %d %d\n" s ns;
-            *)
             LabelMap.update (s, ns) (fun r ->
               match r with
               | None -> failwith "of_dfa: Found unitialized entry"
@@ -354,7 +350,7 @@ module MakeRx (A : Alphabet) = struct
             List.fold_left ~f:(fun a (s1,s2) ->
               LabelMap.update (s1,s2) (fun r ->
                 match r with
-                | None -> Printf.printf "Missing: %d %d\n" s1 s2; failwith "of_dfa: Invalid key"
+                | None -> failwith "of_dfa: Invalid key"
                 | Some rx -> Some (union_pair rx (seq [LabelMap.find (s1, s) a;
                                                        star (LabelMap.find (s, s) a);
                                                        LabelMap.find (s, s2) a]))) a)
