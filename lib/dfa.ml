@@ -65,12 +65,14 @@ module MakeDfa (A : Alphabet) = struct
   let mk_dfa (trans) (final_lst: int list) =
     {
       start = 0;
-      final = List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty final_lst;
+      final = List.fold_left (fun acc elt -> StateSet.add elt acc) 
+          StateSet.empty final_lst;
       transition = make_transitions trans
     }
 
   let make_final (state_lst : int list) : StateSet.t =
-    List.fold_left (fun acc elt -> StateSet.add elt acc) StateSet.empty state_lst
+    List.fold_left (fun acc elt -> StateSet.add elt acc)
+      StateSet.empty state_lst
 
   let json_to_dfa json = 
     {
@@ -219,4 +221,47 @@ module MakeDfa (A : Alphabet) = struct
       final = Hashtbl.find tbl nfa'.final |> StateSet.singleton;
       transition = !transition
     }
+
+  let get_next_state dfa st ch = 
+    CharMap.find ch (Nfa.StateMap.find st dfa.transition)
+
+  let find_counterexample dfa1 dfa2 =
+    let queue = Queue.create () in
+    Queue.push (dfa1.start, dfa2.start, []) queue;
+    let dfa1_states = get_states dfa1 |> StateSet.elements in
+    let dfa2_states = get_states dfa2 |> StateSet.elements in
+    let visited = Hashtbl.create
+        ((List.length dfa1_states) * (List.length dfa2_states)) in
+    let counterexample = ref None in
+    while not (Queue.is_empty queue) do
+      let (s_t, s_l, str) = Queue.pop queue in
+      let visit_next_states character =
+        let s_t' = get_next_state dfa1 s_t character in
+        let s_l' = get_next_state dfa2 s_l character in
+        (if Hashtbl.mem visited (s_t', s_l') then () else
+         if StateSet.mem s_t' dfa1.final then 
+           begin
+             (* dfa1 and dfa2 are at final state *)
+             if StateSet.mem s_l' dfa2.final then 
+               Queue.add (s_t', s_l', str @ [Some character]) queue else
+             if !counterexample = None then 
+               counterexample := Some (str @ [Some character])
+             else ()
+           end else
+         if StateSet.mem s_l' dfa2.final then
+           begin
+             if !counterexample = None then 
+               counterexample := Some (str @ [Some character])
+             else ()
+           end
+         else 
+           (* dfa1 and dfa2 and at non-final states *)
+           Queue.add (s_t', s_l', str @ [Some character]) queue);
+        Hashtbl.add visited (s_t', s_l') () in
+      List.iter visit_next_states (get_alphabet dfa1)
+    done; !counterexample
+
+  let equivalence dfa1 dfa2 =
+    find_counterexample dfa1 dfa2 = None
+
 end

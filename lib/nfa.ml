@@ -212,16 +212,19 @@ module MakeNfa (A : Alphabet) = struct
 
   let get_epsilon_transitions_from_char nfa closure st 
       (transitions, start, final) ch =
-    let next_states = transition_from_char nfa ch closure in
-    let char_transition = match StateMap.find_opt st transitions with
-      | Some char_map -> CharMap.add ch next_states char_map
-      | None -> CharMap.add ch next_states CharMap.empty in
-    let transitions' = StateMap.add st char_transition transitions in
-    let final' = if StateSet.disjoint next_states final then final else 
-        StateSet.add st final in
-    let start' = if StateSet.disjoint closure start then start else
-        StateSet.add st start in
-    (transitions', start', final')
+    if ch = None then (transitions, start, final) else
+      begin
+        let next_states = transition_from_char nfa ch closure in
+        let char_transition = match StateMap.find_opt st transitions with
+          | Some char_map -> CharMap.add ch next_states char_map
+          | None -> CharMap.add ch next_states CharMap.empty in
+        let transitions' = StateMap.add st char_transition transitions in
+        let final' = if StateSet.disjoint closure final then final else  
+            StateSet.add st final in
+        let start' = if StateSet.disjoint closure start then start else
+            StateSet.add st start in
+        (transitions', start', final')
+      end
 
   let get_epsilon_transitions nfa alphabet epsilon_closures =
     Hashtbl.fold (fun st closure (transitions, start, final) ->
@@ -238,11 +241,14 @@ module MakeNfa (A : Alphabet) = struct
     let alphabet = get_alphabet nfa in
     let (transitions, start, final) = get_epsilon_transitions nfa alphabet 
         epsilon_closures in
-    {
-      start = start;
-      final = final;
-      transition = transitions;
-    }
+    let nfa' = 
+      {
+        start = start;
+        final = final;
+        transition = transitions;
+      } in
+    print_transitions nfa';
+    nfa'
 
   let equivalence nfa1 nfa2 = failwith "unimplemented"
 

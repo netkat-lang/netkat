@@ -7,6 +7,8 @@ module IntAlphabet = struct
   type symbol = int
   type t = int list
 
+  let alphabet = [0; 1]
+
   let compare = Stdlib.compare
 
   let iter = List.iter
@@ -18,6 +20,8 @@ module IntAlphabet = struct
   let to_json i = `Int i
 
   let to_string = string_of_int
+
+  let fold f a = failwith "unimplemented"
 
 end
 
@@ -51,6 +55,16 @@ let transition_3 =
   let state_map_2 = StateMap.add 7 char_map_2 state_map_1 in
   StateMap.add 8 char_map_3 state_map_2
 
+(* accepts even number of 1s, empty transitions to "dead" accept state *)          
+let transition_4 = 
+  let char_map_1 = CharMap.add None (StateSet.singleton 13) CharMap.empty in
+  let char_map_2 = CharMap.add (Some 1) (StateSet.singleton 12) char_map_1 in
+  let char_map_3 = CharMap.add (Some 0) (StateSet.singleton 11) char_map_2 in
+  let char_map_4 = CharMap.add (Some 1) (StateSet.singleton 11) char_map_1 in
+  let char_map_5 = CharMap.add (Some 0) (StateSet.singleton 12) char_map_4 in
+  let state_map = StateMap.add 11 char_map_3 StateMap.empty in
+  StateMap.add 12 char_map_5 state_map
+
 let int_nfa_1 = 
   {
     start = StateSet.singleton 0;
@@ -70,6 +84,13 @@ let int_nfa_3 =
     start = StateSet.singleton 6;
     final = StateSet.singleton 9;
     transition = transition_3;
+  }
+
+let int_nfa_4 = 
+  {
+    start = StateSet.singleton 11;
+    final = StateSet.singleton 11;
+    transition = transition_4;
   }
 
 let int_nfa_empty =
@@ -157,6 +178,13 @@ let intersection_rejects_three_zeroes () =
   Alcotest.(check bool) "same bool" false
     (IntNfa.accept (IntNfa.intersection int_nfa_2 int_nfa_3) [Some 0; Some 0; Some 0])
 
+let epsilon_remove_accepts_even_ones () =
+  Alcotest.(check bool) "same bool" true
+    (IntNfa.accept (IntNfa.epsilon_remove int_nfa_4) [Some 1; Some 1])
+
+let epsilon_remove_rejects_empty_string () =
+  Alcotest.(check bool) "same bool" false
+    (IntNfa.accept (IntNfa.epsilon_remove int_nfa_4) [Some 1])
 
 let () =
   Alcotest.run "Nfa"
@@ -201,5 +229,10 @@ let () =
           Alcotest.test_case "reject 101" `Quick intersection_rejects_odd_zeroes;
           Alcotest.test_case "reject 010" `Quick intersection_rejects_odd_ones;
           Alcotest.test_case "reject 000" `Quick intersection_rejects_three_zeroes;
+        ]);
+      ( "epsilon remove",
+        [ 
+          Alcotest.test_case "accept 11" `Quick epsilon_remove_accepts_even_ones;
+          Alcotest.test_case "reject 1" `Quick epsilon_remove_rejects_empty_string;
         ]);
     ]
