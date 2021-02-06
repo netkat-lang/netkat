@@ -34,12 +34,6 @@ module MakeRx (A : Alphabet) : sig
     val d : A.symbol -> t -> t
 
     (* DFA construction *)
-
-    type trans
-    type dfa_graph = t list * trans list
-
-    val goto : t -> A.symbol -> t list -> trans list -> dfa_graph
-    val explore : t list -> trans list -> t -> dfa_graph
     val to_dfa : t -> Dfa.t
-
+    val of_dfa : Dfa.t -> t
 end

@@ -9,5 +9,9 @@ let () =
   begin
     Printf.printf "Your rx: %s\n%!" (Intrx.to_string rx);
 
-    Printf.printf "Dfa: \n%s\n" (rx |> Intrx.to_dfa |> Intrx.Dfa.dfa_to_json |> Basic.to_string)
+    let dfa: Intrx.Dfa.t = rx |> Intrx.to_dfa in
+
+    Printf.printf "Dfa: \n%s\n" (rx |> Intrx.to_dfa |> Intrx.Dfa.dfa_to_json |> Basic.to_string);
+
+    Printf.printf "Dfa->Rx: \n%s\n" (dfa |> Intrx.of_dfa |> Intrx.to_string);
   end

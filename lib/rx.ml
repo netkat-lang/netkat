@@ -30,7 +30,7 @@ module MakeRx (A : Alphabet) = struct
       | Union t1, Union t2 -> List.compare compare t1 t2
       | Union _, _ -> -1
       | _, Union _ -> 1
-      | Star t11, Star t21 -> compare t11 t21
+      | Star s1, Star s2 -> compare s1 s2
 
     and seq (lst1:t list) = 
       let lst = List.filter ~f:(fun x -> not (equiv x Epsilon)) lst1 in
@@ -53,6 +53,8 @@ module MakeRx (A : Alphabet) = struct
       match r1,r2 with 
       | Empty, _ -> r2
       | _, Empty -> r1
+      | Star r, Epsilon
+      | Epsilon, Star r -> Star r
       | Union t1, Union t2 -> union (t1 @ t2)
       | Union t1, _ -> if List.exists ~f:(fun x -> equiv x r2) t1 then r1 else union (r2::t1)
       | _, Union t2 -> if List.exists ~f:(fun x -> equiv x r1) t2 then r2 else union (r1::t2)
@@ -129,12 +131,27 @@ module MakeRx (A : Alphabet) = struct
       | c::v -> 
          matches (d c r) v
   
+    (* Representative string for L(R) *)
+    let rep_string (r: t) : string =
+      let rec rep_symlist (r: t) : A.symbol list =
+        match r with
+        | Empty -> failwith "rep_string: No representative of the empty language"
+        | Epsilon -> []
+        | Char x -> [x]
+        | Seq lst -> List.concat (List.map ~f:rep_symlist lst)
+        | Union (x::tail) -> rep_symlist x
+        | Star s -> rep_symlist s
+        | _ -> failwith "rep_string: Invalid rx form" (* Union [] *) in
+      String.concat ~sep:"" (List.map ~f:A.to_string (rep_symlist r))
+
 
 (*--- Construct dfa ---*)
     type trans = t * A.symbol * t
     type dfa_graph = t list * trans list
 
-    (* Helper: return the index of the given rx in the given list *)
+    (* Helper: return the index of the given rx in the given list 
+       This seems unnecessarily inefficient.. not sure how to get a map since 
+       that would make the module recursive *)
     let index_of (lst:t list) (r:t) =
       let rec idx_of_start (lst:t list) (r:t) (start:int) =
         match lst with
@@ -142,20 +159,20 @@ module MakeRx (A : Alphabet) = struct
         | t0::tail -> if equiv r t0 then start else idx_of_start tail r (start+1) in
       idx_of_start lst r 0
 
-    let rec goto (q: t) (c: A.symbol) (states: t list) (delta: trans list) =
+    let rec dfa_goto (q: t) (c: A.symbol) (states: t list) (delta: trans list) : dfa_graph =
       let qc = d c q in
       if List.exists ~f:(fun q -> equiv q qc) states then
         (states, (q, c, qc)::delta)
       else
         (* Append to preserve the first element of states is the start state *)
-        explore (states @ [qc]) ((q, c, qc)::delta ) qc
+        dfa_explore (states @ [qc]) ((q, c, qc)::delta ) qc
 
-    and explore (states: t list) (delta: trans list) (q: t) = 
+    and dfa_explore (states: t list) (delta: trans list) (q: t) : dfa_graph = 
       let acc = (states, delta) in
-      A.fold (fun (s,d) c -> (goto q c s d)) acc
+      A.fold (fun (s,d) c -> (dfa_goto q c s d)) acc
 
     let to_dfa (r:t): Dfa.t =
-      let (states, trans) = explore [r] [] r in
+      let (states, trans) = dfa_explore [r] [] r in
       let idx (s: t) = index_of states s in
       let final = List.map ~f:idx (List.filter ~f:e states) in
       let trans_to_json (lst: trans list) = 
@@ -164,7 +181,92 @@ module MakeRx (A : Alphabet) = struct
           | [] -> json
           | (r0, x, r1)::tail -> trans_to_json_r tail (`List [`Int (idx r0); A.to_json x; `Int (idx r1)]::json) in
         trans_to_json_r lst [] in
-
       Dfa.mk_dfa (trans_to_json trans) final
 
+(*--- Dfa to Rx ---*)
+    module LabelOrdered = struct
+      type t = Dfa.state * Dfa.state
+
+      let compare ((a, b):t) ((c, d):t) =
+        if a = c then b - d else a - c
+    end
+    module LabelMap = Stdlib.Map.Make(LabelOrdered)
+
+    (* Construct Rx from Dfa using Node-elimination *)
+    let of_dfa (dfa: Dfa.t) : t =
+      let states = Dfa.get_states dfa in
+
+      (* Start with Empty for every pair *)
+      let dfa_labels: t LabelMap.t =
+        let open Dfa in
+        let open Nfa in
+        StateSet.fold (fun s1 a1 ->
+          StateSet.fold (fun s2 a2 -> 
+            LabelMap.add (s1, s2) Empty a2) states a1) states LabelMap.empty |>
+
+      (* Add in the transitions from the DFA *)
+        StateMap.fold (fun s cm a1 -> 
+          Dfa.CharMap.fold (fun c ns a2 -> 
+            (*
+            Printf.printf "updating %d %d\n" s ns;
+            *)
+            LabelMap.update (s, ns) (fun r -> 
+              match r with
+              | None -> failwith "of_dfa: Found unitialized entry"
+              | Some rx -> Some (union_pair rx (Char c)))
+            a2) cm a1) dfa.transition in
+
+      (* Add a new start state *)
+      let new_start = Dfa.new_state dfa 1 in
+      let new_final = Dfa.new_state dfa 2 in
+
+      (* Compute (ss U {new_start}) x (ss U {new_final}) *)
+      let states_squared (ss:Dfa.Nfa.StateSet.t) : (Dfa.state * Dfa.state) list =
+        let open Dfa in
+        let open Nfa in
+        let from_set = StateSet.union ss (StateSet.singleton new_start) in
+        let to_set = StateSet.union ss (StateSet.singleton new_final) in
+        StateSet.fold (fun s1 a1 ->
+          StateSet.fold (fun s2 a2 -> (s1,s2)::a2) to_set a1) from_set [] in
+
+      let final_trans (s:Dfa.state) : t =
+        let open Dfa in
+        let open Nfa in
+        if StateSet.mem s dfa.final then Epsilon else Empty in
+
+      (* Add epsilon transition from new start state to old start state, and
+      from final states to new final state. *) 
+      let extended_labels: t LabelMap.t = 
+        let open Dfa in
+        let open Nfa in
+        StateSet.fold (fun s a -> LabelMap.add (new_start, s) Empty a) states dfa_labels |>
+        StateSet.fold (fun s a -> LabelMap.add (s, new_final) (final_trans s) a) states |>
+        LabelMap.add (new_start, dfa.start) Epsilon |>
+        LabelMap.add (new_start, new_final) Empty in
+
+      (* Now "remove" every original state, updating labels -
+         We don't actually remove anything, each round, just update the 
+         "remaining" labels to account for the "removed" states *)
+      let final_labels: t LabelMap.t =
+        let rec eliminate (ss:Dfa.Nfa.StateSet.t) (labels: t LabelMap.t) =
+
+          (* "recreate" s *)
+          if Dfa.Nfa.StateSet.is_empty ss then labels else
+          let s = Dfa.Nfa.StateSet.min_elt ss in
+          let ns = Dfa.Nfa.StateSet.remove s ss in
+          let new_labels =
+            List.fold_left ~f:(fun a (s1,s2) -> 
+              LabelMap.update (s1,s2) (fun r ->
+                match r with
+                | None -> Printf.printf "Missing: %d %d\n" s1 s2; failwith "of_dfa: Invalid key"
+                | Some rx -> Some (union_pair rx (seq [LabelMap.find (s1, s) a;
+                                                       star (LabelMap.find (s, s) a);
+                                                       LabelMap.find (s, s2) a]))) a)
+                             
+                ~init:labels (states_squared ns) in
+          eliminate ns new_labels in
+        eliminate states extended_labels in
+
+      (* All the states are "removed", just look at new_start -> new_final *)
+      LabelMap.find (new_start, new_final) final_labels
 end
