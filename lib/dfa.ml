@@ -232,7 +232,6 @@ module MakeDfa (A : Alphabet) = struct
       transition = !transition
     }
 
-<<<<<<< HEAD
   let get_next_state dfa st ch = 
     CharMap.find ch (Nfa.StateMap.find st dfa.transition)
 
@@ -275,10 +274,7 @@ module MakeDfa (A : Alphabet) = struct
   let equivalence dfa1 dfa2 =
     find_counterexample dfa1 dfa2 = None
 
-  let representative (dfa:t) : string =
-=======
   let rep_symlist (dfa:t) : A.symbol list option =
->>>>>>> 3fd325aca8d21313802f892395742b314ee3768a
     (* Perform a BFS to get a representative string
        q: Queue of (acc, state) pairs where acc is the string needed to get
        from start to this state*)
