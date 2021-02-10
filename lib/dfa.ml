@@ -232,6 +232,7 @@ module MakeDfa (A : Alphabet) = struct
       transition = !transition
     }
 
+<<<<<<< HEAD
   let get_next_state dfa st ch = 
     CharMap.find ch (Nfa.StateMap.find st dfa.transition)
 
@@ -275,23 +276,30 @@ module MakeDfa (A : Alphabet) = struct
     find_counterexample dfa1 dfa2 = None
 
   let representative (dfa:t) : string =
+=======
+  let rep_symlist (dfa:t) : A.symbol list option =
+>>>>>>> 3fd325aca8d21313802f892395742b314ee3768a
     (* Perform a BFS to get a representative string
        q: Queue of (acc, state) pairs where acc is the string needed to get
        from start to this state*)
-    let rec explore (q:(A.symbol list*state) list) (visited: StateSet.t) : A.symbol list =
+    let rec explore (q:(A.symbol list*state) list) (visited: StateSet.t) : A.symbol list option =
       match q with
-      | [] -> failwith "representative: language is empty"
+      | [] -> None
       | (acc,s)::rem ->
         if StateSet.mem s visited then
           explore rem visited
         else if StateSet.mem s dfa.final then
-          acc
+          Some acc
         else
           let trans = StateMap.find s dfa.transition in
           let added = CharMap.fold (fun c ns a -> (acc @ [c],ns)::a) trans [] in
           explore (rem @ added) (StateSet.add s visited) in
+    explore [([], dfa.start)] StateSet.empty
 
-    let rep = explore [([], dfa.start)] StateSet.empty in
-    Core_kernel.(String.concat ~sep:"" (List.map ~f:(A.to_string) rep))
+  let representative (dfa:t) : string =
+    let r = rep_symlist dfa in
+    match r with
+    | None -> failwith "representative: Empty language" 
+    | Some s -> Core_kernel.(String.concat ~sep:"" (List.map ~f:(A.to_string) s)) 
 
 end

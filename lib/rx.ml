@@ -159,6 +159,9 @@ module MakeRx (A : Alphabet) = struct
       *)
       | _ -> Neg r
 
+    let difference (r1:t) (r2:t) : t =
+      intersect_pair r1 (neg r2)
+
 (* --- Pretty print --- *)
     let to_string (rx: t) : string =
       let prec (r:t): int =
@@ -226,19 +229,6 @@ module MakeRx (A : Alphabet) = struct
       | c::v ->
          matches (d c r) v
 
-    (* Representative string for L(R) *)
-    let rep_string (r: t) : string =
-      let rec rep_symlist (r: t) : A.symbol list =
-        match r with
-        | Empty -> failwith "rep_string: No representative of the empty language"
-        | Epsilon -> []
-        | Char x -> [x]
-        | Seq lst -> List.concat (List.map ~f:rep_symlist lst)
-        | Union (x::tail) -> rep_symlist x
-        | Star s | QMark s -> rep_symlist s
-        | _ -> failwith "rep_string: Can't take representative of intersect/negation" in
-      String.concat ~sep:"" (List.map ~f:A.to_string (rep_symlist r))
-
 
 (*--- Construct dfa ---*)
     type trans = t * A.symbol * t
@@ -277,6 +267,23 @@ module MakeRx (A : Alphabet) = struct
           | (r0, x, r1)::tail -> trans_to_json_r tail (`List [`Int (idx r0); A.to_json x; `Int (idx r1)]::json) in
         trans_to_json_r lst [] in
       Dfa.mk_dfa (trans_to_json trans) final
+
+    let rep_symlist (r: t) : A.symbol list option =
+      to_dfa r |> Dfa.rep_symlist
+
+    (* Representative string for L(R) *)
+    let rep_string (r: t) : string =
+      let sym = rep_symlist r in
+      match sym with
+      | None -> failwith "rep_string: Empty language!"
+      | Some s -> String.concat ~sep:"" (List.map ~f:A.to_string s)
+
+
+    let is_empty (r:t) : bool =
+      match rep_symlist r with
+      | None -> true
+      | Some _ -> false
+
 
 (*--- Dfa to Rx ---*)
     module LabelOrdered = struct
