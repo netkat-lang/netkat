@@ -36,6 +36,8 @@ module MakeRx (A : Alphabet) : sig
     val qmark : t -> t
     val neg : t -> t
 
+    val difference : t -> t -> t
+
     val to_string : t -> string
 
     (* Nullable *)
@@ -47,4 +49,8 @@ module MakeRx (A : Alphabet) : sig
     (* DFA construction *)
     val to_dfa : t -> Dfa.t
     val of_dfa : Dfa.t -> t
+
+    (* Representative *)
+    val rep_symlist : t -> A.symbol list option
+    val rep_string : t -> string
 end
