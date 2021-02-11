@@ -3,12 +3,49 @@ open Yojson.Basic.Util
 open Nfa
 open Alphabet
 
+module type D = sig
+
+  module Nfa : Nfa.N with type state = int
+
+  type symbol
+
+  type state = Nfa.state
+
+  module CharMap : Map.S with type key = symbol
+
+  type t = {
+    start : state;
+    final : Nfa.StateSet.t;
+    transition : (state CharMap.t) Nfa.StateMap.t
+  }
+
+  val new_state : t -> state -> state
+  val dfa_to_nfa : t -> Nfa.t
+  val to_string : symbol list -> string
+  val mk_dfa : [> `List of Yojson.Basic.t list ] list -> state list -> t
+  val json_to_dfa : Yojson.Basic.t -> t
+  val dfa_to_json : t ->
+    [> `Assoc of (string * [> `Int of state |
+                              `List of Yojson.Basic.t list ]) list ]
+  val dfa_to_channel : t -> out_channel -> unit
+  val get_alphabet : t -> symbol list
+  val get_states : t -> Nfa.StateSet.t
+  val determinize : Nfa.t -> t
+  val find_counterexample : t -> t -> symbol option list option
+  val equivalence : t -> t -> bool
+  val rep_symlist : t -> symbol list option
+  val representative : t -> string
+
+end
+
 module MakeDfa (A : Alphabet) = struct
 
   module Nfa = MakeNfa(A)
   open Nfa
 
   type state = int
+
+  type symbol = A.symbol
 
   module CharOrdered = struct
 

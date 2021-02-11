@@ -1,17 +1,13 @@
 open Alphabet
 
-module MakeNfa (A : Alphabet) : sig
+module type N = sig
 
-  module CharOrdered : sig
+  type symbol
+  type state = Int.t
 
-    type t = A.symbol option
-
-    val compare : t -> t -> int
-  end
-
-  module StateSet : Set.S with type elt = Int.t
-  module StateMap : Map.S with type key = Int.t
-  module CharMap : Map.S with type key = CharOrdered.t
+  module StateSet : Set.S with type elt = state
+  module StateMap : Map.S with type key = state
+  module CharMap : Map.S with type key = symbol
 
   type t = {
     start : StateSet.t;
@@ -27,7 +23,7 @@ module MakeNfa (A : Alphabet) : sig
 
   val concatenation : t -> t -> t
 
-  val accept : t -> CharOrdered.t list -> bool 
+  val accept : t -> symbol list -> bool 
 
   val intersection : t -> t -> t
 
@@ -37,8 +33,11 @@ module MakeNfa (A : Alphabet) : sig
 
   val get_all_states : t -> StateSet.t
 
-  val get_alphabet : t -> CharOrdered.t list
+  val get_alphabet : t -> symbol list
 
-  val transition_from_char : t -> CharOrdered.t -> StateSet.t -> StateSet.t
+  val transition_from_char : t -> symbol -> StateSet.t -> StateSet.t
 
 end
+
+module MakeNfa: 
+  functor (A : Alphabet) -> N with type symbol = A.symbol option
