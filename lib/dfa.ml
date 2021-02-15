@@ -141,7 +141,10 @@ module MakeDfa (A : Alphabet) = struct
       ("final", final_json);
     ]
 
-  let dfa_to_channel dfa out_ch = dfa |> dfa_to_json |> (to_channel out_ch)
+  let dfa_to_channel dfa out_ch = dfa |> dfa_to_json |> (to_channel out_ch);
+    let fmt = Format.formatter_of_out_channel out_ch in
+    Format.pp_print_string fmt "\n\n";
+    Format.pp_print_flush fmt ()
 
   let get_alphabet dfa =
     let char_map = dfa.transition |> StateMap.choose |> snd in
