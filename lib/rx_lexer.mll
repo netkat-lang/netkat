@@ -26,6 +26,7 @@ rule next_token = parse
   | "0" { ZERO } (* Alphabet? *)
   | "1" { ONE }
   *)
+  | 'X' { X }
   | "e" { E }
   | '(' { LPAR }
   | ')' { RPAR }

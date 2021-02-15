@@ -1,6 +1,6 @@
 %token LPAR RPAR EOF
 %token PLUS AND DOT STAR QMARK NEG
-%token E
+%token E X
 %token <int> NUM
 
 %start <Intrx.t> rx_eof
@@ -40,6 +40,7 @@ arx:
 
 cx:
   | n = NUM { Intrx.Char (n) }
+  | X { Intrx.(union_pair (Char 0) (Char 1)) }
   | E { Intrx.Epsilon }
   ;
 
