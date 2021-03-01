@@ -40,6 +40,8 @@ module type D = sig
 
   val find_counterexample : t -> t -> symbol option list option
 
+  val minimize_dfa : t -> t
+
   val equivalence : t -> t -> bool
 
   val rep_symlist : t -> symbol list option

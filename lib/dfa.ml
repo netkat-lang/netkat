@@ -32,6 +32,7 @@ module type D = sig
   val get_states : t -> Nfa.StateSet.t
   val determinize : Nfa.t -> t
   val find_counterexample : t -> t -> symbol option list option
+  val minimize_dfa : t -> t
   val equivalence : t -> t -> bool
   val rep_symlist : t -> symbol list option
   val representative : t -> string
@@ -205,7 +206,7 @@ module MakeDfa (A : Alphabet) = struct
         if (st1_final && (not st2_final)) || (st2_final && (not st1_final)) then
           (MinimizeSet.add (st1, st2) m, MinimizeSet.remove (st1, st2) u) 
         else (m, u)) unmarked (MinimizeSet.empty, MinimizeSet.empty) in
-    let unmarked'' = (minimize dfa) marked unmarked' in
+    let unmarked'' = minimize dfa marked unmarked' in
     let remove_state_transitions (st1, st2) acc =
       StateMap.fold (fun st ch_map acc ->
           if st = st2 then StateMap.remove st acc else
@@ -214,7 +215,14 @@ module MakeDfa (A : Alphabet) = struct
               ) ch_map ch_map in
             StateMap.add st ch_map' acc
         ) acc acc in
-    MinimizeSet.fold remove_state_transitions unmarked'' dfa.transition
+    let transitions = MinimizeSet.fold 
+        remove_state_transitions unmarked'' dfa.transition in
+    (* not correct, but returns the correct type now *)
+    {
+      start = dfa.start;
+      final = dfa.final;
+      transition = transitions;
+    }
 
   let get_max_state (nfa : Nfa.t) = 
     StateMap.fold (fun k _ acc -> max k acc) nfa.transition 0
