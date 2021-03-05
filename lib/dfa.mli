@@ -2,9 +2,9 @@ open Alphabet
 
 module type D = sig
 
-  module Nfa : Nfa.N with type state = int
-
   type symbol
+
+  module Nfa : Nfa.N with type state = int and type character = symbol
 
   type state = Nfa.state
 

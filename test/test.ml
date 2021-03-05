@@ -1,31 +1,9 @@
 (* open Alcotest *)
 open Nerode
 open Nfa
+open Dfa
 
-module IntAlphabet = struct
-
-  type symbol = int
-  type t = int list
-
-  let alphabet = [0; 1]
-
-  let compare = Stdlib.compare
-
-  let iter = List.iter
-
-  let extract_json = function
-    | `Int i -> i
-    | _ -> failwith "invalid json"
-
-  let to_json i = `Int i
-
-  let to_string = string_of_int
-
-  let fold f a = failwith "unimplemented"
-
-end
-
-module IntNfa = MakeNfa(IntAlphabet)
+module IntNfa = MakeNfa(Intalph)
 open IntNfa
 
 (* accepts even number of 1s *)
@@ -100,7 +78,7 @@ let int_nfa_empty =
     transition = StateMap.empty
   }
 
-let empty () =
+let is_empty () =
   Alcotest.(check bool) "same bool" true (IntNfa.empty int_nfa_empty)
 
 let not_empty () =
@@ -186,12 +164,36 @@ let epsilon_remove_rejects_empty_string () =
   Alcotest.(check bool) "same bool" false
     (IntNfa.accept (IntNfa.epsilon_remove int_nfa_4) [Some 1])
 
+module IntDfa = MakeDfa(Intalph)
+(* open IntDfa.Nfa *)
+open IntDfa
+
+let transition_5 =
+  let char_map_1 = CharMap.add 1 1 CharMap.empty in
+  let char_map_2 = CharMap.add 0 0 char_map_1 in
+  let char_map_3 = CharMap.add 1 0 CharMap.empty in
+  let char_map_4 = CharMap.add 0 1 char_map_3 in
+  let state_map = Nfa.StateMap.add 0 char_map_2 Nfa.StateMap.empty in
+  Nfa.StateMap.add 1 char_map_4 state_map
+
+let int_dfa_1 : IntDfa.t =
+  {
+    start = 0;
+    final = Nfa.StateSet.singleton 0;
+    transition = transition_5;
+  } 
+
+let minimize_accepts_even_ones () =
+  Alcotest.(check bool) "same bool" true
+    (IntDfa.Nfa.accept (int_dfa_1 |> IntDfa.minimize_dfa |> IntDfa.dfa_to_nfa) 
+       [Some 1; Some 1])
+
 let () =
   Alcotest.run "Nfa"
     [
       ( "empty",
         [
-          Alcotest.test_case "empty" `Quick empty;
+          Alcotest.test_case "empty" `Quick is_empty;
           Alcotest.test_case "not empty" `Quick not_empty;
         ] );
       ( "accept",

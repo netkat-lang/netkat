@@ -2,7 +2,8 @@ open Alphabet
 
 module type N = sig
 
-  type symbol
+  type character
+  type symbol = character option
   type state = Int.t
 
   module StateSet : Set.S with type elt = state
@@ -40,4 +41,4 @@ module type N = sig
 end
 
 module MakeNfa: 
-  functor (A : Alphabet) -> N with type symbol = A.symbol option
+  functor (A : Alphabet) -> N with type character = A.symbol

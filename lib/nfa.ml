@@ -2,7 +2,8 @@ open Alphabet
 
 module type N = sig
 
-  type symbol
+  type character
+  type symbol = character option
   type state = Int.t
 
   module StateSet : Set.S with type elt = state
@@ -31,9 +32,11 @@ end
 
 module MakeNfa (A : Alphabet) = struct
 
+  type character = A.symbol 
+
   type state = Int.t
 
-  type symbol = A.symbol option
+  type symbol = character option
 
   module CharOrdered = struct
 
