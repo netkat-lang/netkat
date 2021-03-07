@@ -17,6 +17,6 @@ module type Alphabet = sig
 
   val to_string : symbol -> string
 
-  val of_string : string -> t list
+  val of_string : string -> symbol list list
 
 end

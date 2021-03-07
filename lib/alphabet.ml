@@ -17,7 +17,7 @@ module type Alphabet = sig
 
   val to_string : symbol -> string
 
-  val of_string : string -> t list
+  val of_string : string -> symbol list list
 
 end
 
@@ -45,12 +45,12 @@ module A : Alphabet = struct
 
   let to_string = string_of_int
 
-  let of_string s = 
+  let of_string s =
     let rec consume_char i lst =
       if i < 0 then lst
-      else if s.[i] = 'X' then 
+      else if s.[i] = 'X' then
         consume_char (pred i) (List.fold_left (fun acc w -> (1::w)::(0::w)::acc) [] lst)
-      else 
+      else
         consume_char (pred i) (List.map (fun w -> (int_of_char s.[i] - 48)::w) lst)
     in
     consume_char (String.length s |> pred) [[]]
