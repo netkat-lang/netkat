@@ -36,6 +36,7 @@ module type D = sig
   val equivalence : t -> t -> bool
   val rep_symlist : t -> symbol list option
   val representative : t -> string
+  val accepts : t -> symbol list -> bool
 
 end
 
@@ -345,5 +346,9 @@ module MakeDfa (A : Alphabet) = struct
     match r with
     | None -> failwith "representative: Empty language" 
     | Some s -> Core_kernel.(String.concat ~sep:"" (List.map ~f:(A.to_string) s)) 
+
+  let accepts (dfa:t) (s:symbol list) =
+    let qf = List.fold_left (fun q a -> CharMap.find a (Nfa.StateMap.find q dfa.transition)) dfa.start s in
+    Nfa.StateSet.mem qf dfa.final
 
 end

@@ -48,6 +48,8 @@ module type D = sig
 
   val representative : t -> string
 
+  val accepts : t -> symbol list -> bool
+
 end
 
 module MakeDfa: 

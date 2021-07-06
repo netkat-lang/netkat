@@ -13,6 +13,11 @@ let () =
 
     Printf.printf "Dfa: \n%s\n" (rx |> Intrx.to_dfa |> Intrx.Dfa.dfa_to_json |> Basic.to_string);
 
+    (*
+    Printf.printf "running 011: %B\n%!" (Intrx.Dfa.accepts dfa [0; 1; 1]);
+    Printf.printf "running 10: %B\n%!" (Intrx.Dfa.accepts dfa [1; 0]);
+    *)
+
     Printf.printf "Dfa->Rx: \n%s\n" (dfa |> Intrx.of_dfa |> Intrx.to_string);
 
     Printf.printf "Representative: %s\n" (Intrx.Dfa.representative dfa)
