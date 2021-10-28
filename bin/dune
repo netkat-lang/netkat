@@ -1,4 +1,4 @@
 (executables
-  (public_names deriv rx_dfa_rx)
-  (names deriv rx_dfa_rx)
+  (public_names deriv rx_dfa_rx run_dfa)
+  (names deriv rx_dfa_rx run_dfa)
   (libraries core nerode))

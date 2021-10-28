@@ -19,6 +19,7 @@ module type Alphabet = sig
 
   val of_string : string -> symbol list list
 
+  val enum_strings : int -> t list
 end
 
 module A : Alphabet = struct
@@ -55,4 +56,9 @@ module A : Alphabet = struct
     in
     consume_char (String.length s |> pred) [[]]
 
+  let rec enum_strings (strlen: int) =
+    let succ (ll: t list) =
+      List.fold_left (fun a1 s ->
+        List.fold_left (fun a2 x -> (x::s)::a2) a1 alphabet) [[]] ll in
+    if strlen = 0 then [[]] else succ (enum_strings (strlen-1))
 end
