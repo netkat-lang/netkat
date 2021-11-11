@@ -266,7 +266,7 @@ module MakeRx (A : Alphabet) = struct
           | [] -> json
           | (r0, x, r1)::tail -> trans_to_json_r tail (`List [`Int (idx r0); A.to_json x; `Int (idx r1)]::json) in
         trans_to_json_r lst [] in
-      Dfa.mk_dfa (trans_to_json trans) final
+      Dfa.mk_dfa 0 (trans_to_json trans) final
 
     let rep_symlist (r: t) : A.symbol list option =
       to_dfa r |> Dfa.rep_symlist

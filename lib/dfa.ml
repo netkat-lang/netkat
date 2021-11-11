@@ -22,7 +22,7 @@ module type D = sig
   val new_state : t -> state -> state
   val dfa_to_nfa : t -> Nfa.t
   val to_string : symbol list -> string
-  val mk_dfa : [> `List of Yojson.Basic.t list ] list -> state list -> t
+  val mk_dfa : int -> [> `List of Yojson.Basic.t list ] list -> state list -> t
   val json_to_dfa : Yojson.Basic.t -> t
   val dfa_to_json : t ->
     [> `Assoc of (string * [> `Int of state |
@@ -107,9 +107,9 @@ module MakeDfa (A : Alphabet) = struct
         StateMap.add start char_map' state_map in
     List.fold_left transition_helper StateMap.empty extracted_lst
 
-  let mk_dfa (trans) (final_lst: int list) =
+  let mk_dfa (s:int) (trans) (final_lst: int list) =
     {
-      start = 0;
+      start = s;
       final = List.fold_left (fun acc elt -> StateSet.add elt acc) 
           StateSet.empty final_lst;
       transition = make_transitions trans
