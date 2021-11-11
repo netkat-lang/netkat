@@ -30,6 +30,7 @@ module type D = sig
   val dfa_to_channel : t -> out_channel -> unit
   val get_alphabet : t -> symbol list
   val get_states : t -> Nfa.StateSet.t
+  val size : t -> int
   val determinize : Nfa.t -> t
   val find_counterexample : t -> t -> symbol option list option
   val minimize_dfa : t -> t
@@ -154,6 +155,8 @@ module MakeDfa (A : Alphabet) = struct
 
   let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc) 
       dfa.transition StateSet.empty 
+
+  let size dfa = get_states dfa |> StateSet.cardinal
 
   let complement dfa =
     let states = get_states dfa in

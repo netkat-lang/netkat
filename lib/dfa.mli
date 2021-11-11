@@ -36,6 +36,8 @@ module type D = sig
 
   val get_states : t -> Nfa.StateSet.t
 
+  val size : t -> int
+
   val determinize : Nfa.t -> t
 
   val find_counterexample : t -> t -> symbol option list option
