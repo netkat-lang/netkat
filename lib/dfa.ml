@@ -38,6 +38,7 @@ module type D = sig
   val rep_symlist : t -> symbol list option
   val representative : t -> string
   val accepts : t -> symbol list -> bool
+  val validate : t -> symbol list list -> symbol list list -> bool
 
 end
 
@@ -354,4 +355,8 @@ module MakeDfa (A : Alphabet) = struct
     let qf = List.fold_left (fun q a -> CharMap.find a (Nfa.StateMap.find q dfa.transition)) dfa.start s in
     Nfa.StateSet.mem qf dfa.final
 
+  let validate (d: t) (pos: symbol list list) (neg: symbol list list) : bool =
+    let pos_test = List.filter (fun s -> not (accepts d s)) pos in
+    let neg_test = List.filter (fun s -> accepts d s) neg in
+    (pos_test @ neg_test) = []
 end

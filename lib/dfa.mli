@@ -51,6 +51,7 @@ module type D = sig
   val representative : t -> string
 
   val accepts : t -> symbol list -> bool
+  val validate : t -> symbol list list -> symbol list list -> bool
 
 end
 
