@@ -260,13 +260,8 @@ module MakeRx (A : Alphabet) = struct
       let (states, trans) = dfa_explore [r] [] r in
       let idx (s: t) = index_of states s in
       let final = List.map ~f:idx (List.filter ~f:e states) in
-      let trans_to_json (lst: trans list) =
-        let rec trans_to_json_r lst json =
-          match lst with
-          | [] -> json
-          | (r0, x, r1)::tail -> trans_to_json_r tail (`List [`Int (idx r0); A.to_json x; `Int (idx r1)]::json) in
-        trans_to_json_r lst [] in
-      Dfa.mk_dfa 0 (trans_to_json trans) final
+      let idx_trans = List.map ~f:(fun (r0, x, r1) -> (idx r0, x, idx r1)) trans in
+      Dfa.mk_dfa 0 idx_trans final
 
     let rep_symlist (r: t) : A.symbol list option =
       to_dfa r |> Dfa.rep_symlist

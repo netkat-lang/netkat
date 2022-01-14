@@ -22,7 +22,7 @@ module type D = sig
   val new_state : t -> state -> state
   val dfa_to_nfa : t -> Nfa.t
   val to_string : symbol list -> string
-  val mk_dfa : int -> [> `List of Yojson.Basic.t list ] list -> state list -> t
+  val mk_dfa : int -> (int*symbol*int) list -> state list -> t
   val json_to_dfa : Yojson.Basic.t -> t
   val dfa_to_json : t ->
     [> `Assoc of (string * [> `Int of state |
@@ -91,13 +91,14 @@ module MakeDfa (A : Alphabet) = struct
     List.fold_left (fun acc elt ->
         acc ^ (A.to_string elt)) "" ch_lst
 
+  let json_to_triple trans_list = List.fold_left
+      (fun acc elt ->
+         match elt with
+         | `List [`Int start; ch; `Int next] ->
+           (start, A.extract_json ch, next)::acc
+         | _ -> failwith "invalid json format") [] trans_list
+
   let make_transitions trans_lst : (state CharMap.t) StateMap.t =
-    let extracted_lst = List.fold_left
-        (fun acc elt ->
-           match elt with
-           | `List [`Int start; ch; `Int next] ->
-             (start, A.extract_json ch, next)::acc
-           | _ -> failwith "invalid json format") [] trans_lst in
     let transition_helper state_map (start, char, next) =
       match StateMap.find_opt start state_map with
       | Some char_map ->
@@ -107,12 +108,12 @@ module MakeDfa (A : Alphabet) = struct
         let char_map = CharMap.empty in
         let char_map' = CharMap.add char next char_map in
         StateMap.add start char_map' state_map in
-    List.fold_left transition_helper StateMap.empty extracted_lst
+    List.fold_left transition_helper StateMap.empty trans_lst
 
   let mk_dfa (s:int) (trans) (final_lst: int list) =
     {
       start = s;
-      final = List.fold_left (fun acc elt -> StateSet.add elt acc) 
+      final = List.fold_left (fun acc elt -> StateSet.add elt acc)
           StateSet.empty final_lst;
       transition = make_transitions trans
     }
@@ -124,20 +125,20 @@ module MakeDfa (A : Alphabet) = struct
   let json_to_dfa json =
     {
       start = json |> member "start" |> to_int;
-      transition = json |> member "trans" |> to_list |> make_transitions;
+      transition = json |> member "trans" |> to_list |> json_to_triple |> make_transitions;
       final = json |> member "final" |> to_list |> filter_int |> make_final;
     }
 
   let make_transition_json dfa state char_map (acc : Yojson.Basic.t list) =
     let transition_from_char ch next acc =
-      `List [`Int state; A.to_json ch; `Int next]::acc in 
+      `List [`Int state; A.to_json ch; `Int next]::acc in
     CharMap.fold transition_from_char char_map acc
 
   let dfa_to_json dfa =
     let start_json = `Int dfa.start in
-    let transition_json = 
+    let transition_json =
       `List (StateMap.fold (make_transition_json dfa) dfa.transition []) in
-    let final_json = 
+    let final_json =
       `List (StateSet.fold (fun elt acc -> (`Int elt)::acc) dfa.final []) in
     `Assoc [
       ("start", start_json);
@@ -154,8 +155,8 @@ module MakeDfa (A : Alphabet) = struct
     let char_map = dfa.transition |> StateMap.choose |> snd in
     char_map |> CharMap.bindings |> (List.map fst)
 
-  let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc) 
-      dfa.transition StateSet.empty 
+  let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc)
+      dfa.transition StateSet.empty
 
   let size dfa = get_states dfa |> StateSet.cardinal
 
@@ -179,13 +180,13 @@ module MakeDfa (A : Alphabet) = struct
 
   module MinimizeSet = Set.Make(MinimizeOrdered)
 
-  let rec minimize dfa marked unmarked = 
+  let rec minimize dfa marked unmarked =
     let mark_pairs (s1, s2) (b, m, u) =
       if b then (b, m, u) else
         begin
           let char_set1 = StateMap.find s1 dfa.transition in
           let char_set2 = StateMap.find s2 dfa.transition in
-          CharMap.fold (fun ch st (b, m', u') -> 
+          CharMap.fold (fun ch st (b, m', u') ->
               if b then (b, m', u') else
                 let next_state = CharMap.find ch char_set2 in
                 if MinimizeSet.mem (next_state, st) m' then

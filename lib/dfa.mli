@@ -22,7 +22,7 @@ module type D = sig
 
   val to_string : symbol list -> string
 
-  val mk_dfa : int -> [> `List of Yojson.Basic.t list ] list -> state list -> t
+  val mk_dfa : int -> (int*symbol*int) list -> state list -> t
 
   val json_to_dfa : Yojson.Basic.t -> t
 
