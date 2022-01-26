@@ -28,6 +28,7 @@ module type D = sig
     [> `Assoc of (string * [> `Int of state |
                               `List of Yojson.Basic.t list ]) list ]
   val dfa_to_channel : t -> out_channel -> unit
+  val dump_latex : t -> unit
   val get_alphabet : t -> symbol list
   val get_states : t -> Nfa.StateSet.t
   val size : t -> int
@@ -158,6 +159,23 @@ module MakeDfa (A : Alphabet) = struct
   let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc)
       dfa.transition StateSet.empty
 
+  let dump_latex dfa =
+    Printf.printf "\n\n\\begin{tikzpicture}\n";
+    StateSet.iter (fun s ->
+      Printf.printf "\\node[state";
+      if s = dfa.start then Printf.printf ", initial"
+                       else Printf.printf ", right of q%d" (s-1);
+      Printf.printf (if StateSet.mem s dfa.final then ", accepting" else "");
+      Printf.printf "] (q%d) {\\tiny q%d};\n" s s
+    ) (get_states dfa);
+    StateMap.iter (fun s1 cm ->
+      CharMap.iter (fun c s2 ->
+        let x = A.to_string c in
+        Printf.printf "\\draw (q%d) edge[bend right, above] node{\\tt %s} (q%d);\n" s1 x s2
+      ) cm
+    ) dfa.transition;
+    Printf.printf "\\end{tikzpicture}\n"
+
   let size dfa = get_states dfa |> StateSet.cardinal
 
   let complement dfa =
@@ -191,37 +209,37 @@ module MakeDfa (A : Alphabet) = struct
                 let next_state = CharMap.find ch char_set2 in
                 if MinimizeSet.mem (next_state, st) m' then
                   (* mark s1 and s2 *)
-                  (true, 
+                  (true,
                    MinimizeSet.add (s1, s2) m',
                    MinimizeSet.remove (s1, s2) u') else
-                  (b, m', u')) 
+                  (b, m', u'))
             char_set1 (b, m, u)
         end in
-    let (b, m, u) = MinimizeSet.fold 
+    let (b, m, u) = MinimizeSet.fold
         mark_pairs unmarked (false, marked, unmarked) in
     if b then minimize dfa m u else u
 
-  let minimize_dfa dfa = 
+  let minimize_dfa dfa =
     let states = get_states dfa in
-    let unmarked = StateSet.fold (fun st1 acc1 -> 
+    let unmarked = StateSet.fold (fun st1 acc1 ->
         StateSet.fold (fun st2 acc2 -> MinimizeSet.add (st1, st2) acc2)
           states acc1) states MinimizeSet.empty in
-    let (marked, unmarked') = MinimizeSet.fold (fun (st1, st2) (m, u) -> 
+    let (marked, unmarked') = MinimizeSet.fold (fun (st1, st2) (m, u) ->
         let st1_final = StateSet.mem st1 dfa.final in
         let st2_final = StateSet.mem st2 dfa.final in
         if (st1_final && (not st2_final)) || (st2_final && (not st1_final)) then
-          (MinimizeSet.add (st1, st2) m, MinimizeSet.remove (st1, st2) u) 
+          (MinimizeSet.add (st1, st2) m, MinimizeSet.remove (st1, st2) u)
         else (m, u)) unmarked (MinimizeSet.empty, MinimizeSet.empty) in
     let unmarked'' = minimize dfa marked unmarked' in
     let remove_state_transitions (st1, st2) acc =
       StateMap.fold (fun st ch_map acc ->
           if st = st2 then StateMap.remove st acc else
-            let ch_map' = CharMap.fold (fun ch state acc -> 
+            let ch_map' = CharMap.fold (fun ch state acc ->
                 if state = st2 then CharMap.add ch st1 acc else acc
               ) ch_map ch_map in
             StateMap.add st ch_map' acc
         ) acc acc in
-    let transitions = MinimizeSet.fold 
+    let transitions = MinimizeSet.fold
         remove_state_transitions unmarked'' dfa.transition in
     (* not correct, but returns the correct type now *)
     {
@@ -230,13 +248,13 @@ module MakeDfa (A : Alphabet) = struct
       transition = transitions;
     }
 
-  let get_max_state (nfa : Nfa.t) = 
+  let get_max_state (nfa : Nfa.t) =
     StateMap.fold (fun k _ acc -> max k acc) nfa.transition 0
 
   module PowerSet = Set.Make(StateSet)
-  let superset xs = 
-    StateSet.fold (fun x ps -> 
-        PowerSet.fold (fun ss -> PowerSet.add (StateSet.add x ss)) ps ps) xs 
+  let superset xs =
+    StateSet.fold (fun x ps ->
+        PowerSet.fold (fun ss -> PowerSet.add (StateSet.add x ss)) ps ps) xs
       (PowerSet.singleton StateSet.empty)
 
   let get_state_powerset nfa start =
@@ -244,7 +262,7 @@ module MakeDfa (A : Alphabet) = struct
     let tbl = Hashtbl.create 10 in
     let states = Nfa.get_all_states nfa in
     let powerset = superset states in
-    PowerSet.iter (fun subset -> 
+    PowerSet.iter (fun subset ->
         Hashtbl.add tbl subset !count; count := !count + 1) powerset; tbl
 
   let determinize_transition_update nfa tbl current_states current_states'

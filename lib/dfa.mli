@@ -31,28 +31,18 @@ module type D = sig
                               `List of Yojson.Basic.t list ]) list ]
 
   val dfa_to_channel : t -> out_channel -> unit
-
+  val dump_latex : t -> unit
   val get_alphabet : t -> symbol list
-
   val get_states : t -> Nfa.StateSet.t
-
   val size : t -> int
-
   val determinize : Nfa.t -> t
-
   val find_counterexample : t -> t -> symbol option list option
-
   val minimize_dfa : t -> t
-
   val equivalence : t -> t -> bool
-
   val rep_symlist : t -> symbol list option
-
   val representative : t -> string
-
   val accepts : t -> symbol list -> bool
   val validate : t -> symbol list list -> symbol list list -> bool
-
 end
 
 module MakeDfa: 
