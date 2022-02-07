@@ -28,6 +28,7 @@ module type D = sig
     [> `Assoc of (string * [> `Int of state |
                               `List of Yojson.Basic.t list ]) list ]
   val dfa_to_channel : t -> out_channel -> unit
+  val dump_json : t -> unit
   val dump_latex : t -> unit
   val get_alphabet : t -> symbol list
   val get_states : t -> Nfa.StateSet.t
@@ -159,6 +160,7 @@ module MakeDfa (A : Alphabet) = struct
   let get_states dfa = StateMap.fold (fun st _ acc -> StateSet.add st acc)
       dfa.transition StateSet.empty
 
+  let dump_json dfa = dfa_to_channel dfa Stdio.stdout
   let dump_latex dfa =
     Printf.printf "\n\n\\begin{tikzpicture}\n";
     StateSet.iter (fun s ->

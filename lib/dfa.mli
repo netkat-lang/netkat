@@ -31,6 +31,7 @@ module type D = sig
                               `List of Yojson.Basic.t list ]) list ]
 
   val dfa_to_channel : t -> out_channel -> unit
+  val dump_json : t -> unit
   val dump_latex : t -> unit
   val get_alphabet : t -> symbol list
   val get_states : t -> Nfa.StateSet.t
