@@ -41,7 +41,7 @@ module type D = sig
   val representative : t -> string
   val accepts : t -> symbol list -> bool
   val validate : t -> symbol list list -> symbol list list -> bool
-
+  val enum_bin_dfas : int -> t list
 end
 
 module MakeDfa (A : Alphabet) = struct
@@ -150,7 +150,7 @@ module MakeDfa (A : Alphabet) = struct
 
   let dfa_to_channel dfa out_ch = dfa |> dfa_to_json |> (to_channel out_ch);
     let fmt = Format.formatter_of_out_channel out_ch in
-    Format.pp_print_string fmt "\n\n";
+    Format.pp_print_string fmt "\n";
     Format.pp_print_flush fmt ()
 
   let get_alphabet dfa =
@@ -380,4 +380,31 @@ module MakeDfa (A : Alphabet) = struct
     let pos_test = List.filter (fun s -> not (accepts d s)) pos in
     let neg_test = List.filter (fun s -> accepts d s) neg in
     (pos_test @ neg_test) = []
+
+  (* Assumes [0; 1] alphabet *)
+  let enum_bin_dfas (size: int): t list =
+    let states = List.init size Fun.id in
+    let pairs = List.fold_left (fun a1 s1 ->
+      List.fold_left (fun a2 s2 ->
+          (s1,s2)::a2
+      ) a1 states
+    ) [] states in
+
+    (* list of all final state sets up to size *)
+    let all_final_sets = List.fold_left (fun a n -> 
+      let next = List.map (List.cons n) a in
+      a@next) [[]] states in
+
+    (* list of all possible transitions in [state; symbol; state] list *)
+    let all_trans = List.fold_left (fun acc s1 -> 
+      let _: (state*symbol*state) list list = acc in
+
+      let fm_s1: (state*symbol*state) list list = List.fold_left (fun a (s2a,s2b) ->
+        [(s1, A.of_int 0, s2a);(s1, A.of_int 1, s2b)]::a
+      ) [] pairs in
+
+      List.map (fun trl -> List.map (fun tr -> trl@tr) fm_s1) acc |> List.concat) [[]] states in
+
+    List.map (fun fin ->
+      List.map (fun tr -> mk_dfa 0 tr fin) all_trans) all_final_sets |> List.concat
 end

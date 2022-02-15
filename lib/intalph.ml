@@ -35,3 +35,5 @@ let rec enum_strings (strlen: int) =
     List.fold_left (fun a1 s ->
       List.fold_left (fun a2 x -> (x::s)::a2) a1 alphabet) [[]] ll |> List.rev in
   if strlen = 0 then [[]] else succ (enum_strings (strlen-1))
+
+let of_int = Fun.id

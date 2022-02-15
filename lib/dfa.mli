@@ -44,6 +44,7 @@ module type D = sig
   val representative : t -> string
   val accepts : t -> symbol list -> bool
   val validate : t -> symbol list list -> symbol list list -> bool
+  val enum_bin_dfas : int -> t list
 end
 
 module MakeDfa: 

@@ -19,5 +19,7 @@ module type Alphabet = sig
 
   val of_string : string -> symbol list list
 
+  val of_int : int -> symbol
+
   val enum_strings : int -> t list
 end

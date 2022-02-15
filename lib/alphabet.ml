@@ -19,6 +19,8 @@ module type Alphabet = sig
 
   val of_string : string -> symbol list list
 
+  val of_int : int -> symbol
+
   val enum_strings : int -> t list
 end
 
@@ -45,6 +47,8 @@ module A : Alphabet = struct
   let to_json i = `Int i
 
   let to_string = string_of_int
+
+  let of_int = Fun.id
 
   let of_string s =
     let rec consume_char i lst =
