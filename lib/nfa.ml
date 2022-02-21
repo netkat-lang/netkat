@@ -27,6 +27,7 @@ module type N = sig
   val get_all_states : t -> StateSet.t
   val get_alphabet : t -> symbol list
   val transition_from_char : t -> symbol -> StateSet.t -> StateSet.t
+  val to_dot : t -> string -> unit
 
 end
 
@@ -288,12 +289,12 @@ module MakeNfa (A : Alphabet) = struct
 
   let equivalence nfa1 nfa2 = failwith "unimplemented"
 
-  (*let to_dot nfa file = 
-    let dot_lst_chars curr ch (next_states : States.t) acc =
+  let to_dot nfa file =
+    let dot_lst_chars curr ch (next_states : StateSet.t) acc =
       let edge_label = match ch with
-        | CharOrdered.Char c -> A.to_string c
-        | CharOrdered.Empty -> "eps" in
-      States.fold (fun st acc ->
+        | Some c -> A.to_string c
+        | None -> "eps" in
+      StateSet.fold (fun st acc ->
           let edge = (string_of_int curr) ^  " -> " ^ (string_of_int st) ^ 
                      " [ label= \" " ^ edge_label ^ " \" ]; " in
           edge::acc) next_states acc in
@@ -301,13 +302,23 @@ module MakeNfa (A : Alphabet) = struct
       CharMap.fold (dot_lst_chars st) char_map acc in
     match nfa with
     | {start; final; transition} ->
+      let start_node_defn = ["\"\" [shape=none]"] in
+      let node_defns = StateSet.fold (fun st acc ->
+          let shape = if StateSet.mem st final then "doublecircle" else "circle" in
+          (string_of_int st ^ " [shape=" ^ shape ^ "]")::acc) (get_all_states nfa) [] in
+      let start_transitions = StateSet.fold (fun st acc ->
+          ("\"\" -> " ^ (string_of_int st))::acc ) start [] in
       let transitions = StateMap.fold dot_lst_states transition [] in
-      let dot_lst = ["digraph D {"] @ transitions @ ["}"] in
+      let dot_lst = ["digraph D {"] @
+                      start_node_defn @
+                      node_defns @
+                      start_transitions @
+                      transitions @ ["}"] in
       let out_ch = open_out file in
-      let fmt = formatter_of_out_channel out_ch in
-      pp_print_list (fun fmt elt -> pp_print_string fmt elt;
-                      pp_print_newline fmt ()) fmt dot_lst;
-      pp_print_flush fmt ();
-      close_out out_ch *)
+      let fmt = Format.formatter_of_out_channel out_ch in
+      Format.pp_print_list (fun fmt elt -> Format.pp_print_string fmt elt;
+                      Format.pp_print_newline fmt ()) fmt dot_lst;
+      Format.pp_print_flush fmt ();
+      close_out out_ch
 
 end 

@@ -38,6 +38,8 @@ module type N = sig
 
   val transition_from_char : t -> symbol -> StateSet.t -> StateSet.t
 
+  val to_dot : t -> string -> unit
+
 end
 
 module MakeNfa: 
