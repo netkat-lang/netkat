@@ -172,7 +172,7 @@ module MakeDfa (A : Alphabet) = struct
     ) (get_states dfa);
     StateMap.iter (fun s1 cm ->
       CharMap.iter (fun c s2 ->
-        let x = A.to_string c in
+        let x = if A.to_string c = "0" then "a" else "b" in
         Printf.printf "\\draw (q%d) edge[bend right, above] node{$%s$} (q%d);\n" s1 x s2
       ) cm
     ) dfa.transition;
