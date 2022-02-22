@@ -165,15 +165,15 @@ module MakeDfa (A : Alphabet) = struct
     Printf.printf "\n\n\\begin{tikzpicture}\n";
     StateSet.iter (fun s ->
       Printf.printf "\\node[state";
-      if s = dfa.start then Printf.printf ", initial"
-                       else Printf.printf ", right of q%d" (s-1);
+      if s = dfa.start then Printf.printf ", initial";
+      if s > 0 then Printf.printf ", right of=q%d" (s-1);
       Printf.printf (if StateSet.mem s dfa.final then ", accepting" else "");
-      Printf.printf "] (q%d) {\\tiny q%d};\n" s s
+      Printf.printf "] (q%d) {q%d};\n" s s
     ) (get_states dfa);
     StateMap.iter (fun s1 cm ->
       CharMap.iter (fun c s2 ->
         let x = A.to_string c in
-        Printf.printf "\\draw (q%d) edge[bend right, above] node{\\tt %s} (q%d);\n" s1 x s2
+        Printf.printf "\\draw (q%d) edge[bend right, above] node{$%s$} (q%d);\n" s1 x s2
       ) cm
     ) dfa.transition;
     Printf.printf "\\end{tikzpicture}\n"
