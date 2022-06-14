@@ -370,7 +370,7 @@ module MakeDfa (A : Alphabet) = struct
     let r = rep_symlist dfa in
     match r with
     | None -> failwith "representative: Empty language" 
-    | Some s -> Core_kernel.(String.concat ~sep:"" (List.map ~f:(A.to_string) s)) 
+    | Some s -> Core.(String.concat ~sep:"" (List.map ~f:(A.to_string) s)) 
 
   let accepts (dfa:t) (s:symbol list) =
     let qf = List.fold_left (fun q a -> CharMap.find a (Nfa.StateMap.find q dfa.transition)) dfa.start s in

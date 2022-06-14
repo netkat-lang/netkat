@@ -1,5 +1,5 @@
 open Alphabet
-open Core_kernel
+open Core
 
 module MakeRx (A : Alphabet) = struct
 
