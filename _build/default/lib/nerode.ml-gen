@@ -1,0 +1,34 @@
+(** @canonical Nerode.Alphabet *)
+module Alphabet = Nerode__Alphabet
+
+
+(** @canonical Nerode.Dfa *)
+module Dfa = Nerode__Dfa
+
+
+(** @canonical Nerode.Intalph *)
+module Intalph = Nerode__Intalph
+
+
+(** @canonical Nerode.Intrx *)
+module Intrx = Nerode__Intrx
+
+
+(** @canonical Nerode.Nfa *)
+module Nfa = Nerode__Nfa
+
+
+(** @canonical Nerode.Parser *)
+module Parser = Nerode__Parser
+
+
+(** @canonical Nerode.Rx *)
+module Rx = Nerode__Rx
+
+
+(** @canonical Nerode.Rx_lexer *)
+module Rx_lexer = Nerode__Rx_lexer
+
+
+(** @canonical Nerode.Rx_parser *)
+module Rx_parser = Nerode__Rx_parser

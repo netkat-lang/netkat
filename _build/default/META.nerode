@@ -1,0 +1,7 @@
+version = "0.0.1"
+description = ""
+requires = "core nice_parser yojson"
+archive(byte) = "nerode.cma"
+archive(native) = "nerode.cmxa"
+plugin(byte) = "nerode.cma"
+plugin(native) = "nerode.cmxs"
