@@ -1,1 +1,0 @@
-include Rx.MakeRx(Intalph)
