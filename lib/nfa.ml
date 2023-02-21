@@ -1,293 +1,276 @@
-open Alphabet
+type symbol = Alphabet.symbol
+type word = Alphabet.word
+
+module type State = sig
+  type t
+  module StateSet : Set.S with type elt = t
+  val compare : t -> t -> int
+  val to_string : t -> string
+  val fresh : StateSet.t -> t
+end
+
+type nsymbol = Char of symbol | Eps
+
+let to_string alpha nsym =
+  match nsym with
+  | Char x -> Alphabet.sym_to_string alpha x
+  | Eps -> "ε"
 
 module type N = sig
 
-  type character
-  type symbol = character option
-  type state = Int.t
+  type state
+  type t
 
   module StateSet : Set.S with type elt = state
   module StateMap : Map.S with type key = state
-  module CharMap : Map.S with type key = symbol
+  module CharMap : Map.S with type key = nsymbol
 
-  type t = {
-    start : StateSet.t;
-    final : StateSet.t;
-    transition : (StateSet.t CharMap.t) StateMap.t
-  }
-
-  val empty : t -> bool
-  val union : t -> t -> t
-  val kleene : t -> t
-  val concatenation : t -> t -> t
+  val mk_nfa : Alphabet.t -> state list -> state list -> (state*nsymbol*state) list -> t
+  val get_alpha : t -> Alphabet.t
+  val get_start : t -> StateSet.t
+  val contains_final : t -> StateSet.t -> bool
   val accept : t -> symbol list -> bool 
-  val intersection : t -> t -> t
-  val epsilon_remove : t -> t
-  val equivalence : t -> t -> bool
-  val get_all_states : t -> StateSet.t
-  val get_alphabet : t -> symbol list
-  val transition_from_char : t -> symbol -> StateSet.t -> StateSet.t
-  val to_dot : t -> string -> unit
-
+  val next : t -> StateSet.t -> symbol -> StateSet.t
+  val trans_list : t -> (state * nsymbol * state) list
+  val reverse : t -> t
+  val print : t -> unit
+  val to_rx : t -> Rx.t
 end
 
-module MakeNfa (A : Alphabet) = struct
+module Make (S : State) = struct
 
-  type character = A.symbol 
+  type state = S.t
 
-  type state = Int.t
-
-  type symbol = character option
-
-  module CharOrdered = struct
-
-    type t = A.symbol option
-
-    let compare c1 c2 = Option.compare A.compare c1 c2
-
+  module NSymOrdered = struct
+    type t = nsymbol
+    let compare c1 c2 = match c1,c2 with
+    | Eps, Eps -> 0
+    | Eps, _ -> -1
+    | _, Eps -> 1
+    | Char s1, Char s2 -> Alphabet.compare s1 s2
   end
 
-  module StateSet = Set.Make(Int)
-  module StateMap = Map.Make(Int)
-  module CharMap = Map.Make(CharOrdered)
+  module StateSet = S.StateSet
+  module StateMap = Map.Make(S)
+  module CharMap = Map.Make(NSymOrdered)
+
+  type tmap = (StateSet.t CharMap.t) StateMap.t
 
   type t = {
-    start : StateSet.t;
-    final : StateSet.t;
-    transition : (StateSet.t CharMap.t) StateMap.t
-  } 
+    alpha : Alphabet.t;   (* Σ *)
+    states : StateSet.t;  (* Q *)
+    transition : tmap;    (* δ *)
+    start : StateSet.t;   (* q0 *)
+    final : StateSet.t    (* F *)
+  }
 
-  let print_transitions nfa =
-    StateMap.iter (fun st char_map -> 
-        print_endline ("state: " ^ (string_of_int st));
-        CharMap.iter (fun ch states -> 
-            let char_str = match ch with
-              | None -> "eps"
-              | Some c -> A.to_string c in
-            print_endline ("char: " ^ char_str);
-            StateSet.iter (fun st -> print_endline (string_of_int st)) states;
-            print_endline "" 
-          ) 
-          char_map; print_endline "") nfa.transition
+  let mk_trans (tr: (state*nsymbol*state) list) : tmap =
+    List.fold_left (fun m (s1,x,s2) ->
+      let m' = match StateMap.find_opt s1 m with
+      | None -> CharMap.empty
+      | Some cm -> cm in
+      let m'' = match CharMap.find_opt x m' with
+      | None -> CharMap.add x (StateSet.singleton s2) m'
+      | Some set -> CharMap.add x (StateSet.add s2 set) m' in
+      StateMap.add s1 m'' m) StateMap.empty tr
 
-  let find_in_state_map map key default =
-    match StateMap.find_opt key map with
-    | Some value -> value 
-    | None -> default
-
-  let find_in_char_map map key default = 
-    match CharMap.find_opt key map with 
-    | Some value -> value 
-    | None -> default
-
-  let empty nfa = nfa.start = StateSet.empty
-
-  let combine_nfas m1 m2 = StateMap.union (fun k _ _ -> 
-      failwith ("duplicate key, invariant violated " ^ (string_of_int k))) m1 m2
-
-  let find_max k _ acc = max k acc
-
-  let get_max_state nfa1 nfa2 = 
-    let map1_max = StateMap.fold find_max nfa1.transition 0 in
-    let map2_max = StateMap.fold find_max nfa2.transition 0 in
-    max  map1_max map2_max
-
-  let union nfa1 nfa2 =
-    let nfa_union = combine_nfas nfa1.transition nfa2.transition in
-    let max_state = get_max_state nfa1 nfa2 in
-    let start_state = max_state + 1 in
-    let final_state = start_state + 1 in
-    let old_start_states = StateSet.union nfa1.start nfa2.start in
-    let transition = StateMap.add start_state
-        (CharMap.add None old_start_states (CharMap.empty)) nfa_union in
-    let old_final_states = StateSet.union nfa1.final nfa2.final in
-    let transition' = StateSet.fold (fun st map -> 
-        let init_char_map = find_in_state_map map st CharMap.empty in
-        StateMap.add st
-          (CharMap.add None (StateSet.singleton final_state) init_char_map) map)
-        old_final_states transition in
+  let mk_nfa (alpha: Alphabet.t) (start: state list) (final: state list) (tr: (state*nsymbol*state) list) =
+    let s = StateSet.of_list start in
+    let f = StateSet.of_list final in
+    let found = StateSet.of_list (List.fold_left (fun a (s1,x,s2) -> s1::s2::a) [] tr) in
+    let states = StateSet.union s f |> StateSet.union found in
+    let trans = mk_trans tr in
     {
-      start = StateSet.singleton start_state;
-      final = StateSet.singleton final_state;
-      transition = transition'
+      alpha = alpha;
+      states = states;
+      transition = trans;
+      start = s;
+      final = f;
     }
 
-  let get_all_states nfa =
-    StateMap.fold (fun st char_map acc ->
-        CharMap.fold (fun ch states total -> 
-            StateSet.union states total) char_map (StateSet.add st acc)
-      ) nfa.transition StateSet.empty
+  (* Computes a fixpoint by repeatedly applying f to a. That is,
+     returns b such that b = f^(n+1) a = f^n a for smallest natural number n, 
+     where e is the equality check
+     Careful! This loops infinitely if the fixpoint does not exist. *)
+  let rec fixpt f e a =
+    let a' = f a in
+    if e a' a then
+      a
+    else
+      fixpt f e a'
 
-  let get_alphabet nfa =
-    let char_map = nfa.transition |> StateMap.choose |> snd in
-    char_map |> CharMap.bindings |> (List.map fst)
+  let delta (nfa: t) (s: state) (x: nsymbol) : StateSet.t =
+    match StateMap.find_opt s nfa.transition with
+    | None -> StateSet.empty
+    | Some cm -> match CharMap.find_opt x cm with
+                 | None -> StateSet.empty
+                 | Some s' -> s'
 
-  let map_state_pairs nfa1 nfa2 start =
-    let count = ref start in
-    let tbl = Hashtbl.create 10 in
-    let nfa1_states = get_all_states nfa1 in
-    let nfa2_states = get_all_states nfa2 in
-    StateSet.iter (fun st1 -> StateSet.iter (fun st2 ->
-        Hashtbl.add tbl (st1, st2) !count; count := !count + 1) 
-        nfa2_states) nfa1_states; tbl
+  let one_step (nfa: t) (x: nsymbol) (init: StateSet.t) (states: StateSet.t) =
+    StateSet.fold (fun s a -> StateSet.union a (delta nfa s x)) states init
 
-  let create_transition pair_state st1 st2 char_map1 char_map2 curr tbl =
-    let char_map_new = CharMap.fold (fun ch states1 acc ->
-        match CharMap.find_opt ch char_map2 with
-        | Some states2 -> 
-          StateSet.fold (fun st1' acc1 -> 
-              StateSet.fold (fun st2' acc2 -> 
-                  let next_state = Hashtbl.find tbl (st1', st2') 
-                                   |> StateSet.singleton in
-                  CharMap.add ch next_state acc2) states2 acc1) states1 acc
-        | None -> acc) char_map1 CharMap.empty in
-    StateMap.add pair_state char_map_new curr
+  let eps_closure (nfa: t) (s: StateSet.t) : StateSet.t =
+    fixpt (one_step nfa Eps s) StateSet.equal s
 
-  let make_intersection_transitions nfa1 nfa2 tbl =
-    StateMap.fold (fun st1 char_map1 acc1 -> 
-        StateMap.fold (fun st2 char_map2 acc2 ->
-            let pair_state = Hashtbl.find tbl (st1, st2) in
-            create_transition pair_state st1 st2 char_map1 char_map2 acc2 tbl) 
-          nfa2.transition acc1) nfa1.transition StateMap.empty
+  let next (nfa: t) (states: StateSet.t) (x: symbol) : StateSet.t =
+    eps_closure nfa states |> one_step nfa (Char x) StateSet.empty |> eps_closure nfa
 
-  let get_intersection_start_final_states nfa1 nfa2 tbl =
-    StateMap.fold (fun st1 _ acc1 -> 
-        StateMap.fold (fun st2 _ acc2 -> 
-            let pair_state = Hashtbl.find tbl (st1, st2) in
-            let start = if StateSet.mem st1 nfa1.start && 
-                           StateSet.mem st2 nfa2.start then
-                StateSet.add pair_state (fst acc2) else fst acc2 in
-            let final = if StateSet.mem st1 nfa1.final &&
-                           StateSet.mem st2 nfa2.final then
-                StateSet.add pair_state (snd acc2) else snd acc2 in
-            start, final) nfa2.transition acc1) 
-      nfa1.transition (StateSet.empty, StateSet.empty)
+  let trans_list (nfa: t) : (state * nsymbol * state) list =
+    List.fold_left (fun a1 (s1, m) ->
+      List.fold_left (fun a2 (x, ss) -> 
+        StateSet.fold (fun s2 a3 -> (s1, x, s2)::a3) ss a2
+      ) a1 (CharMap.bindings m)
+    ) [] (StateMap.bindings nfa.transition)
 
-  let intersection nfa1 nfa2 = 
-    let max_state = get_max_state nfa1 nfa2 in
-    let tbl = map_state_pairs nfa1 nfa2 (max_state + 1) in
-    let state_map = make_intersection_transitions nfa1 nfa2 tbl in
-    let start, final = get_intersection_start_final_states nfa1 nfa2 tbl in
+  let reverse (nfa: t) : t =
+    let trans_rev = trans_list nfa |> List.map (fun (s1, x, s2) -> (s2, x, s1)) |> mk_trans in
+    { nfa with
+      start = nfa.final;
+      final = nfa.start;
+      transition = trans_rev }
+
+  let get_alpha (nfa: t) = nfa.alpha
+  let get_start (nfa: t) = nfa.start
+
+  let contains_final (nfa: t) (q: StateSet.t) =
+    StateSet.inter nfa.final q |> StateSet.is_empty |> not
+
+  let accept (nfa: t) (w: word) : bool =
+    List.fold_left (next nfa) nfa.start w
+    |> contains_final nfa
+
+  let print (nfa: t) =
+    Printf.printf "Σ:%s\n%!" (Alphabet.to_string nfa.alpha);
+
+    Printf.printf "Q: ";
+    StateSet.iter (fun s -> S.to_string s |> Printf.printf "%s ") nfa.states;
+    Printf.printf "\n%!";
+
+    Printf.printf "δ: ";
+    trans_list nfa |> 
+    List.iter (fun (s1, x, s2) ->
+      Printf.printf "(%s, %s, %s) " (S.to_string s1) (to_string nfa.alpha x) (S.to_string s2));
+    Printf.printf "\n%!";
+
+    Printf.printf "q0: ";
+    StateSet.iter (fun s -> S.to_string s |> Printf.printf "%s ") nfa.start;
+    Printf.printf "\n%!";
+
+    Printf.printf "F: ";
+    StateSet.iter (fun s -> S.to_string s |> Printf.printf "%s ") nfa.final;
+    Printf.printf "\n%!"
+
+
+    (* -- NFA -> Rx Conversion -- *)
+    module LabelOrdered = struct
+      type t = state * state
+      let compare ((a, b):t) ((c, d):t) = List.compare S.compare [a; b] [c; d]
+    end
+    module LabelMap = Stdlib.Map.Make(LabelOrdered)
+
+    (* Construct Rx from NFA using Node-elimination *)
+    let to_rx (nfa: t) : Rx.t =
+      (* Start with Empty for every pair of states *)
+      let empties: Rx.t LabelMap.t =
+        StateSet.fold (fun s1 a1 ->
+          StateSet.fold (fun s2 a2 ->
+            LabelMap.add (s1, s2) Rx.Empty a2) nfa.states a1) nfa.states LabelMap.empty in
+
+      (* Add in the transitions from the NFA *)
+      let dfa_labels = List.fold_left (fun m (s1, x, s2) ->
+        let sym = match x with
+        | Eps -> Rx.Epsilon
+        | Char y -> Rx.Char y in
+        LabelMap.update (s1,s2) (fun b ->
+          match b with
+          | None -> failwith "panic!!"
+          | Some rx -> Some (Rx.union_pair rx sym)) m
+      ) empties (trans_list nfa) in
+
+      (* Add a new start state *)
+      let new_start = S.fresh nfa.states in
+      let new_final = S.fresh nfa.states in
+
+      (* Compute (ss U {new_start}) x (ss U {new_final}) *)
+      let states_squared (ss:StateSet.t) : (state * state) list =
+        let from_set = StateSet.union ss (StateSet.singleton new_start) in
+        let to_set = StateSet.union ss (StateSet.singleton new_final) in
+        StateSet.fold (fun s1 a1 ->
+          StateSet.fold (fun s2 a2 -> (s1,s2)::a2) to_set a1) from_set [] in
+
+      let final_trans (s: state) : Rx.t =
+        if StateSet.mem s nfa.final then Rx.Epsilon else Rx.Empty in
+
+      let nonstart = StateSet.diff nfa.states nfa.start in
+
+      (* Add epsilon transition from new start state to old start state, and
+      from final states to new final state. *)
+      let extended_labels: Rx.t LabelMap.t =
+        StateSet.fold (fun s a -> LabelMap.add (new_start, s) Rx.Empty a) nonstart dfa_labels |>
+        StateSet.fold (fun s a -> LabelMap.add (new_start, s) Rx.Epsilon a) nfa.start |>
+        StateSet.fold (fun s a -> LabelMap.add (s, new_final) (final_trans s) a) nfa.states |>
+        LabelMap.add (new_start, new_final) Rx.Empty in
+
+      (* Now "remove" every original state, updating labels -
+         We don't actually remove anything, each round, just update the
+         "remaining" labels to account for the "removed" states *)
+      let final_labels: Rx.t LabelMap.t =
+        let rec eliminate (ss:StateSet.t) (labels: Rx.t LabelMap.t) =
+
+          (* "recreate" s *)
+          if StateSet.is_empty ss then labels else
+          let s = StateSet.min_elt ss in
+          let ns = StateSet.remove s ss in
+          let new_labels =
+            List.fold_left (fun a (s1,s2) ->
+              LabelMap.update (s1,s2) (fun r ->
+                match r with
+                | None -> failwith "of_dfa: Invalid key"
+                | Some rx -> Some (Rx.union_pair rx (Rx.seq [LabelMap.find (s1, s) a;
+                                                             Rx.star (LabelMap.find (s, s) a);
+                                                             LabelMap.find (s, s2) a]))) a)
+                labels (states_squared ns) in
+          eliminate ns new_labels in
+        eliminate nfa.states extended_labels in
+
+      (* All the states are "removed", just look at new_start -> new_final *)
+      LabelMap.find (new_start, new_final) final_labels
+
+  (*
+
+  (*
+  val mk_nfa : Alphabet.t -> state list -> state list -> (state*nsymbol*state) list -> t
+  *)
+
+  let of_json json : t =
+    let start = json |> member "start"
     {
-      start = start;
-      final = final;
-      transition = state_map;
+      start = json |> member "start" |> to_int;
+      transition = json |> member "trans" |> to_list |> json_to_triple |> make_transitions;
+      final = json |> member "final" |> to_list |> filter_int |> make_final;
     }
 
-  let concatenation nfa1 nfa2 = 
-    let nfa_union = combine_nfas nfa1.transition nfa2.transition in
-    let transition = StateSet.fold (fun st map ->
-        StateMap.add st (CharMap.add None nfa2.start CharMap.empty) map) 
-        nfa1.final nfa_union in
-    {
-      start = nfa1.start;
-      final = nfa2.final;
-      transition = transition
-    }
+  let make_transition_json dfa state char_map (acc : Yojson.Basic.t list) =
+    let transition_from_char ch next acc =
+      `List [`Int state; Alphabet.to_json ch; `Int next]::acc in
+    CharMap.fold transition_from_char char_map acc
 
-  let kleene nfa = 
-    let max_state = StateMap.fold find_max nfa.transition 0 in
-    let start_state = max_state + 1 in
-    let final_state = start_state + 1 in
-    let cycle_added = StateSet.fold (fun st acc ->
-        StateMap.add st (CharMap.add None nfa.start CharMap.empty) acc) 
-        nfa.final nfa.transition in
-    let final_transition_added = StateSet.fold (fun st acc ->
-        StateMap.add st (CharMap.add None (StateSet.singleton final_state) 
-                           CharMap.empty) acc)
-        nfa.final cycle_added in
-    let start_transition_added = StateMap.add start_state 
-        (CharMap.add None (StateSet.add final_state nfa.start) CharMap.empty) 
-        final_transition_added in
-    {
-      start = StateSet.singleton start_state;
-      final = StateSet.singleton final_state;
-      transition = start_transition_added
-    }
+  let dfa_to_json dfa =
+    let start_json = `Int dfa.start in
+    let transition_json =
+      `List (StateMap.fold (make_transition_json dfa) dfa.transition []) in
+    let final_json =
+      `List (StateSet.fold (fun elt acc -> (`Int elt)::acc) dfa.final []) in
+    `Assoc [
+      ("start", start_json);
+      ("trans", transition_json);
+      ("final", final_json);
+    ]
+    *)
+(* ---- OLD CODE - REWRITE/ADAPT ---- *)
 
-  let rec get_next_states_empty state_map tbl curr =
-    match CharMap.find_opt None tbl with
-    | Some states -> 
-      if StateSet.subset states curr then curr else
-        let new_states = StateSet.diff states curr in
-        let new_curr = StateSet.union states curr in
-        StateSet.fold (fun st acc -> 
-            match StateMap.find_opt st state_map with 
-            | Some tbl' -> get_next_states_empty state_map tbl' acc
-            | None -> acc
-          ) new_states new_curr
-    | None -> curr
+(*
 
-  let get_next_states_char state_map ch tbl curr =
-    let states = find_in_char_map tbl ch StateSet.empty in
-    StateSet.union states curr
-
-  let transition_from_empty nfa st = 
-    StateSet.fold (fun st acc ->
-        match StateMap.find_opt st nfa.transition with
-        | Some st_tbl -> get_next_states_empty nfa.transition st_tbl acc
-        | None -> acc) st st
-
-  let transition_from_char nfa char init_states =
-    StateSet.fold (fun st acc ->
-        match StateMap.find_opt st nfa.transition with
-        | Some st_tbl -> get_next_states_char nfa.transition char st_tbl acc 
-        | None -> acc)
-      init_states StateSet.empty
-
-  let accept nfa str =
-    let rec step st = function
-      | [] -> 
-        let final_states = transition_from_empty nfa st in
-        StateSet.disjoint nfa.final final_states |> not 
-      | h::t -> 
-        let init_states = transition_from_empty nfa st  in
-        let next_states = transition_from_char nfa h init_states in
-        let final_states = transition_from_empty nfa next_states in
-        step final_states t in
-    step nfa.start str
-
-  let get_epsilon_transitions_from_char nfa closure st 
-      (transitions, start, final) ch =
-    if ch = None then (transitions, start, final) else
-      begin
-        let next_states = transition_from_char nfa ch closure in
-        let char_transition = match StateMap.find_opt st transitions with
-          | Some char_map -> CharMap.add ch next_states char_map
-          | None -> CharMap.add ch next_states CharMap.empty in
-        let transitions' = StateMap.add st char_transition transitions in
-        let final' = if StateSet.disjoint closure final then final else  
-            StateSet.add st final in
-        let start' = if StateSet.disjoint closure start then start else
-            StateSet.add st start in
-        (transitions', start', final')
-      end
-
-  let get_epsilon_transitions nfa alphabet epsilon_closures =
-    Hashtbl.fold (fun st closure (transitions, start, final) ->
-        List.fold_left (get_epsilon_transitions_from_char nfa closure st) 
-          (transitions, start, final)
-          alphabet) epsilon_closures (StateMap.empty, nfa.start, nfa.final)
-
-  let epsilon_remove nfa =
-    let states = get_all_states nfa in
-    let epsilon_closures = Hashtbl.create 10 in
-    StateSet.iter (fun st -> 
-        Hashtbl.add epsilon_closures st 
-          (transition_from_empty nfa (StateSet.singleton st))) states;
-    let alphabet = get_alphabet nfa in
-    let (transitions, start, final) = get_epsilon_transitions nfa alphabet 
-        epsilon_closures in
-    let nfa' = 
-      {
-        start = start;
-        final = final;
-        transition = transitions;
-      } in
-    print_transitions nfa';
-    nfa'
-
-  let equivalence nfa1 nfa2 = failwith "unimplemented"
 
   let to_dot nfa file =
     let dot_lst_chars curr ch (next_states : StateSet.t) acc =
@@ -321,4 +304,21 @@ module MakeNfa (A : Alphabet) = struct
       Format.pp_print_flush fmt ();
       close_out out_ch
 
+let dump_latex dfa =
+  Printf.printf "\n\n\\begin{tikzpicture}\n";
+  StateSet.iter (fun s ->
+    Printf.printf "\\node[state";
+    if s = dfa.start then Printf.printf ", initial";
+    if s > 0 then Printf.printf ", right of=q%d" (s-1);
+    Printf.printf (if StateSet.mem s dfa.final then ", accepting" else "");
+    Printf.printf "] (q%d) {q%d};\n" s s
+  ) (get_states dfa);
+  StateMap.iter (fun s1 cm ->
+    CharMap.iter (fun c s2 ->
+      let x = if sym_to_string dfa.alpha c = "0" then "a" else "b" in
+      Printf.printf "\\draw (q%d) edge[bend right, above] node{$%s$} (q%d);\n" s1 x s2
+    ) cm
+  ) dfa.transition;
+  Printf.printf "\\end{tikzpicture}\n"
+*)
 end 

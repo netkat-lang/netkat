@@ -3,7 +3,7 @@
 %token E X
 %token <int> NUM
 
-%start <Intrx.t> rx_eof
+%start <Rx.t> rx_eof
 
 %%
 
@@ -15,22 +15,22 @@ rx:
   | r=prx { r }
 
 prx:
-  | r1=irx; PLUS; r2=prx { Intrx.union_pair r1 r2 }
+  | r1=irx; PLUS; r2=prx { Rx.union_pair r1 r2 }
   | r=irx { r }
 
 irx:
-  | r1=drx; AND; r2=irx { Intrx.intersect_pair r1 r2 }
+  | r1=drx; AND; r2=irx { Rx.intersect_pair r1 r2 }
   | r=drx { r }
 
 drx:
-  | r1=urx; DOT; r2=drx { Intrx.seq_pair r1 r2 }
-  | c1=cx; r2=drx { Intrx.seq_pair c1 r2 }
+  | r1=urx; DOT; r2=drx { Rx.seq_pair r1 r2 }
+  | c1=cx; r2=drx { Rx.seq_pair c1 r2 }
   | r=urx { r }
 
 urx:
-  | r=urx; QMARK { Intrx.qmark r }
-  | r=urx; STAR { Intrx.star r }
-  | r=urx; NEG { Intrx.neg r }
+  | r=urx; QMARK { Rx.qmark r }
+  | r=urx; STAR { Rx.star r }
+  | r=urx; NEG { Rx.neg r }
   | r=arx { r }
 
 arx:
@@ -39,9 +39,9 @@ arx:
   ;
 
 cx:
-  | n = NUM { Intrx.Char (n) }
-  | X { Intrx.(union_pair (Char 0) (Char 1)) }
-  | E { Intrx.Epsilon }
+  | n = NUM { Rx.Char (Alphabet.sym_of_int n) }
+  | X { Rx.(union_pair (Char (Alphabet.sym_of_int 0)) (Char (Alphabet.sym_of_int 1))) }
+  | E { Rx.Epsilon }
   ;
 
 %%

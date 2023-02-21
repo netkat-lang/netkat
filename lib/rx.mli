@@ -1,57 +1,51 @@
 open Alphabet
 
-module MakeRx (A : Alphabet) : sig
+type t =
+  | Empty
+  | Epsilon
+  | Char of symbol
+  | Seq of t list
+  | Union of t list
+  | Star of t
+  | QMark of t
+  | Intersect of t list
+  | Neg of t
+val compare : t -> t -> int
 
-  (* module Dfa : sig
-      type t
-      val dfa_to_json : t -> Yojson.Basic.t
-      val representative : t -> string
-     end *)
-  module Dfa : Dfa.D with type symbol = A.symbol
+(* [equiv r] decides if the two regexs are *syntactically* equivalent *)
+val equiv : t -> t -> bool
 
-  type t =
-    | Empty
-    | Epsilon
-    | Char of A.symbol
-    | Seq of t list
-    | Union of t list
-    | Star of t
-    | QMark of t
-    | Intersect of t list
-    | Neg of t
-  val compare : t -> t -> int
+val seq : t list -> t
+val seq_pair : t -> t -> t
 
-  (* [equiv r] decides if the two regexs are equivalent *)
-  val equiv : t -> t -> bool
+val union : t list -> t
+val union_pair : t -> t -> t
 
-  val seq : t list -> t
-  val seq_pair : t -> t -> t
+val intersect : t list -> t
+val intersect_pair : t -> t -> t
 
-  val union : t list -> t
-  val union_pair : t -> t -> t
+val star : t -> t
+val qmark : t -> t
+val neg : t -> t
 
-  val intersect : t list -> t
-  val intersect_pair : t -> t -> t
+val difference : t -> t -> t
 
-  val star : t -> t
-  val qmark : t -> t
-  val neg : t -> t
+val to_string : Alphabet.t -> t -> string
 
-  val difference : t -> t -> t
+(* Nullable *)
+val e : t -> bool
 
-  val to_string : t -> string
+(* Brzozowski derivative *)
+val d : symbol -> t -> t
 
-  (* Nullable *)
-  val e : t -> bool
+(* DFA construction *)
+(*
+val to_dfa : Alphabet.t -> t -> Dfa.t
+val of_dfa : Dfa.t -> t
+*)
 
-  (* Brzozowski derivative *)
-  val d : A.symbol -> t -> t
-
-  (* DFA construction *)
-  val to_dfa : t -> Dfa.t
-  val of_dfa : Dfa.t -> t
-
-  (* Representative *)
-  val rep_symlist : t -> A.symbol list option
-  val rep_string : t -> string
-end
+(* Representative *)
+(*
+val rep_symlist : t -> symbol list option
+val rep_string : t -> string
+*)

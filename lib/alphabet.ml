@@ -1,68 +1,88 @@
-module type Alphabet = sig
+type symbol = int
+type word = symbol list
 
-  type symbol
-  type t
+type t = string array
 
-  val alphabet : t
+let intalph (n: int) : t = List.map string_of_int (List.init n Fun.id) |> Array.of_list
 
-  val compare : symbol -> symbol -> int
+let size = Array.length
 
-  val iter : (symbol->unit) -> t -> unit
-  val fold :  ('a->symbol->'a) -> 'a -> 'a
-  val map : (symbol->'a) -> t -> 'a list
+let of_string_array (a: string array) = a
 
-  val extract_json : Yojson.Basic.t -> symbol
+let compare = Stdlib.compare
 
-  val to_json : symbol -> Yojson.Basic.t
+let symbols (t:t) = List.init (Array.length t) Fun.id
 
-  val to_string : symbol -> string
+let iter (f:symbol->unit) (t:t) = List.iter f (symbols t)
 
-  val of_string : string -> symbol list list
+let fold (f:'a->symbol->'a) (a:'a) (t:t) = List.fold_left f a (symbols t)
 
-  val of_int : int -> symbol
+let map (f:symbol->'a) (t:t) = List.map f (symbols t)
 
-  val enum_strings : int -> t list
-end
+let sym_of_sexp = Core.Int.t_of_sexp
+let sexp_of_sym = Core.Int.sexp_of_t
 
-module A : Alphabet = struct
+let sym_of_json = function
+  | `Int i -> i
+  | `String s -> int_of_string s
+  | _ -> failwith "invalid json format"
 
-  type symbol = int
+let sym_to_json i = `Int i
 
-  let compare = Stdlib.compare
+let of_json = function
+  | `List lst -> List.map (fun j -> 
+    match j with
+    | `String s -> s
+    | _ -> failwith "Alphabet symbols must be strings") lst |> Array.of_list
+  | _ -> failwith "Alphabet must be a json list"
 
-  type t = int list
+let to_json (a:t) = 
+  let lst = Array.to_list a |> List.map (fun s -> `String s) in
+  `List lst
 
-  let alphabet: t = [0 ; 1]
+let sym_to_string t x = t.(x)
 
-  let iter = List.iter
+let to_string t =
+  Array.to_list t |> String.concat " "
+  
+let w_to_string (t:t) (w:word) =
+  List.fold_left (fun s x -> s^(sym_to_string t x)) "" w
 
-  let fold (f:'a->symbol->'a) (a:'a) = List.fold_left f a alphabet
+let sym_of_int = Fun.id
+let sym_to_int = Fun.id
 
-  let map = List.map
+let w_of_ints (lst: int list) = lst
 
-  let extract_json = function
-    | `Int i -> i
-    | _ -> failwith "invalid json format"
+let w_to_ints (lst: word) = lst
 
-  let to_json i = `Int i
-
-  let to_string = string_of_int
-
-  let of_int = Fun.id
-
-  let of_string s =
-    let rec consume_char i lst =
-      if i < 0 then lst
-      else if s.[i] = 'X' then
-        consume_char (pred i) (List.fold_left (fun acc w -> (1::w)::(0::w)::acc) [] lst)
+let ws_of_strings (t:t) s =
+  let rec idx s i =
+    if String.equal t.(i) s then
+      i
+    else
+      idx s (i+1) in
+  let index s = idx s 0 in
+  let rec consume rem acc =
+    match rem with
+    | [] -> acc
+    | hd::tl ->
+      if hd = "X" then (* X is wildcard: add each symbol to every word in acc *)
+        consume tl (List.fold_left (fun a2 w -> 
+              List.fold_left (fun a3 x -> (x::w)::a3) a2 (symbols t)) [] acc)
       else
-        consume_char (pred i) (List.map (fun w -> (int_of_char s.[i] - 48)::w) lst)
-    in
-    consume_char (String.length s |> pred) [[]]
+        consume tl (List.map (fun w -> (index hd)::w) acc)
+  in
+  consume (List.rev s) [[]]
 
-  let rec enum_strings (strlen: int) =
-    let succ (ll: t list) =
-      List.fold_left (fun a1 s ->
-        List.fold_left (fun a2 x -> (x::s)::a2) a1 alphabet) [[]] ll in
-    if strlen = 0 then [[]] else succ (enum_strings (strlen-1))
-end
+let rec prefix_of (s1: word) (s2: word) : bool =
+  match s1, s2 with
+  | [], _ -> true
+  | a::s1_tail, b::s2_tail when a = b -> prefix_of s1_tail s2_tail
+  | _, _ -> false
+
+(* [resid pre w] returns Some s if w = pre@s; otherwise None *)
+let rec resid (pre: word) (w: word) : word option =
+  match pre, w with
+  | [], _ -> Some w
+  | a::s1_tail, b::s2_tail when a = b -> resid s1_tail s2_tail
+  | _, _ -> None

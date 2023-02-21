@@ -1,25 +1,41 @@
-module type Alphabet = sig
+type symbol
+type word 
+  = symbol list
+type t
 
-  type symbol
-  type t
+val intalph : int -> t
 
-  val alphabet : t
+val size : t -> int
 
-  val compare : symbol -> symbol -> int
+val of_string_array : string array -> t
 
-  val iter : (symbol->unit) -> t -> unit
-  val fold :  ('a->symbol->'a) -> 'a -> 'a
-  val map : (symbol->'a) -> t -> 'a list
+val compare : symbol -> symbol -> int
 
-  val extract_json : Yojson.Basic.t -> symbol
+val symbols : t -> symbol list
 
-  val to_json : symbol -> Yojson.Basic.t
+val iter : (symbol->unit) -> t -> unit
 
-  val to_string : symbol -> string
+val fold :  ('a->symbol->'a) -> 'a -> t -> 'a
 
-  val of_string : string -> symbol list list
+val map : (symbol->'a) -> t -> 'a list
 
-  val of_int : int -> symbol
+val sym_of_sexp : Core.Sexp.t -> symbol
+val sexp_of_sym : symbol -> Core.Sexp.t
+val sym_of_json : Yojson.Basic.t -> symbol
+val sym_to_json : symbol -> Yojson.Basic.t
+val of_json : Yojson.Basic.t -> t
+val to_json : t -> Yojson.Basic.t
 
-  val enum_strings : int -> t list
-end
+val sym_to_string : t -> symbol -> string
+val to_string : t -> string
+val w_to_string : t -> word -> string
+
+val sym_of_int : int -> symbol
+val sym_to_int : symbol -> int
+
+val w_of_ints : int list -> word
+val w_to_ints : word -> int list
+val ws_of_strings : t -> string list -> word list
+
+val prefix_of : word -> word -> bool
+val resid : word -> word -> word option
