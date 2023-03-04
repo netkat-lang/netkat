@@ -32,20 +32,10 @@ val difference : t -> t -> t
 
 val to_string : Alphabet.t -> t -> string
 
+val of_word : Alphabet.word -> t
+
 (* Nullable *)
 val e : t -> bool
 
 (* Brzozowski derivative *)
 val d : symbol -> t -> t
-
-(* DFA construction *)
-(*
-val to_dfa : Alphabet.t -> t -> Dfa.t
-val of_dfa : Dfa.t -> t
-*)
-
-(* Representative *)
-(*
-val rep_symlist : t -> symbol list option
-val rep_string : t -> string
-*)

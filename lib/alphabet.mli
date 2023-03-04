@@ -1,6 +1,5 @@
 type symbol
-type word 
-  = symbol list
+type word = symbol list
 type t
 
 val intalph : int -> t

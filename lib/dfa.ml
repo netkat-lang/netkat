@@ -153,7 +153,7 @@ let of_rx (alpha: Alphabet.t) (rx: Rx.t) : t =
   mk_dfa {eq = Rx.equiv; d = Rx.d; e = Rx.e} alpha rx
 let to_rx (dfa: t) : Rx.t = to_nfa dfa |> IntNfa.to_rx
 
-(* Crossproduct of DFAs *)
+(* Crossproduct of DFAs -- for intersect, union, symdiff, diff*)
 let dfa_op = {
   eq = (fun (_,a,_,b) (_,c,_,d) -> (a=c && b=d));
   d = (fun a (d0,s0,d1,s1) -> (d0, step d0 s0 a, d1, step d1 s1 a));
