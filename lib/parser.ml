@@ -1,3 +1,5 @@
+(** Parser for regular expressions over the alphabet ["0"; "1"] *)
+
 include Nice_parser.Make(struct
   type result = Rx.t
   type token = Rx_parser.token

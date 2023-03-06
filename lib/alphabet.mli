@@ -1,3 +1,5 @@
+(** Represents a finite alphabet of symbols. *)
+
 type symbol
 type word = symbol list
 type t
@@ -36,5 +38,8 @@ val w_of_ints : int list -> word
 val w_to_ints : word -> int list
 val ws_of_strings : t -> string list -> word list
 
+(** [prefix_of w1 w2] returns [true] if [w1 = w2@suffix] for some (possibly empty) word [suffix] *)
 val prefix_of : word -> word -> bool
+
+(** [resid pre w] returns [Some s] if [w = pre@s]. Otherwise returns [None] *)
 val resid : word -> word -> word option

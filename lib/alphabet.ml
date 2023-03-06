@@ -1,6 +1,9 @@
 type symbol = int
 type word = symbol list
 
+(** Under this reperesentation, each symbol is an index into the
+    array of strings. For example if our alphabet is [| "a" ; "b" |] then
+    the list of symbols will be [0; 1]. *)
 type t = string array
 
 let intalph (n: int) : t = List.map string_of_int (List.init n Fun.id) |> Array.of_list
@@ -80,7 +83,6 @@ let rec prefix_of (s1: word) (s2: word) : bool =
   | a::s1_tail, b::s2_tail when a = b -> prefix_of s1_tail s2_tail
   | _, _ -> false
 
-(* [resid pre w] returns Some s if w = pre@s; otherwise None *)
 let rec resid (pre: word) (w: word) : word option =
   match pre, w with
   | [], _ -> Some w

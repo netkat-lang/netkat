@@ -9,3 +9,7 @@
   (name nerode)
   (public_name nerode)
   (libraries yojson nice_parser core))
+
+(documentation
+  (package nerode)
+  (mld_files :standard))

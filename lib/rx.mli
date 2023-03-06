@@ -1,3 +1,5 @@
+(** Representation of a Regular expression. *)
+
 open Alphabet
 
 type t =
@@ -34,8 +36,8 @@ val to_string : Alphabet.t -> t -> string
 
 val of_word : Alphabet.word -> t
 
-(* Nullable *)
+(** Syntactic Brzozowski nullable predicate *)
 val e : t -> bool
 
-(* Brzozowski derivative *)
+(** Syntatic Brzozowski derivative *)
 val d : symbol -> t -> t

@@ -1,7 +1,6 @@
-(*
-open Yojson.Basic
-open Yojson.Basic.Util
-*)
+(** Representation of a Nondeterministic Finite Automaton (NFA), functorized
+    over an abstract type for states. *)
+
 type symbol = Alphabet.symbol
 type word = Alphabet.word
 

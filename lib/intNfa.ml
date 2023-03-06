@@ -1,3 +1,5 @@
+(** Instance of NFA, where states are type [int] *)
+
 module FInt = struct
   module StateSet = Set.Make(Int)
   include Int
