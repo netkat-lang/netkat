@@ -23,9 +23,6 @@ let idx (eq: 'a -> 'a -> bool) (lst: 'a list) (q: 'a) =
     | x::tail -> if eq x q then i else idxr eq tail q (i+1) in
   idxr eq lst q 0
 
-(* Generalizes (Owens, Reppy, Turon; JFP 2009) approach for Rx->Dfa.
-   This polymorphic implemention also subsumes Nfa->Dfa, and Dfa binary operations
-   (implemented below), in addition to Rx->Dfa *)
 let rec dfa_goto (alpha: Alphabet.t) (r: 'a regular) (q: 'a) (c: symbol)
                  (states: 'a list) (delta: ('a trans) list) =
   let qc = r.d c q in
