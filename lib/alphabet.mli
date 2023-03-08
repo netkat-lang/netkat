@@ -45,15 +45,31 @@ val prefix_of : word -> word -> bool
 (** [resid pre w] returns [Some s] if [w = pre@s]. Otherwise returns [None]. *)
 val resid : word -> word -> word option
 
+(** Serialize to S-Expression. *)
 val sym_of_sexp : Core.Sexp.t -> symbol
+
+(** Deserialize from S-Expression. *)
 val sexp_of_sym : symbol -> Core.Sexp.t
+
+(** Serialize symbol to JSON. *)
 val sym_of_json : Yojson.Basic.t -> symbol
+
+(** Deserialize symbol from JSON. *)
 val sym_to_json : symbol -> Yojson.Basic.t
+
+(** Serialize alphabet to JSON. *)
 val of_json : Yojson.Basic.t -> t
+
+(** Deserialize alphabet from JSON. *)
 val to_json : t -> Yojson.Basic.t
 
+(** Convert a symbol to its string representation. *)
 val sym_to_string : t -> symbol -> string
+
+(** Convert an alphabet to its string representation. *)
 val to_string : t -> string
+
+
 val w_to_string : t -> word -> string
 
 val sym_of_int : int -> symbol
