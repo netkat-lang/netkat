@@ -73,13 +73,33 @@ end
 module Determinizer:
   functor (S : Nfa.State) -> Determ
 
+(** Convert the DFA to an NFA which has the same transitions and accepting states. *)
 val to_nfa : t -> IntNfa.t
+
+(** Perform DFA minimization. *)
 val minimize : t -> t
+
+(** Construct a DFA from a Regular Expression. An alphabet is required since a Regular Expression
+    need not contain all symbols from its alphabet, but a DFA does need to
+    define transitions for all symbols. *)
 val of_rx : Alphabet.t -> Rx.t -> t
+
+(* Construct a Regular Expression representing the language of the DFA. *)
 val to_rx : t -> Rx.t
 
+(* Construct a DFA recognizing the union of the languages of two DFAs. *)
 val union : t -> t -> t
+
+(* Construct a DFA recognizing the intersection of the languages of two DFAs. *)
 val intersect : t -> t -> t
+
+(* Construct a DFA recognizing the language of the first DFA minus the language of
+   the second DFA. *)
 val diff : t -> t -> t
+
+(* Construct a DFA recognizing the union of the languages of two DFAs. *)
 val symdiff : t -> t -> t
+
+(* Construct a DFA recognizing all strings which are either accepted by both
+   DFAs or rejected by both DFAs. *)
 val equiv : t -> t -> bool

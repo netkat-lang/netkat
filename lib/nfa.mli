@@ -25,35 +25,35 @@ module type N = sig
 
   type t
 
+  (* Construct an NFA given an alphabet, set of start states, set of final
+     states, and a list of transitions. The set of all states is the collection of those
+     referenced by the start and final sets and the list of transitions. *)
   val mk_nfa : Alphabet.t -> state list -> state list -> (state*nsymbol*state) list -> t
   val get_alpha : t -> Alphabet.t
   val get_start : t -> StateSet.t
   val contains_final : t -> StateSet.t -> bool
+
+  (* Run the NFA on a word and return [true] if the word is accepted and
+     [false] otherwise *)
   val accept : t -> word -> bool
+
+  (* Given an NFA, a set of states, and a symbol, return the set of states that would
+     be obtained by performing ``one step'', i.e. reading the given symbol. *)
   val next : t -> StateSet.t -> symbol -> StateSet.t
+
+  (** Return the transitions of the NFA as a list of [state, symbol, state] triples. *)
   val trans_list : t -> (state * nsymbol * state) list
+
+  (** Construct an NFA which recognizes the reverse of the language of the given NFA, i.e. the
+      set of words which are the reverse of a word accepted by the input NFA. *)
   val reverse : t -> t
+
+  (** Write a string representation of the NFA to stdout. *)
   val print : t -> unit
+
+  (** Conver the NFA to a Regular Expression. *)
   val to_rx : t -> Rx.t
-  (*
-  rewrite / adapt:
-  val json_to_dfa : Yojson.Basic.t -> t
 
-  val dfa_to_json : t ->
-    [> `Assoc of (string * [> `Int of state |
-                            `List of Yojson.Basic.t list ]) list ]
-                            *)
-  (*
-  val union : t -> t -> t
-
-  val kleene : t -> t
-
-  val concatenation : t -> t -> t
-
-  val intersection : t -> t -> t
-
-  val to_dot : t -> string -> unit
-  *)
 end
 
 module Make: 
