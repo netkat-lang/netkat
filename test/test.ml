@@ -1,121 +1,104 @@
-(* open Alcotest *)
+(** Some unit tests for the modules in Nerode. *)
+
 open Nerode
-open Nfa
-open Dfa
 
-Nfa.
+(* More tests might be appropriate..*)
 
-let is_empty () =
-  Alcotest.(check bool) "same bool" true (IntNfa.empty int_nfa_empty)
+let w001 = Alphabet.w_of_ints [0;0;1]
+let w10 = Alphabet.w_of_ints [1;0]
 
-let not_empty () =
-  Alcotest.(check bool) "same bool" false (IntNfa.empty int_nfa_1)
+let rx001 = Rx.of_word w001
+let rx10 = Rx.of_word w10
 
-let reject_two_ones () =
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept int_nfa_1 [Some 1; Some 1])
+let rx001star = Rx.star rx001
+let rx_empty = Rx.Empty
 
-let reject_odd_ones () =
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept int_nfa_1 [Some 1; Some 1; Some 1])
+let dfa_empty = Dfa.of_rx (Alphabet.intalph 2) rx_empty
+let dfa001 = Dfa.of_rx (Alphabet.intalph 2) rx001
+let dfa10 = Dfa.of_rx (Alphabet.intalph 2) rx10
 
-let reject_many_zeroes () =
-  Alcotest.(check bool) "same bool" true
-    (IntNfa.accept int_nfa_1 [Some 1; Some 0; Some 1; Some 0])
+let nfa001 = Dfa.to_nfa dfa001
+let nfa10 = Dfa.to_nfa dfa10
 
-let accept_three_zeroes () = 
-  Alcotest.(check bool) "same bool" true
-    (IntNfa.accept int_nfa_3 [Some 0; Some 0; Some 0])
+(* DFA tests *)
+let dfa_is_empty () =
+  Alcotest.(check bool) "same bool" true (Dfa.is_empty dfa_empty)
 
-let union_accepts_even_zeroes () =
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Some 0; Some 0])
+let dfa_not_empty () =
+  Alcotest.(check bool) "same bool" false (Dfa.is_empty dfa001)
 
-let union_rejects_odd_ones_and_zeroes () =
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.union int_nfa_1 int_nfa_2) [Some 1; Some 0])
+let dfa_rep () =
+  Alcotest.(check bool) "same bool" true (Dfa.rep dfa001 = w001)
 
-let concatenation_accepts_even_ones_even_zeroes () = 
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Some 1; Some 1; Some 0; Some 0])
+let dfa_accept () =
+  Alcotest.(check bool) "same bool" true (Dfa.accept dfa001 w001)
 
-let concatenation_rejects_odd_ones_odd_zeroes () = 
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Some 1; Some 1; Some 1; Some 0;])
+let dfa_reject () =
+  Alcotest.(check bool) "same bool" false (Dfa.accept dfa001 w10)
 
-let concatenation_accepts_odd_ones () = 
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.concatenation int_nfa_1 int_nfa_2) 
-       [Some 1; Some 1; Some 1; Some 0; Some 0])
+let union_accept_001 () =
+  Alcotest.(check bool) "same bool" true (Dfa.accept (Dfa.union dfa001 dfa10) w001)
 
-let kleene_accepts_empty () = 
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3) [])
+let union_accept_10 () =
+  Alcotest.(check bool) "same bool" true (Dfa.accept (Dfa.union dfa001 dfa10) w10)
 
-let kleene_accepts_three_zeroes () = 
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Some 0; Some 0; Some 0])
+let sym_diff_empty () =
+  Alcotest.(check bool) "same bool" false (Dfa.symdiff dfa001 dfa10 |> Dfa.is_empty)
 
-let kleene_accepts_six_zeroes () = 
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3)
-       [Some 0; Some 0; Some 0; Some 0; Some 0; Some 0])
+let intersect_empty () =
+  Alcotest.(check bool) "same bool" true (Dfa.intersect dfa001 dfa10 |> Dfa.is_empty)
 
-let kleene_rejects_four_zeroes () = 
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.kleene int_nfa_3) [Some 0; Some 0; Some 0; Some 0])
+let diff_accept_001 () =
+  Alcotest.(check bool) "same bool" true (Dfa.accept (Dfa.diff dfa001 dfa10) w001)
 
-let intersection_accepts_even_ones_even_zeroes () =
-  Alcotest.(check bool) "same bool" true 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 0; Some 1; Some 0; Some 1])
-
-let intersection_rejects_odd_ones () =
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 0; Some 1; Some 0])
-
-let intersection_rejects_odd_zeroes () =
-  Alcotest.(check bool) "same bool" false 
-    (IntNfa.accept (IntNfa.intersection int_nfa_1 int_nfa_2) [Some 1; Some 0; Some 1])
-
-let intersection_rejects_three_zeroes () =
-  Alcotest.(check bool) "same bool" false
-    (IntNfa.accept (IntNfa.intersection int_nfa_2 int_nfa_3) [Some 0; Some 0; Some 0])
-
-let epsilon_remove_accepts_even_ones () =
-  Alcotest.(check bool) "same bool" true
-    (IntNfa.accept (IntNfa.epsilon_remove int_nfa_4) [Some 1; Some 1])
-
-let epsilon_remove_rejects_empty_string () =
-  Alcotest.(check bool) "same bool" false
-    (IntNfa.accept (IntNfa.epsilon_remove int_nfa_4) [Some 1])
-
-module IntDfa = MakeDfa(Intalph)
-(* open IntDfa.Nfa *)
-open IntDfa
-
-let transition_5 =
-  let char_map_1 = CharMap.add 1 1 CharMap.empty in
-  let char_map_2 = CharMap.add 0 0 char_map_1 in
-  let char_map_3 = CharMap.add 1 0 CharMap.empty in
-  let char_map_4 = CharMap.add 0 1 char_map_3 in
-  let state_map = Nfa.StateMap.add 0 char_map_2 Nfa.StateMap.empty in
-  Nfa.StateMap.add 1 char_map_4 state_map
-
-let int_dfa_1 : IntDfa.t =
-  {
-    start = 0;
-    final = Nfa.StateSet.singleton 0;
-    transition = transition_5;
-  } 
-
-let minimize_accepts_even_ones () =
-  Alcotest.(check bool) "same bool" true
-    (IntDfa.Nfa.accept (int_dfa_1 |> IntDfa.minimize_dfa |> IntDfa.dfa_to_nfa) 
-       [Some 1; Some 1])
+let diff_reject_10 () =
+  Alcotest.(check bool) "same bool" false (Dfa.accept (Dfa.diff dfa001 dfa10) w10)
 
 let () =
+  Alcotest.run "Dfa"
+  [
+    ( "empty",
+      [
+        Alcotest.test_case "empty" `Quick dfa_is_empty;
+        Alcotest.test_case "not empty" `Quick dfa_not_empty;
+      ]
+    );
+    ( "rep",
+      [
+        Alcotest.test_case "rep" `Quick dfa_rep;
+      ]
+    );
+    ( "accept",
+      [
+        Alcotest.test_case "accept" `Quick dfa_accept;
+        Alcotest.test_case "reject" `Quick dfa_reject;
+      ]
+    );
+    ( "union",
+      [
+        Alcotest.test_case "accept 001" `Quick union_accept_001;
+        Alcotest.test_case "accept 10" `Quick union_accept_10;
+
+      ]
+    );
+    ( "sym-diff",
+      [
+        Alcotest.test_case "sym-diff empty" `Quick sym_diff_empty;
+      ]
+    );
+    ( "intersect",
+      [
+        Alcotest.test_case "intersect empty" `Quick intersect_empty;
+      ]
+    );
+    ( "diff",
+      [
+        Alcotest.test_case "diff accept 001" `Quick diff_accept_001;
+        Alcotest.test_case "diff reject 10" `Quick diff_reject_10;
+      ]
+    );
+  ]
+  (*
   Alcotest.run "Nfa"
     [
       ( "empty",
@@ -165,3 +148,4 @@ let () =
           Alcotest.test_case "reject 1" `Quick epsilon_remove_rejects_empty_string;
         ]);
     ]
+*)
