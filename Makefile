@@ -23,6 +23,8 @@ build:
 
 doc:
 	dune build @doc
+	rm -rf ./docs
+	mv _build/default/_doc/_html ./docs
 
 run:
 	dune exec $(NAME)
@@ -35,3 +37,4 @@ test:
 
 clean:
 	dune clean
+	rm -rf ./docs
