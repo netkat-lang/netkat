@@ -3,22 +3,28 @@
 type symbol = Alphabet.symbol
 type word = Alphabet.word
 
-(** DFA *)
+(** DFA type. *)
 type t
+
+(** Type of the DFA states. *)
 type state
 
+(** Set of states. *)
 module StateSet : Set.S with type elt = int
 
 (** Provides an interface to mk_dfa:
-   @param 'a is the type of state, where:
+   @param ['a] is the type of state, where:
    [eq s0 s1] Returns true if s0 and s1 are the same state.
    [d a q]    Returns the derivative of q wrt a; that is, the state we should
               transition to on a from q.
    [e q]      Returns true if q is an accepting state.
 
+   The type ['a] does not need to be the same type as [state] because
+   states of type [state] are created and assigned during DFA construction.
+   This way [mk_dfa] can be polymorphic over *any* input type ['a regular].
+
    See [dfa.ml] for examples of use in determinization and implementations of
    intersect, union, and difference*)
-
 type 'a regular = { eq: 'a -> 'a -> bool;
                     d: symbol -> 'a -> 'a;
                     e: 'a -> bool }
@@ -70,6 +76,7 @@ module type Determ  = sig
   val determinize : N.t -> t
 end
 
+(** This module allows NFAs with any [state] type to determinize to DFA. *)
 module Determinizer:
   functor (S : Nfa.State) -> Determ
 

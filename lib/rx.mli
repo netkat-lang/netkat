@@ -13,9 +13,10 @@ type t =
   | Intersect of t list
   | Neg of t
 
+(** Provides a comparison using the standard interface to [compare] *)
 val compare : t -> t -> int
 
-(* [equiv r] decides if the two regexs are *syntactically* equivalent *)
+(** [equiv r] decides if the two regexs are *syntactically* equivalent *)
 val equiv : t -> t -> bool
 
 (** Construct a regular expression which is the concatenation of a list of

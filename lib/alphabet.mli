@@ -9,8 +9,8 @@ type word = symbol list
 (** An alphabet: a finite collection of symbols. *)
 type t
 
-(** [intalph k] returns an alphabet containing the symbols {0, 1, ..., k-1},
-   with string representations "0", "1", ... *)
+(** [intalph k] returns an alphabet containing the symbols \{0, 1, ..., k-1\},
+    with string representations "0", "1", ... *)
 val intalph : int -> t
 
 (** [size alpha] returns the size of [alpha] *)
@@ -69,12 +69,23 @@ val sym_to_string : t -> symbol -> string
 (** Convert an alphabet to its string representation. *)
 val to_string : t -> string
 
-
+(** Convert a word (of alphabet symbols) to its string representation. *)
 val w_to_string : t -> word -> string
 
-val sym_of_int : int -> symbol
+(** Convert (injectively) a symbol to an integer. *)
 val sym_to_int : symbol -> int
 
+(** Convert an integer to a symbol. It is an error to convert an integer greater
+    than or equal to the size of the alphabet. *)
+val sym_of_int : int -> symbol
+
+(** Form a word from a list of integers. *)
 val w_of_ints : int list -> word
+
+(** Convert a word to a list of integers. *)
 val w_to_ints : word -> int list
+
+(** Form a list of words from a list of strings. The character 'X' is a wildcard.
+    That is, for example, for the alphabet \{0, 1\}, [ws_of_strings ["0X"]] converts
+    to the words [[0;0]] and [[0;1]]. *)
 val ws_of_strings : t -> string list -> word list

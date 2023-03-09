@@ -1,10 +1,13 @@
 (** Representation of a Nondeterministic Finite Automaton (NFA), functorized
     over an abstract type for states. *)
 
+(** Use the Alphabet symbol type. *)
 type symbol = Alphabet.symbol
+
+(** Use the Alphabet word type. *)
 type word = Alphabet.word
 
-(* Transitions are labeled by a symbol or epsilon *)
+(** Transitions are labeled by a symbol or epsilon *)
 type nsymbol = Char of symbol | Eps
 
 module type State = sig
