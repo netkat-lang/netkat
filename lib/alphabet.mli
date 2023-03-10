@@ -85,7 +85,8 @@ val w_of_ints : int list -> word
 (** Convert a word to a list of integers. *)
 val w_to_ints : word -> int list
 
-(** Form a list of words from a list of strings. The character 'X' is a wildcard.
-    That is, for example, for the alphabet \{0, 1\}, [ws_of_strings ["0X"]] converts
-    to the words [[0;0]] and [[0;1]]. *)
+(** Form a list of words from a list of strings. Each string in the list corresponds to a
+    single alphabet symbol, except that the character 'X' is a wildcard.
+    That is, for example, for the alphabet \{0, 1\}, [ws_of_strings alphabet
+    [["0"; "X"]] converts to the words [[0;0]] and [[0;1]]. *)
 val ws_of_strings : t -> string list -> word list
