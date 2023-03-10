@@ -227,8 +227,8 @@ let rec matches (r:t) (u:word) : bool =
   | c::v ->
      matches (d c r) v
 
-let rec of_word = function
+let rec of_word w = match w with
   | [] ->
-      Empty
+      Epsilon
   | c::w ->
       seq_pair (Char c) (of_word w)
