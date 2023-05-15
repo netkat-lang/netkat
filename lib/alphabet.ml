@@ -49,7 +49,9 @@ let to_string t =
   Array.to_list t |> String.concat " "
   
 let w_to_string (t:t) (w:word) =
-  List.fold_left (fun s x -> s^(sym_to_string t x)) "" w
+  match w with
+  | [] -> "ε"
+  | _ -> List.fold_left (fun s x -> s^(sym_to_string t x)) "" w
 
 let sym_of_int = Fun.id
 let sym_to_int = Fun.id
