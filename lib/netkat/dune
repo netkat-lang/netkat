@@ -1,0 +1,15 @@
+(menhir (modules nkpl_parser))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))
+
+(library
+  (name nerode_netkat)
+  (public_name nerode.netkat)
+  (preprocess (pps sedlex.ppx))
+  (libraries yojson menhirLib sedlex))
+
+(documentation
+  (package nerode)
+  (mld_files :standard))

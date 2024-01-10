@@ -1,5 +1,5 @@
 open Core
-open Nerode
+open Nerode_regular
 
 let () =
   let sysargs = Sys.get_argv () in

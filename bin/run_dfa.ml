@@ -1,5 +1,5 @@
 open Core
-open Nerode
+open Nerode_regular
 open Intalph
 
 let rec to_string lst = match lst with
