@@ -1,7 +1,11 @@
+%{
+open Pk
+%}
+
 %token LPAR RPAR EOF
 %token IMPORT CHECK PRINT EQUIV NEQUIV
 %token PLUS AND DOT STAR NEG XOR
-%token TST MOD
+%token NTST TST MOD
 %token SKIP DROP DUP
 %token <string> IDENT
 %token <string> FILENAME
@@ -12,7 +16,7 @@
 %%
 
 nkpl_file:
-  | r=nkpl_cmd_list; EOF { List.rev r }
+  | r=nkpl_cmd_list; EOF { r }
   ;
 
 nkpl_cmd_list:
@@ -56,11 +60,12 @@ arx:
   ;
 
 cx:
-  | f = IDENT; TST; v = NUM { Nkexp.Filter (Nkexp.get_or_assign_fid f, Nkexp.value_of_int v) }
-  | f = IDENT; MOD; v = NUM { Nkexp.Mod (Nkexp.get_or_assign_fid f, Nkexp.value_of_int v) }
-  | DUP { Nkexp.Dup }
-  | DROP { Nkexp.Drop }
-  | SKIP { Nkexp.Skip }
+  | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
+  | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
+  | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }
+  | DUP { Nkexp.dup }
+  | DROP { Nkexp.drop }
+  | SKIP { Nkexp.skip }
   ;
 
 %%

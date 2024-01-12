@@ -1,13 +1,12 @@
 (* AST for NKPL program *)
 
-type field = int
-type value = int
+open Pk
 
 type t =
   | Drop
   | Skip
   | Dup
-  | Filter of field * value
+  | Filter of bool * field * value
   | Mod of field * value
   | Seq of t list
   | Union of t list
@@ -20,24 +19,13 @@ type t =
   | Exists of field * t
   | Forall of field * t
 
-(* Symbol table for field names *)
-let fields : (string, field) Hashtbl.t = Hashtbl.create 11
-let field_labels : (field, string) Hashtbl.t = Hashtbl.create 11
 
-let value_of_int = Fun.id
+let skip = Skip
+let drop = Drop
+let dup = Dup
+let filter b f v = Filter (b,f,v)
+let modif f v = Mod (f,v)
 
-let get_or_assign_fid (f: string) : field =
-  match Hashtbl.find_opt fields f with
-  | Some n -> n
-  | None -> let n = Hashtbl.length fields in
-            let () = Hashtbl.add fields f n in
-            let () = Hashtbl.add field_labels n f in
-            n
-
-let get_or_fail_fid (n: field) : string =
-  match Hashtbl.find_opt field_labels n with
-  | Some f -> f
-  | None -> failwith ("unknown field index: " ^ string_of_int n)
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
@@ -50,10 +38,14 @@ let rec compare (t1:t) (t2:t) =
   | Dup, Dup -> 0
   | Dup, _ -> -1
   | _, Dup -> 1
-  | Filter (f1,v1), Filter (f2,v2)-> if f1 = f2 then Int.compare v1 v2 else Int.compare f1 f2
-  | Filter (_,_), _ -> -1
-  | _, Filter (_,_) -> 1
-  | Mod (f1,v1), Mod (f2,v2)-> if f1 = f2 then Int.compare v1 v2 else Int.compare f1 f2
+  | Filter (true,_,_), Filter (false,_,_) -> 1
+  | Filter (false,_,_), Filter (true,_,_) -> -1
+  | Filter (b1,f1,v1), Filter (b2,f2,v2) ->
+      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+  | Filter (_,_,_), _ -> -1
+  | _, Filter (_,_,_) -> 1
+  | Mod (f1,v1), Mod (f2,v2)->
+      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
   | Mod (_,_), _ -> -1
   | _, Mod (_,_) -> 1
   | Seq lst1, Seq lst2 -> List.compare compare lst1 lst2
@@ -71,10 +63,10 @@ let rec compare (t1:t) (t2:t) =
   | Bwd s1, Bwd s2 -> compare s1 s2
   | Bwd _, _ -> -1
   | _, Bwd _ -> 1
-  | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else Int.compare f1 f2
+  | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else cmp_field f1 f2
   | Exists _, _ -> -1
   | _, Exists _ -> 1
-  | Forall (f1,s1), Forall (f2,s2) -> if f1 = f2 then compare s1 s2 else Int.compare f1 f2
+  | Forall (f1,s1), Forall (f2,s2) -> if f1 = f2 then compare s1 s2 else cmp_field f1 f2
   | Forall _, _ -> -1
   | _, Forall _ -> 1
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
@@ -82,8 +74,8 @@ let rec compare (t1:t) (t2:t) =
   | _, Intersect _ -> 1
   | Neg s1, Neg s2 -> compare s1 s2
 
-(* Syntactic equivalence *)
-and equiv (r1:t) (r2:t) = ((compare r1 r2) = 0)
+(* Syntactic eqalence *)
+and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
 
 (* Sort and remove adjacent duplicates *)
 (*
@@ -92,7 +84,7 @@ let usort (lst: t list) : t list =
   List.fold_left ~f:(fun r x ->
     match r with
     | [] -> [x]
-    | p::rem -> if equiv x p then r else x::r
+    | p::rem -> if eq x p then r else x::r
     ) ~init:[] |>
   List.rev
   *)
@@ -116,9 +108,9 @@ let union_pair (r1:t) (r2:t) : t =
   | Star r, Skip
   | Skip, Star r -> Star r
   | Union t1, Union t2 -> union (t1 @ t2)
-  | Union t1, _ -> if List.exists (fun x -> equiv x r2) t1 then r1 else union (r2::t1)
-  | _, Union t2 -> if List.exists (fun x -> equiv x r1) t2 then r2 else union (r1::t2)
-  | _, _ -> if equiv r1 r2 then r1 else union [r1;r2]
+  | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else union (r2::t1)
+  | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else union (r1::t2)
+  | _, _ -> if eq r1 r2 then r1 else union [r1;r2]
 
 let seq (lst1:t list) =
   let flatten a x =
@@ -130,7 +122,7 @@ let seq (lst1:t list) =
   match lst with
   | [] -> Skip
   | [r] -> r
-  | _  -> if List.exists (fun x -> equiv x Drop) lst then Drop else Seq lst
+  | _  -> if List.exists (fun x -> eq x Drop) lst then Drop else Seq lst
 
 let seq_pair (r1:t) (r2:t) : t =
   match r1,r2 with
@@ -158,7 +150,7 @@ let intersect (lst:t list) : t =
   match flat with
   | [] -> failwith "Nullary intersection undefined"
   | [r] -> r
-  | _ -> if List.exists (fun x -> equiv x Drop) flat then Drop
+  | _ -> if List.exists (fun x -> eq x Drop) flat then Drop
          else Intersect flat
 
 let intersect_pair (r1:t) (r2:t) : t =
@@ -168,9 +160,9 @@ let intersect_pair (r1:t) (r2:t) : t =
   | Star r, Skip
   | Skip, Star r -> Skip
   | Intersect t1, Intersect t2 -> Intersect (t1 @ t2)
-  | Intersect t1, _ -> if List.exists (fun x -> equiv x r2) t1 then r1 else intersect (r2::t1)
-  | _, Intersect t2 -> if List.exists (fun x -> equiv x r1) t2 then r2 else intersect (r1::t2)
-  | _, _ -> if equiv r1 r2 then r1 else intersect [r1;r2]
+  | Intersect t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else intersect (r2::t1)
+  | _, Intersect t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else intersect (r1::t2)
+  | _, _ -> if eq r1 r2 then r1 else intersect [r1;r2]
 
 let neg (r:t) : t =
   match r with
@@ -186,6 +178,8 @@ let xor (r1:t) (r2:t) : t =
 (* --- Pretty print --- *)
 
 let to_string (nk: t) : string =
+
+  (* TODO: we likely need more precedences here... *)
   let prec (r:t) : int =
     match r with
     | Union _ -> 0
@@ -203,8 +197,8 @@ let to_string (nk: t) : string =
     | Intersect r0 -> String.concat "&" (List.map (to_string_parent (prec r)) r0)
     | Neg r0 -> (to_string_parent (prec r) r0) ^ "^"
     | Dup -> "dup"
-    | Filter (f,v) -> (get_or_fail_fid f) ^ "=" ^ (string_of_int v)
-    | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_int v)
+    | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
+    | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
     | Fwd e -> failwith "TODO"
     | Bwd e -> failwith "TODO"
     | Exists (f, e) -> failwith "TODO"

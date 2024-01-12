@@ -1,0 +1,3 @@
+(** Netkat Automaton *)
+
+type t

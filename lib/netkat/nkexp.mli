@@ -1,13 +1,13 @@
 (** Representation of a Netkat program *)
+open Pk
 
-type field
-type value
-
-type t =
+type t
+(* (*Not sure yet whether to expose the constructors or hide (to force smart constructors)*)
+  = 
   | Drop
   | Skip
   | Dup
-  | Filter of field * value
+  | Filter of bool * field * value
   | Mod of field * value
   | Seq of t list
   | Union of t list
@@ -19,18 +19,22 @@ type t =
   (* | Range of *) (* TODO *)
   | Exists of field * t
   | Forall of field * t
-
-(** Lookup (or, generate a new) int label for a field name *)
-val get_or_assign_fid : string -> field
-
-(** Convert int to value. *)
-val value_of_int : int -> value
+  *)
 
 (** Provides a comparison using the standard interface to [compare] *)
 val compare : t -> t -> int
 
-(** [equiv r] decides if the two regexs are *syntactically* equivalent *)
-val equiv : t -> t -> bool
+(** [eq r] decides if the two regexs are *syntactically* equal *)
+val eq : t -> t -> bool
+
+
+(*---------------------- Smart constructors: ---------------------- *)
+val skip : t
+val drop : t
+val dup : t
+val filter : bool -> field -> value -> t
+val modif : field -> value -> t
+
 
 (** Construct a netkat expression which is the concatenation of a list of
     netkat expressions. *)

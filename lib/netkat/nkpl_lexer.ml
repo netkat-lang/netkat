@@ -8,7 +8,8 @@ let fn = [%sedlex.regexp? Star ch]
 
 let rec token buf =
   match%sedlex buf with
-  | Plus (Chars " \t\n") -> token buf (* ignore whitespace *)
+  | "--", Star any, '\n'              (* line comment *)
+  | Plus (Chars " \t\n?") -> token buf (* ignore whitespace *)
   | "import" -> IMPORT
   | "check" -> CHECK
   | "print" -> PRINT
@@ -30,12 +31,12 @@ let rec token buf =
   | ":="
   | "<-" -> MOD
   | "==" -> EQUIV
-  | "!=" -> NEQUIV
+  | "!==" -> NEQUIV
+  | "!=" -> NTST
   | number -> NUM (int_of_string (Sedlexing.Latin1.lexeme buf))
 
   (* Unicode symbols for compatibility with 5stars *)
-  | math -> begin
-            match Sedlexing.Utf8.lexeme buf with
+  | math -> begin match Sedlexing.Utf8.lexeme buf with
             | "\u{2295}" -> XOR   (* ⊕ *)
             | "\u{2227}"          (* ∧ *)
             | "\u{2229}" -> AND   (* ∩ *) 
@@ -50,8 +51,15 @@ let rec token buf =
             | "\u{22c6}" -> STAR  (* ⋆ *)
             | "\u{2261}" -> EQUIV (* ≡ *)
             | "\u{2262}" -> NEQUIV (* ≢ *)
+            | "\u{2260}" -> NTST  (* ≠ *)
             | _ -> failwith "unknown math symbol"
             end
+  | lowercase -> begin match Sedlexing.Utf8.lexeme buf with
+                 | "\u{03b4}" -> DUP   (* δ *)
+                 | "\u{03b5}" -> SKIP  (* ε *)
+                 | _ -> failwith "unexpected lowercase"
+                 end
+          
   | '@', Plus letter -> IDENT (Sedlexing.Latin1.lexeme buf)
   | '"', Plus letter, '"' -> FILENAME (Sedlexing.Latin1.lexeme buf)
   | eof -> EOF
