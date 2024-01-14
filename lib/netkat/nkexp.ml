@@ -182,30 +182,32 @@ let to_string (nk: t) : string =
   (* TODO: we likely need more precedences here... *)
   let prec (r:t) : int =
     match r with
-    | Union _ -> 0
-    | Intersect _ -> 1
-    | Seq _ -> 2
-    | _ -> 3 in
+    | Fwd _
+    | Bwd _ -> 0
+    | Union _ -> 1
+    | Intersect _ -> 2
+    | Seq _ -> 3
+    | _ -> 4 in
 
-  let rec to_string_parent (parent_prec: int) (r: t) : string =
-    let s = match r with
+  let rec to_string_parent (parent_prec: int) (e: t) : string =
+    let s = match e with
     | Drop  -> "drop"
     | Skip -> "skip"
-    | Seq r0 -> String.concat "⋅" (List.map (to_string_parent (prec r)) r0)
-    | Union r0 -> String.concat " ∪ " (List.map (to_string_parent (prec r)) r0)
-    | Star r0 -> (to_string_parent (prec r) r0) ^ "*"
-    | Intersect r0 -> String.concat "&" (List.map (to_string_parent (prec r)) r0)
-    | Neg r0 -> (to_string_parent (prec r) r0) ^ "^"
+    | Seq e0 -> String.concat "⋅" (List.map (to_string_parent (prec e)) e0)
+    | Union e0 -> String.concat " ∪ " (List.map (to_string_parent (prec e)) e0)
+    | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
+    | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
+    | Neg e0 -> (to_string_parent (prec e) e0) ^ "^"
     | Dup -> "dup"
     | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
     | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
-    | Fwd e -> failwith "TODO"
-    | Bwd e -> failwith "TODO"
-    | Exists (f, e) -> failwith "TODO"
-    | Forall (f, e) -> failwith "TODO"
+    | Fwd e0 -> "forward " ^ (to_string_parent (prec e) e0)
+    | Bwd e0 -> "backward " ^ (to_string_parent (prec e) e0)
+    | Exists (f, e0) -> failwith "TODO"
+    | Forall (f, e0) -> failwith "TODO"
     in
 
-    if (prec r) < parent_prec then "(" ^ s ^ ")" else s in
+    if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
 
   to_string_parent 0 nk
 

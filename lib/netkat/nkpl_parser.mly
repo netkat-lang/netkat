@@ -5,6 +5,7 @@ open Pk
 %token LPAR RPAR EOF
 %token IMPORT CHECK PRINT EQUIV NEQUIV
 %token PLUS AND DOT STAR NEG XOR
+%token FWD BWD
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token <string> IDENT
@@ -26,40 +27,45 @@ nkpl_cmd_list:
 
 nkpl_cmd:
   | IMPORT; fn = FILENAME { Nkcmd.Import fn }
-  | CHECK; e1=nkpl_exp; EQUIV; e2=nkpl_exp { Nkcmd.Check (true, e1, e2) }
-  | CHECK; e1=nkpl_exp; NEQUIV; e2=nkpl_exp { Nkcmd.Check (false, e1, e2) }
-  | PRINT; e=nkpl_exp { Nkcmd.Print e }
+  | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
+  | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
+  | PRINT; e=nk_exp { Nkcmd.Print e }
   ;
 
-nkpl_exp:
-  | r1=irx; PLUS; r2=nkpl_exp { Nkexp.union_pair r1 r2 }
-  | r1=irx; XOR; r2=nkpl_exp { Nkexp.xor r1 r2 }
-  | r=irx { r }
+nk_exp:
+  | FWD; e=nk_exp { Nkexp.Fwd e }
+  | BWD; e=nk_exp { Nkexp.Bwd e }
+  | e=nk_sum { e }
+
+nk_sum:
+  | r1=nk_conj; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }
+  | r1=nk_conj; XOR; r2=nk_sum { Nkexp.xor r1 r2 }
+  | r=nk_conj { r }
   ;
 
-irx:
-  | r1=drx; AND; r2=irx { Nkexp.intersect_pair r1 r2 }
-  | r=drx { r }
+nk_conj:
+  | r1=nk_seq; AND; r2=nk_conj { Nkexp.intersect_pair r1 r2 }
+  | r=nk_seq { r }
   ;
 
-drx:
-  | r1=urx; DOT; r2=drx { Nkexp.seq_pair  r1 r2  }
-  | c1=cx; r2=drx { Nkexp.seq_pair c1 r2 }
-  | r=urx { r }
+nk_seq:
+  | r1=nk_un; DOT; r2=nk_seq { Nkexp.seq_pair  r1 r2  }
+  | c1=nk_at; r2=nk_seq { Nkexp.seq_pair c1 r2 }
+  | r=nk_un { r }
   ;
 
-urx:
-  | r=urx; STAR { Nkexp.star r }
-  | r=urx; NEG { Nkexp.neg r }
-  | r=arx { r }
+nk_un:
+  | r=nk_un; STAR { Nkexp.star r }
+  | r=nk_un; NEG { Nkexp.neg r }
+  | r=nk_par { r }
   ;
 
-arx:
-  | c=cx { c }
-  | LPAR; r=nkpl_exp; RPAR { r }
+nk_par:
+  | c=nk_at { c }
+  | LPAR; r=nk_exp; RPAR { r }
   ;
 
-cx:
+nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }

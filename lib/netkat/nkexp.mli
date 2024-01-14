@@ -1,9 +1,8 @@
 (** Representation of a Netkat program *)
 open Pk
 
-type t
-(* (*Not sure yet whether to expose the constructors or hide (to force smart constructors)*)
-  = 
+(*Not sure yet whether to expose the constructors or hide (to force smart constructors)*)
+type t = 
   | Drop
   | Skip
   | Dup
@@ -19,7 +18,6 @@ type t
   (* | Range of *) (* TODO *)
   | Exists of field * t
   | Forall of field * t
-  *)
 
 (** Provides a comparison using the standard interface to [compare] *)
 val compare : t -> t -> int

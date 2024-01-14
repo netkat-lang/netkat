@@ -9,7 +9,14 @@ type t =
 let interp t =
   match t with
   | Import s -> failwith "TODO"
-  | Check (b, e1, e2) -> failwith "TODO"
+  | Check (b, e1, e2) -> if b = Nka.(bisim (autom e1) (autom e2)) then
+                            Printf.printf "Check success.\n%!"
+                         else
+                            begin
+                              Printf.printf "Expected ";
+                              if b then Printf.printf "equal, got unequal\n%!"
+                                   else Printf.printf "unequal, got equal\n%!"
+                            end
   | Print e -> Printf.printf "%s\n%!" (Nkexp.to_string e)
   | Let (s, e) -> failwith "TODO"
 

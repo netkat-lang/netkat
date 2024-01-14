@@ -8,8 +8,8 @@ let fn = [%sedlex.regexp? Star ch]
 
 let rec token buf =
   match%sedlex buf with
-  | "--", Star any, '\n'              (* line comment *)
-  | Plus (Chars " \t\n?") -> token buf (* ignore whitespace *)
+  | "--", Star (Compl (Chars "\n")), '\n' (* line comment *)
+  | Plus (Chars " \t\n?") -> token buf    (* ignore whitespace *)
   | "import" -> IMPORT
   | "check" -> CHECK
   | "print" -> PRINT
@@ -17,6 +17,8 @@ let rec token buf =
   | "emp" -> DROP
   | "eps"
   | "skip" -> SKIP
+  | "forward" -> FWD
+  | "backward" -> BWD
   | '(' -> LPAR
   | ')' -> RPAR
   | '|'
