@@ -21,7 +21,10 @@ val intersect : t list -> t
 
 val star : t -> t
 
+val diff : t -> t -> t
 val neg : t -> t
+
+val xor : t -> t -> t
 
 val to_exp : t -> Nkexp.t
 val to_string : t -> string

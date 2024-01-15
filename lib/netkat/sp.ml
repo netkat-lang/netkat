@@ -18,9 +18,13 @@ let rec union_pair (t1:t) (t2:t) : t =
   | _, Drop -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if compare f1 f2 = 0 then
-      failwith "TODO"
+      Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
+                                 | None, None -> None
+                                 | Some p1, None -> Some (union_pair p1 d2)
+                                 | None, Some p2 -> Some (union_pair d1 p2)
+                                 | Some p1, Some p2 -> Some (union_pair p1 p2)) vm1 vm2, union_pair d1 d2)
     else if compare f1 f2 < 0 then
-      failwith "TODO"
+      Union (f1, ValueMap.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
     else
       union_pair t2 t1
 
@@ -34,9 +38,13 @@ let rec seq_pair (t1: t) (t2: t) : t =
   | _, Skip -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if compare f1 f2 = 0 then
-      failwith "TODO"
+      Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
+                                 | None, None -> None
+                                 | Some p1, None -> Some (seq_pair p1 d2)
+                                 | None, Some p2 -> Some (seq_pair d1 p2)
+                                 | Some p1, Some p2 -> Some (seq_pair p1 p2)) vm1 vm2, seq_pair d1 d2)
     else if compare f1 f2 < 0 then
-      failwith "TODO"
+      Union (f1, ValueMap.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
     else
       seq_pair t2 t1
 
@@ -51,6 +59,10 @@ let neg e = match e with
   | Skip -> Drop
   | Drop -> Skip
   | Union (f, vm, d) -> failwith "TODO"
+
+let diff t1 t2 = intersect_pair t1 (neg t1)
+
+let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
 
 let rec to_exp = function
   | Skip -> Nkexp.skip
