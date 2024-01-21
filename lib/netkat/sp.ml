@@ -10,6 +10,25 @@ type t =
 let skip = Skip
 let drop = Drop
 
+let compare sp1 sp2 = match sp1, sp2 with
+  | Drop, Drop -> 0
+  | Drop, _ -> -1
+  | _, Drop -> 1
+  | Skip, Skip -> 0
+  | Skip, _ -> -1
+  | _, Skip -> 1
+  | Union _, Union _ -> failwith ("TODO: " ^ __LOC__)
+
+let eq sp1 sp2 = compare sp1 sp2 = 0
+
+let le sp1 sp2 = match sp1, sp2 with
+  | Drop, _
+  | _, Skip -> true
+  | _, Drop
+  | Skip, _ -> false
+  | Union (f1,m1,d1), Union (f2,m2,d2) -> failwith ("TODO: " ^ __LOC__)
+
+
 let rec union_pair (t1:t) (t2:t) : t =
   match t1,t2 with
   | Skip, _
@@ -17,13 +36,13 @@ let rec union_pair (t1:t) (t2:t) : t =
   | Drop, _ -> t2
   | _, Drop -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-    if compare f1 f2 = 0 then
+    if cmp_field f1 f2 = 0 then
       Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (union_pair p1 d2)
                                  | None, Some p2 -> Some (union_pair d1 p2)
                                  | Some p1, Some p2 -> Some (union_pair p1 p2)) vm1 vm2, union_pair d1 d2)
-    else if compare f1 f2 < 0 then
+    else if cmp_field f1 f2 < 0 then
       Union (f1, ValueMap.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
     else
       union_pair t2 t1
@@ -37,13 +56,13 @@ let rec seq_pair (t1: t) (t2: t) : t =
   | Skip, _ -> t2
   | _, Skip -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-    if compare f1 f2 = 0 then
+    if cmp_field f1 f2 = 0 then
       Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (seq_pair p1 d2)
                                  | None, Some p2 -> Some (seq_pair d1 p2)
                                  | Some p1, Some p2 -> Some (seq_pair p1 p2)) vm1 vm2, seq_pair d1 d2)
-    else if compare f1 f2 < 0 then
+    else if cmp_field f1 f2 < 0 then
       Union (f1, ValueMap.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
     else
       seq_pair t2 t1
@@ -58,7 +77,7 @@ let star _ = Skip
 let neg e = match e with
   | Skip -> Drop
   | Drop -> Skip
-  | Union (f, vm, d) -> failwith "TODO"
+  | Union (f, vm, d) -> failwith ("TODO" ^ __LOC__)
 
 let diff t1 t2 = intersect_pair t1 (neg t1)
 

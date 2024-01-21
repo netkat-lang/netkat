@@ -7,6 +7,11 @@ type t =
   | Drop 
   | Union of field * (t ValueMap.t) * t
 
+val compare : t -> t -> int
+val eq : t -> t -> bool
+
+val le : t -> t -> bool
+
 val skip : t
 val drop : t
 

@@ -8,7 +8,7 @@ type t =
 
 let interp t =
   match t with
-  | Import s -> failwith "TODO"
+  | Import s -> failwith ("TODO" ^ __LOC__)
   | Check (b, e1, e2) -> if b = Nka.(bisim (autom e1) (autom e2)) then
                             Printf.printf "Check success.\n%!"
                          else
@@ -18,7 +18,7 @@ let interp t =
                                    else Printf.printf "unequal, got equal\n%!"
                             end
   | Print e -> Printf.printf "%s\n%!" (Nkexp.to_string e)
-  | Let (s, e) -> failwith "TODO"
+  | Let (s, e) -> failwith ("TODO" ^ __LOC__)
 
 (** Pretty print the netkat expression. *)
 let to_string t =

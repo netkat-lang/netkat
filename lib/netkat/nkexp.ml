@@ -19,13 +19,11 @@ type t =
   | Exists of field * t
   | Forall of field * t
 
-
 let skip = Skip
 let drop = Drop
 let dup = Dup
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
-
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
@@ -178,7 +176,6 @@ let xor (r1:t) (r2:t) : t =
 (* --- Pretty print --- *)
 
 let to_string (nk: t) : string =
-
   (* TODO: we likely need more precedences here... *)
   let prec (r:t) : int =
     match r with
@@ -203,8 +200,8 @@ let to_string (nk: t) : string =
     | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
     | Fwd e0 -> "forward " ^ (to_string_parent (prec e) e0)
     | Bwd e0 -> "backward " ^ (to_string_parent (prec e) e0)
-    | Exists (f, e0) -> failwith "TODO"
-    | Forall (f, e0) -> failwith "TODO"
+    | Exists (f, e0) -> failwith ("TODO" ^ __LOC__)
+    | Forall (f, e0) -> failwith ("TODO" ^ __LOC__)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
@@ -212,40 +209,6 @@ let to_string (nk: t) : string =
   to_string_parent 0 nk
 
 (*
-(* --- Brzozowski derivatives --- *)
-
-let rec e (r:t) : bool =
-  match r with
-  | Drop -> false
-  | Skip -> true
-  | Char _ -> false
-  | Seq r1 -> List.fold_left (List.map ~f:e r1) ~init:true ~f:(&&)
-  | Union r1 -> List.fold_left (List.map ~f:e r1) ~init:false ~f:(||)
-  | Star _ -> true
-  | QMark _ -> true
-  | Intersect r0 -> List.fold_left (List.map ~f:e r0) ~init:true ~f:(&&)
-  | Neg r0 -> not (e r0)
-
-
-let rec d (c:symbol) (r0:t) : t =
-  match r0 with
-  | Drop -> r0
-  | Skip -> Drop
-  | Char x ->
-     if Alphabet.compare c x = 0 then Skip else Drop
-  | Seq (r0::tail) ->
-     let r0c_r2 = seq_pair (d c r0) (seq tail) in
-     if e r0 then
-       union_pair r0c_r2 (d c (seq tail))
-     else
-       r0c_r2
-  | Union r -> union (List.map ~f:(d c) r)
-  | Star r -> seq_pair (d c r) r0
-  | QMark r -> d c r
-  | Intersect r -> intersect (List.map ~f:(d c) r)
-  | Neg r -> neg (d c r)
-
-  | _ -> failwith "d: improper rx\n%!"
 
 let rec matches (r:t) (u:word) : bool =
   match u with
