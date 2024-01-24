@@ -6,8 +6,8 @@ val trans : t -> Nkexp.t -> Spp.t
 
 val to_list : t -> (Nkexp.t * Spp.t) list
 
-val skip : t
 val drop : t
+val dup : t
 
 val union : t list -> t
 val union_pair : t -> t -> t

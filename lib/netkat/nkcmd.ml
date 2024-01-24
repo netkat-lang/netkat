@@ -9,13 +9,19 @@ type t =
 let interp t =
   match t with
   | Import s -> failwith ("TODO" ^ __LOC__)
-  | Check (b, e1, e2) -> if b = Nka.(bisim (autom e1) (autom e2)) then
-                            Printf.printf "Check success.\n%!"
+  | Check (b, e1, e2) -> let a1 = Nka.autom e1 in
+                         (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
+                         let a2 = Nka.autom e2 in
+                         (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
+                         let sgn = if b then "≡" else "≢" in
+                         if b = Nka.bisim a1 a2 then
+                           Printf.printf "*** Check SUCCESS! *** (%s %s %s)\n%!"
+                            (Nkexp.to_string e1) sgn (Nkexp.to_string e2)
                          else
                             begin
-                              Printf.printf "Expected ";
-                              if b then Printf.printf "equal, got unequal\n%!"
-                                   else Printf.printf "unequal, got equal\n%!"
+                              Printf.printf "XXX Check FAILED. XXX (expected: %s %s %s)\n%!"
+                                (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
+                              exit 1
                             end
   | Print e -> Printf.printf "%s\n%!" (Nkexp.to_string e)
   | Let (s, e) -> failwith ("TODO" ^ __LOC__)

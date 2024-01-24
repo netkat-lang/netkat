@@ -5,8 +5,8 @@ let rec e = function
   | Nkexp.Drop -> Spp.Drop
   | Nkexp.Skip -> Spp.Skip
   | Nkexp.Dup -> Spp.Drop
-  | Nkexp.Filter _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Mod _ -> failwith ("TODO: " ^ __LOC__)
+  | Nkexp.Filter (b, f, v) -> Spp.filter b f v
+  | Nkexp.Mod (f, v) -> Spp.modf f v
   | Nkexp.Seq es -> List.map e es |> Spp.seq
   | Nkexp.Union es -> List.map e es |> Spp.union
   | Nkexp.Star _ -> Spp.Skip
@@ -24,7 +24,7 @@ let rec d = function
   | Nkexp.Skip
   | Nkexp.Filter _
   | Nkexp.Mod _ -> Sts.drop
-  | Nkexp.Dup -> Sts.skip
+  | Nkexp.Dup -> Sts.dup
   | Nkexp.Seq es -> failwith ("TODO: " ^ __LOC__)
   | Nkexp.Union es -> List.map d es |> Sts.union
   | Nkexp.Star _ -> failwith ("TODO: " ^ __LOC__)
