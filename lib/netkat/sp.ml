@@ -10,14 +10,22 @@ type t =
 let skip = Skip
 let drop = Drop
 
-let compare sp1 sp2 = match sp1, sp2 with
+let rec compare sp1 sp2 = match sp1, sp2 with
   | Drop, Drop -> 0
   | Drop, _ -> -1
   | _, Drop -> 1
   | Skip, Skip -> 0
   | Skip, _ -> -1
   | _, Skip -> 1
-  | Union _, Union _ -> failwith ("TODO: " ^ __LOC__)
+  | Union (f1, fs1, d1), Union (f2, fs2, d2) ->
+      if f1 < f2 then -1
+      else if f2 < f1 then 1
+      else
+        let cmp_maps = ValueMap.compare compare fs1 fs2 in
+        if cmp_maps = 0 then
+          compare d1 d2
+        else
+          cmp_maps
 
 let eq sp1 sp2 = compare sp1 sp2 = 0
 
@@ -82,6 +90,28 @@ let neg e = match e with
 let diff t1 t2 = intersect_pair t1 (neg t1)
 
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
+
+(*
+  def unionMapsSP(xs: Iterable[Map[Val, SP]]): Map[Val, SP] =
+    var m = scala.collection.mutable.Map[Val, SP]()
+    for x <- xs; (v, sp) <- x do
+      if m.contains(v) then m(v) = SP.union(m(v), sp)
+      else m(v) = sp
+    m.to(HashMap)
+
+  def unionMapSP(xs: Map[Val, SP], ys: Map[Val, SP]): Map[Val, SP] =
+    var m = scala.collection.mutable.Map.from(xs)
+    for (v, sp) <- ys do
+      if m.contains(v) then m(v) = SP.union(m(v), sp)
+      else m(v) = sp
+    m.to(HashMap)
+*)
+let union_map_pair m1 m2 = List.fold_left (fun a (v,sp) ->
+    match ValueMap.find_opt v m2 with
+    | None -> a
+    | Some sp' -> ValueMap.add v (union_pair sp sp') a) m1 (ValueMap.bindings m1)
+let union_maps ms = List.fold_left union_map_pair ValueMap.empty ms
+
 
 let rec to_exp = function
   | Skip -> Nkexp.skip

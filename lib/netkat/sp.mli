@@ -31,5 +31,11 @@ val neg : t -> t
 
 val xor : t -> t -> t
 
+(*---------- Operations for computing push/pull:---------- *)
+
+val union_maps : t ValueMap.t list -> t ValueMap.t
+val union_map_pair : t ValueMap.t -> t ValueMap.t -> t ValueMap.t
+
+(*---------- Output ------------------ *)
 val to_exp : t -> Nkexp.t
 val to_string : t -> string
