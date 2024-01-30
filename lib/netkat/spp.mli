@@ -2,16 +2,18 @@
 
 open Pk
 
-type t =
-  | Skip 
-  | Drop 
-  | Union of field * ((t ValueMap.t) ValueMap.t) * (t ValueMap.t) * t
+type t
+
+val skip : t
+val drop : t
 
 val filter : bool -> field -> value -> t
 val modf : field -> value -> t
 
 val to_exp : t -> Nkexp.t
 val to_string : t -> string
+
+val of_sp : Sp.t -> t
 
 val compare : t -> t -> int
 val eq : t -> t -> bool

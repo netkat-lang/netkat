@@ -1,7 +1,8 @@
 (** Representation of a Netkat program *)
 open Pk
 
-(*Not sure yet whether to expose the constructors or hide (to force smart constructors)*)
+(* Not sure yet whether to expose the constructors or hide (to force smart
+constructors). For now it is exposed so that Deriv can match on the variants.*)
 type t = 
   | Drop
   | Skip
@@ -32,7 +33,10 @@ val drop : t
 val dup : t
 val filter : bool -> field -> value -> t
 val modif : field -> value -> t
-
+val fwd : t -> t
+val bwd : t -> t
+val exists : field -> t -> t
+val forall : field -> t -> t
 
 (** Construct a netkat expression which is the concatenation of a list of
     netkat expressions. *)

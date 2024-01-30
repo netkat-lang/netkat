@@ -26,7 +26,7 @@ type t = {
 
 let to_string (a: t) =
   let ebinding_to_string ((e,p): Nkexp.t * Spp.t) =
-    (Nkexp.to_string e) ^ "↦" ^ (Spp.to_string p) in
+    (Nkexp.to_string e) ^ "↦(" ^ (Spp.to_string p) ^ ")" in
   let tbinding_to_string ((e,m): Nkexp.t * (Spp.t StateMap.t)) =
     (Nkexp.to_string e) ^ " ↦ [" ^ (StateMap.bindings m |> List.map ebinding_to_string |> String.concat ", ") ^ "]" in
   "states: " ^ (StateSet.elements a.states |> List.map Nkexp.to_string |> String.concat ", ") ^
@@ -40,15 +40,13 @@ let autom (e: Nkexp.t) : t =
      update other transitions to maintain the invariant.
      Precondition: [tr] contains a binding for [e0]. *)
   let lookup e m = match StateMap.find_opt e m with
-                 | None -> Spp.Drop
+                 | None -> Spp.drop
                  | Some spp -> spp in
   let add_nonempty e s m =
-    if Spp.eq s Spp.Drop then m else StateMap.add e (Spp.union_pair (lookup e m) s) m in
+    if Spp.eq s Spp.drop then m else StateMap.add e (Spp.union_pair (lookup e m) s) m in
   let add_trans (tr: Spp.t StateMap.t StateMap.t) (e0: Nkexp.t) (e1: Nkexp.t) (spp: Spp.t) =
-    if Spp.eq spp Spp.Drop then tr else
-    (* let () = Printf.printf "%s\n" __LOC__ in *)
+    if Spp.eq spp Spp.drop then tr else
     let e0map = StateMap.find e0 tr in
-    (* let () = Printf.printf "%s\n" __LOC__ in *)
     let (e0map',s) = List.fold_left (fun (m,s) (ei,sppi) ->
       let inter = Spp.intersect_pair s sppi in
       let diff = Spp.diff sppi s in
@@ -69,11 +67,10 @@ let autom (e: Nkexp.t) : t =
   | e0::rem -> if StateSet.mem e0 discovered then
                  loop rem discovered tr ob
                else
-                 (* let () = Printf.printf "exploring %s\n" (Nkexp.to_string e0) in *)
                  let disc = StateSet.add e0 discovered in
                  let sts = Deriv.d e0 in
                  let ob' = StateMap.add e0 (Deriv.e e0) ob in
-                 let tr0 = StateMap.add e0 (StateMap.singleton Nkexp.drop Spp.Skip) tr in
+                 let tr0 = StateMap.add e0 (StateMap.singleton Nkexp.drop Spp.skip) tr in
                  let (q',tr') = List.fold_left (fun (nq,t) (ei, sppi) ->
                       (
                         ei::nq,
@@ -83,35 +80,27 @@ let autom (e: Nkexp.t) : t =
   loop [e; Nkexp.drop] StateSet.empty StateMap.empty StateMap.empty
 
 let bisim (a1: t) (a2: t) : bool =
+  (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string a1) (to_string a2) in *)
   let rec bq q visited = 
     match q with
     | [] -> true
-    | (pk,s1,s2)::rem -> (* let () = Printf.printf "bisim %s %s (for pk=%s)\n%!"
-                            (Nkexp.to_string s1) (Nkexp.to_string s2) (Sp.to_string pk) in
-                         *)
+    | (pk,s1,s2)::rem -> let () = () in
+                         (* let () = Printf.printf "comparing %s %s (for pk=%s)\n%!" (Nkexp.to_string s1) (Nkexp.to_string s2) (Sp.to_string pk) in *)
                          if Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
                            (* let () = Printf.printf "%s\n%!" __LOC__ in *)
                            bq rem visited
-                         else 
-                           (*
-                           let () = Printf.printf "s1: %s; s2: %s;\na1:\n%s\na2:\n:%s%!"
-                                (Nkexp.to_string s1) (Nkexp.to_string s2) (to_string a1) (to_string a2) in
-                            *)
-                         if not (Sp.eq (Spp.push pk (StateMap.find s1 a1.obs))
-                                       (Spp.push pk (StateMap.find s2 a2.obs))) then
-                           (* let () = Printf.printf "%s\n%!" __LOC__ in *)
+                         else if not (Spp.eq (Spp.seq_pair (Spp.of_sp pk) (StateMap.find s1 a1.obs))
+                                             (Spp.seq_pair (Spp.of_sp pk) (StateMap.find s2 a2.obs))) then
                            false
                          else
-                           (* let () = Printf.printf "%s\n%!" __LOC__ in *)
                            let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
-                           (* let () = Printf.printf "%s\n%!" __LOC__ in *)
                            let tr2 = StateMap.find s2 a2.trans |> StateMap.bindings in
-                           (* let () = Printf.printf "%s\n%!" __LOC__ in *)
                            let next = List.fold_left (fun a (ei, sppi)->
                               (List.map (fun (ej, sppj) ->
-                                (Sp.intersect_pair (Spp.push pk sppi) (Spp.push pk sppj), ei, ej)) tr2)@a) [] tr1 in
+                                let pk' = Sp.intersect_pair (Spp.push pk sppi) (Spp.push pk sppj) in
+                                (pk', ei, ej)) tr2)@a) [] tr1 in
                            let visited' = PairMap.add (s1,s2) pk visited in
                            bq next visited'
   in bq [(Sp.skip, a1.start, a2.start)] PairMap.empty

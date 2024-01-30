@@ -29,13 +29,16 @@ let rec compare sp1 sp2 = match sp1, sp2 with
 
 let eq sp1 sp2 = compare sp1 sp2 = 0
 
-let le sp1 sp2 = match sp1, sp2 with
-  | Drop, _
-  | _, Skip -> true
-  | _, Drop
-  | Skip, _ -> false
-  | Union (f1,m1,d1), Union (f2,m2,d2) -> failwith ("TODO: " ^ __LOC__)
-
+let mk_union (f, m, d) =
+  let m' = List.fold_left (fun m (vi,spi) ->
+    if eq spi d then
+      m
+    else
+      ValueMap.add vi spi m) ValueMap.empty (ValueMap.bindings m) in
+  if ValueMap.cardinal m' = 0 then
+    d
+  else
+    Union (f, m', d)
 
 let rec union_pair (t1:t) (t2:t) : t =
   match t1,t2 with
@@ -45,17 +48,36 @@ let rec union_pair (t1:t) (t2:t) : t =
   | _, Drop -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if cmp_field f1 f2 = 0 then
-      Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
+      mk_union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (union_pair p1 d2)
                                  | None, Some p2 -> Some (union_pair d1 p2)
                                  | Some p1, Some p2 -> Some (union_pair p1 p2)) vm1 vm2, union_pair d1 d2)
     else if cmp_field f1 f2 < 0 then
-      Union (f1, ValueMap.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
+      mk_union (f1, ValueMap.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
     else
       union_pair t2 t1
 
 let union = List.fold_left union_pair Drop
+
+let le sp1 sp2 = match sp1, sp2 with
+  | Drop, _
+  | _, Skip -> true
+  | _, Drop
+  | Skip, _ -> false (* because _, Skip is already marked true *)
+  | _, _ -> eq sp2 (union_pair sp1 sp2)
+  (*
+  | Union (f1,m1,d1), Union (f2,m2,d2) ->
+      if f1 < f2 then le d1 sp2
+      else if f2 < f1 then le sp1 d2
+      else
+        le d1 d2 &&
+        List.fold_left (fun b (v,spj) ->
+          b && match ValueMap.find_opt v m1 with
+               | Some spi -> le spi spj
+               | None -> false) true (ValueMap.bindings m2)
+  *)
+
 
 let rec seq_pair (t1: t) (t2: t) : t =
   match t1, t2 with
@@ -65,13 +87,13 @@ let rec seq_pair (t1: t) (t2: t) : t =
   | _, Skip -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if cmp_field f1 f2 = 0 then
-      Union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
+      mk_union (f1, ValueMap.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (seq_pair p1 d2)
                                  | None, Some p2 -> Some (seq_pair d1 p2)
                                  | Some p1, Some p2 -> Some (seq_pair p1 p2)) vm1 vm2, seq_pair d1 d2)
     else if cmp_field f1 f2 < 0 then
-      Union (f1, ValueMap.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
+      mk_union (f1, ValueMap.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
     else
       seq_pair t2 t1
 
@@ -90,28 +112,6 @@ let neg e = match e with
 let diff t1 t2 = intersect_pair t1 (neg t1)
 
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
-
-(*
-  def unionMapsSP(xs: Iterable[Map[Val, SP]]): Map[Val, SP] =
-    var m = scala.collection.mutable.Map[Val, SP]()
-    for x <- xs; (v, sp) <- x do
-      if m.contains(v) then m(v) = SP.union(m(v), sp)
-      else m(v) = sp
-    m.to(HashMap)
-
-  def unionMapSP(xs: Map[Val, SP], ys: Map[Val, SP]): Map[Val, SP] =
-    var m = scala.collection.mutable.Map.from(xs)
-    for (v, sp) <- ys do
-      if m.contains(v) then m(v) = SP.union(m(v), sp)
-      else m(v) = sp
-    m.to(HashMap)
-*)
-let union_map_pair m1 m2 = List.fold_left (fun a (v,sp) ->
-    match ValueMap.find_opt v m2 with
-    | None -> a
-    | Some sp' -> ValueMap.add v (union_pair sp sp') a) m1 (ValueMap.bindings m1)
-let union_maps ms = List.fold_left union_map_pair ValueMap.empty ms
-
 
 let rec to_exp = function
   | Skip -> Nkexp.skip

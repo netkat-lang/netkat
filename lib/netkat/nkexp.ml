@@ -24,6 +24,10 @@ let drop = Drop
 let dup = Dup
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
+let fwd t = Fwd t
+let bwd t = Bwd t
+let exists f t = Exists (f, t)
+let forall f t = Forall (f, t)
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
@@ -87,19 +91,7 @@ let usort (lst: t list) : t list =
   List.rev
   *)
 
-let union (lst:t list) : t =
-  let flatten a x =
-    match x with
-    | Union u -> u @ a
-    | Drop -> a
-    | _ -> x::a in
-  let nonempty = List.fold_left flatten lst [] in
-  match nonempty with
-  | [] -> Drop
-  | [r] -> r
-  | _ -> Union nonempty
-
-let union_pair (r1:t) (r2:t) : t =
+let rec union_pair (r1:t) (r2:t) : t =
   match r1,r2 with
   | Drop, _ -> r2
   | _, Drop -> r1
@@ -108,21 +100,10 @@ let union_pair (r1:t) (r2:t) : t =
   | Union t1, Union t2 -> union (t1 @ t2)
   | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else union (r2::t1)
   | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else union (r1::t2)
-  | _, _ -> if eq r1 r2 then r1 else union [r1;r2]
+  | _, _ -> if eq r1 r2 then r1 else Union [r1;r2]
+and union lst = List.fold_left union_pair Drop lst
 
-let seq (lst1:t list) =
-  let flatten a x =
-    match x with
-    | Seq s -> a @ s
-    | Skip -> a
-    | _ -> a @ [x] in
-  let lst = List.fold_left flatten lst1 [] in
-  match lst with
-  | [] -> Skip
-  | [r] -> r
-  | _  -> if List.exists (fun x -> eq x Drop) lst then Drop else Seq lst
-
-let seq_pair (r1:t) (r2:t) : t =
+let rec seq_pair (r1:t) (r2:t) : t =
   match r1,r2 with
   | Drop, _ -> Drop
   | _, Drop -> Drop
@@ -132,6 +113,7 @@ let seq_pair (r1:t) (r2:t) : t =
   | Seq t1, _ -> Seq (t1 @ [r2])
   | _, Seq t2 -> Seq (r1::t2)
   | _, _ -> Seq [r1; r2]
+and seq lst = List.fold_left seq_pair Skip lst
 
 let star (r0:t) : t =
   match r0 with

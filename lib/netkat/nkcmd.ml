@@ -19,7 +19,7 @@ let interp t =
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2)
                          else
                             begin
-                              Printf.printf "XXX Check \u{001b}[33mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
+                              Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               exit 1
                             end

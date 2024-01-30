@@ -14,3 +14,6 @@ val union_pair : t -> t -> t
 
 val intersect : t list -> t
 val intersect_pair : t -> t -> t
+
+val seq_spp : Spp.t -> t -> t
+val seq_exp : t -> Nkexp.t -> t
