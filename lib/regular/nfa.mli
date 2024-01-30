@@ -68,6 +68,7 @@ module type N = sig
   val naive : upto
   val context : upto
   val congruence : upto
+
   (** Perform bisimulation on two states. Return a bisimulation relation if one exists, 
       or None otherwise. *)
   val bisim : upto -> t -> StateSet.t -> StateSet.t -> StateRel.t option
