@@ -3,7 +3,8 @@ open Nkpl_parser
 let digit = [%sedlex.regexp? '0' .. '9']
 let number = [%sedlex.regexp? Plus digit]
 let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
-let ch = [%sedlex.regexp? digit | number | letter | '.']
+let alphanum = [%sedlex.regexp? digit | letter ]
+let ch = [%sedlex.regexp? digit | number | letter | '.' | '/']
 let fn = [%sedlex.regexp? Star ch]
 
 let rec token buf =
@@ -62,8 +63,9 @@ let rec token buf =
                  | _ -> failwith "unexpected lowercase"
                  end
           
+  | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
   | '@', Plus letter -> IDENT (Sedlexing.Latin1.lexeme buf)
-  | '"', Plus letter, '"' -> FILENAME (Sedlexing.Latin1.lexeme buf)
+  | '"', fn, '"' -> FILENAME (Sedlexing.Latin1.lexeme buf)
   | eof -> EOF
   | _ -> let first,last = Sedlexing.lexing_positions buf in
          let () = Printf.printf "unrecognized character line %d, col %d\n%!"

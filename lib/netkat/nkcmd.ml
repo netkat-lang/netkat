@@ -24,7 +24,7 @@ let interp t =
                               exit 1
                             end
   | Print e -> Printf.printf "%s\n%!" (Nkexp.to_string e)
-  | Let (s, e) -> failwith ("TODO" ^ __LOC__)
+  | Let (s, e) -> ()
 
 (** Pretty print the netkat expression. *)
 let to_string t =

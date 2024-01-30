@@ -8,6 +8,7 @@ open Pk
 %token FWD BWD
 %token NTST TST MOD
 %token SKIP DROP DUP
+%token <string> VAR
 %token <string> IDENT
 %token <string> FILENAME
 %token <int> NUM
@@ -30,6 +31,7 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
+  | var=VAR; TST; e=nk_exp { Env.bind var e; Nkcmd.Let (var,e) }
   ;
 
 nk_exp:
@@ -69,6 +71,7 @@ nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }
+  | var=VAR { Env.lookup var }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }
   | SKIP { Nkexp.skip }
