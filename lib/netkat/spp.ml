@@ -223,7 +223,10 @@ let xor spp1 spp2 = union_pair (diff spp1 spp2) (diff spp2 spp1)
 (* TODO Optimize this somehow? *)
 let rec star spp =
   let spp' = union [Skip; spp; seq_pair spp spp] in
-  if eq spp spp' then spp else star spp'
+  if eq spp spp' then
+    spp
+  else
+    star spp'
 
 let rec push (sp: Sp.t) (spp: t) = match sp, spp with
   | Sp.Drop, _

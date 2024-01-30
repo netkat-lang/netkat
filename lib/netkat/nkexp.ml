@@ -97,9 +97,9 @@ let rec union_pair (r1:t) (r2:t) : t =
   | _, Drop -> r1
   | Star r, Skip
   | Skip, Star r -> Star r
-  | Union t1, Union t2 -> union (t1 @ t2)
-  | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else union (r2::t1)
-  | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else union (r1::t2)
+  | Union t1, Union t2 -> Union (t1 @ t2)
+  | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else Union (r2::t1)
+  | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else Union (r1::t2)
   | _, _ -> if eq r1 r2 then r1 else Union [r1;r2]
 and union lst = List.fold_left union_pair Drop lst
 
