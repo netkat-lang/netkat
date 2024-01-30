@@ -27,5 +27,6 @@ depends: [
   "ppx_js_style" {>= "v0.16.0"}
   "yojson" {>= "1.7.0"}
   "nice_parser"
+  "sedlex" {>= "3.2"}
   "menhir" {build & >= "20190626"}
 ]
