@@ -1,0 +1,49 @@
+check @x=3⋅@y←2 ∪ @x≠3⋅@y←2 ≡ @y←2
+check (@x=3 ∪ @x≠3)⋅@y←2 ≡ @y←2
+check ε ≡ ε
+check ∅ ≡ ∅
+check dup ≡ dup
+
+check dup ≢ ε
+check ε ≢ dup 
+check ∅ ≢ ε
+check ε ≢ ∅
+check ∅ ≢ dup
+check dup ≢ ∅
+check dup⋅dup ≢ dup
+
+check @x=3 ≡ @x=3
+check @x=3 ≢ @x=4
+check @x=3⋅@x≠3 ≡ ∅
+check @x=3 ≢ @x≠3
+check @x=3 ∪ @x≠3 ≡ ε
+check @x=3 ≢ @y=3
+check (@x=3)⋆ ≡ ε
+check @x=3 ∪ @x=4 ≡ @x=4 ∪ @x=3
+check @x=3 ∪ @x=4 ≢ ε
+check @x=3⋅@x=4 ≡ ∅
+check @x=3 ≢ ε
+check @x=3 ≢ dup
+check @x=3 ≢ ∅
+check @x=3⋅@y=2 ≡ @y=2⋅@x=3
+check @x=3⋅@x=4 ≢ @x=3 ∪ @x=4
+check @x=3 ≢ @x=3⋅dup
+check @x=3⋅dup ≡ dup⋅@x=3
+check (@x=3 ∪ @x=4)⋅dup ≡ @x=3⋅dup ∪ @x=4⋅dup
+check @x=3 ≢ dup⋅@x=3
+
+check @x←3 ≢ ∅
+check @x←3 ≢ ε
+check @x=3⋅@x←2⋅@x←3 ≡ @x=3
+check @x=3⋅@y←2 ≡ @y←2⋅@x=3
+check @x=3⋅@x←2 ≢ @x←2⋅@x=3
+check @x=3⋅@x←2 ∪ @x←2 ≡ @x←2
+
+check @x=3 ≢ @x←3
+check @x=3⋅@y=2 ∪ @x≠3⋅@y=2 ≡ @y=2
+check @x=3⋅(@x←1 ∪ @x←2) ≡ @x=3⋅@x←1 ∪ @x=3⋅@x←2
+check @x=3 ∪ @y←2 ≡ @x≠3⋅@y←2 ∪ @x=3⋅(@y←2 ∪ ε)
+
+check @x=1 ∪ @x=2 ∪ @x=3 ≡ @x=3 ∪ @x=2 ∪ @x=1
+
+check @x=1⋅(@x=1⋅@x←2 ∪ @x=2⋅@x←3 ∪ @x=3⋅@x←4)⋆ ≡ @x=1⋅(ε ∪ @x←2 ∪ @x←3 ∪ @x←4)
