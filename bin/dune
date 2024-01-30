@@ -1,4 +1,4 @@
 (executables
-  (public_names nk deriv rx_dfa_rx)
-  (names nk deriv rx_dfa_rx)
+  (public_names nk deriv rx_dfa_rx bisim_nfa)
+  (names nk deriv rx_dfa_rx bisim_nfa)
   (libraries core nerode nerode.netkat))

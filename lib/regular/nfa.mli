@@ -25,6 +25,13 @@ module type N = sig
   module StateSet : Set.S with type elt = state
   module StateMap : Map.S with type key = state
   module CharMap : Map.S with type key = nsymbol
+  module StateSetPair : sig
+    type t = StateSet.t * StateSet.t
+    val compare : t -> t -> int
+  end
+  module StateRel : Set.S with type elt = StateSetPair.t
+
+  type upto = StateSet.t -> StateSet.t -> StateRel.t -> bool
 
   type t
 
@@ -54,9 +61,16 @@ module type N = sig
   (** Write a string representation of the NFA to stdout. *)
   val print : t -> unit
 
-  (** Conver the NFA to a Regular Expression. *)
+  (** Convert the NFA to a Regular Expression. *)
   val to_rx : t -> Rx.t
 
+  (* Up-to techniques folllowing Bonchi/Pous POPL '15 *)
+  val naive : upto
+  val context : upto
+  val congruence : upto
+  (** Perform bisimulation on two states. Return a bisimulation relation if one exists, 
+      or None otherwise. *)
+  val bisim : upto -> t -> StateSet.t -> StateSet.t -> StateRel.t option
 end
 
 module Make: 

@@ -24,6 +24,13 @@ module type N = sig
   module StateSet : Set.S with type elt = state
   module StateMap : Map.S with type key = state
   module CharMap : Map.S with type key = nsymbol
+  module StateSetPair : sig
+    type t = StateSet.t * StateSet.t
+    val compare : t -> t -> int
+  end
+  module StateRel : Set.S with type elt = StateSetPair.t
+
+  type upto = StateSet.t -> StateSet.t -> StateRel.t -> bool
 
   val mk_nfa : Alphabet.t -> state list -> state list -> (state*nsymbol*state) list -> t
   val get_alpha : t -> Alphabet.t
@@ -35,7 +42,13 @@ module type N = sig
   val reverse : t -> t
   val print : t -> unit
   val to_rx : t -> Rx.t
+
+  val naive : upto
+  val context : upto
+  val congruence : upto
+  val bisim : upto -> t -> StateSet.t -> StateSet.t -> StateRel.t option
 end
+
 
 module Make (S : State) = struct
 
@@ -53,6 +66,16 @@ module Make (S : State) = struct
   module StateSet = S.StateSet
   module StateMap = Map.Make(S)
   module CharMap = Map.Make(NSymOrdered)
+  module StatePair = struct
+    type t = state * state
+    let compare ((a, b):t) ((c, d):t) = List.compare S.compare [a; b] [c; d]
+  end
+  module StateSetPair = struct
+    type t = StateSet.t * StateSet.t
+    let compare ((a, b):t) ((c, d):t) = List.compare StateSet.compare [a; b] [c; d]
+  end
+
+  module StateRel = Set.Make(StateSetPair)
 
   type tmap = (StateSet.t CharMap.t) StateMap.t
 
@@ -64,6 +87,8 @@ module Make (S : State) = struct
     final : StateSet.t    (* F *)
   }
 
+  type upto = StateSet.t -> StateSet.t -> StateRel.t -> bool
+  
   let mk_trans (tr: (state*nsymbol*state) list) : tmap =
     List.fold_left (fun m (s1,x,s2) ->
       let m' = match StateMap.find_opt s1 m with
@@ -162,11 +187,7 @@ module Make (S : State) = struct
 
 
     (* -- NFA -> Rx Conversion -- *)
-    module LabelOrdered = struct
-      type t = state * state
-      let compare ((a, b):t) ((c, d):t) = List.compare S.compare [a; b] [c; d]
-    end
-    module LabelMap = Stdlib.Map.Make(LabelOrdered)
+    module LabelMap = Stdlib.Map.Make(StatePair)
 
     (* Construct Rx from NFA using Node-elimination *)
     let to_rx (nfa: t) : Rx.t =
@@ -236,4 +257,37 @@ module Make (S : State) = struct
       (* All the states are "removed", just look at new_start -> new_final *)
       LabelMap.find (new_start, new_final) final_labels
 
+    let naive a b r = StateRel.mem (a, b) r
+    let context = naive
+    let congruence a b r =
+      (* Compute a ``normal form'' for a stateset by
+         applying rewrites from the relation until reaching fixpt *)
+      let rec nf r s =
+        let s' = StateRel.fold (fun (s1, s2) acc ->
+          let first = if StateSet.subset s1 acc then
+            StateSet.union acc s2 else acc in
+          if StateSet.subset s2 first then
+            StateSet.union first s1 else first) r s in
+        if StateSet.equal s s' then
+          s
+        else
+          nf r s'
+      in
+      StateSet.equal (nf r a) (nf r b)
+
+    let bisim (u: upto) (nfa: t) (a: StateSet.t) (b: StateSet.t) : StateRel.t option =
+      let rec bisim' (r: StateRel.t) (todo: StateSetPair.t list) : StateRel.t option = 
+        match todo with
+        | [] -> Some r
+        | (a', b')::todo' ->
+          if u a' b' r then
+            bisim' r todo'
+          else if StateSet.is_empty (StateSet.inter nfa.final a') <>
+                  StateSet.is_empty (StateSet.inter nfa.final b') then 
+            None
+          else
+            let todo' = todo @ (Alphabet.map (fun x -> (next nfa a' x, next nfa b' x)) nfa.alpha) in
+            let r' = StateRel.add (a',b') r in
+            bisim' r' todo'
+      in bisim' StateRel.empty [(a,b)]
 end 
