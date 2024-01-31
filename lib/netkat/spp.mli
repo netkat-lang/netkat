@@ -10,7 +10,7 @@ val drop : t
 val filter : bool -> field -> value -> t
 val modf : field -> value -> t
 
-val to_exp : t -> Nkexp.t
+val to_exp : t -> Nk.t
 val to_string : t -> string
 
 val of_sp : Sp.t -> t

@@ -114,14 +114,14 @@ let diff t1 t2 = intersect_pair t1 (neg t1)
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
 
 let rec to_exp = function
-  | Skip -> Nkexp.skip
-  | Drop -> Nkexp.drop
-  | Union (f, vm, d) -> let tsts = Nkexp.union (List.map (fun (v,t') -> 
-                            let tst = Nkexp.filter true f v in
+  | Skip -> Nk.skip
+  | Drop -> Nk.drop
+  | Union (f, vm, d) -> let tsts = Nk.union (List.map (fun (v,t') -> 
+                            let tst = Nk.filter true f v in
                             let next = to_exp t' in
-                            Nkexp.seq_pair tst next) (ValueMap.bindings vm)) in
-                         let ntsts = Nkexp.seq (List.map (fun (v,_) ->
-                            Nkexp.filter false f v) (ValueMap.bindings vm)) in
-                         Nkexp.union_pair tsts (Nkexp.seq_pair ntsts (to_exp d))
+                            Nk.seq_pair tst next) (ValueMap.bindings vm)) in
+                         let ntsts = Nk.seq (List.map (fun (v,_) ->
+                            Nk.filter false f v) (ValueMap.bindings vm)) in
+                         Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp d))
 
-let to_string t = to_exp t |> Nkexp.to_string
+let to_string t = to_exp t |> Nk.to_string

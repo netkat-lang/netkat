@@ -1,39 +1,29 @@
-include Nkexp
+include Nk
 
 (* --- Brzozowski derivatives --- *)
 
 let rec e = function
-  | Nkexp.Drop -> Spp.drop
-  | Nkexp.Skip -> Spp.skip
-  | Nkexp.Dup -> Spp.drop
-  | Nkexp.Filter (b, f, v) -> Spp.filter b f v
-  | Nkexp.Mod (f, v) -> Spp.modf f v
-  | Nkexp.Seq es -> List.map e es |> Spp.seq
-  | Nkexp.Union es -> List.map e es |> Spp.union
-  | Nkexp.Star exp -> e exp |> Spp.star
-  | Nkexp.Intersect es -> List.map e es |> Spp.intersect
-  | Nkexp.Neg exp -> failwith "Derivative is not defined for negation of arbitrary expressions"
-  | Nkexp.Fwd _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Bwd _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Exists _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Forall _ -> failwith ("TODO: " ^ __LOC__)
+  | Nk.Drop -> Spp.drop
+  | Nk.Skip -> Spp.skip
+  | Nk.Dup -> Spp.drop
+  | Nk.Filter (b, f, v) -> Spp.filter b f v
+  | Nk.Mod (f, v) -> Spp.modf f v
+  | Nk.Seq es -> List.map e es |> Spp.seq
+  | Nk.Union es -> List.map e es |> Spp.union
+  | Nk.Star exp -> e exp |> Spp.star
+  | Nk.Intersect es -> List.map e es |> Spp.intersect
 
 let rec d = function
-  | Nkexp.Drop
-  | Nkexp.Skip
-  | Nkexp.Filter _
-  | Nkexp.Mod _ -> Sts.drop
-  | Nkexp.Dup -> Sts.dup
-  | Nkexp.Seq es -> begin match es with
+  | Nk.Drop
+  | Nk.Skip
+  | Nk.Filter _
+  | Nk.Mod _ -> Sts.drop
+  | Nk.Dup -> Sts.dup
+  | Nk.Seq es -> begin match es with
     | [] -> Sts.drop
-    | exp::res -> Sts.union_pair (Sts.seq_spp (e exp) (d (Nkexp.seq res)))
-                                 (Sts.seq_exp (d exp) (Nkexp.seq res))
+    | exp::res -> Sts.union_pair (Sts.seq_spp (e exp) (d (Nk.seq res)))
+                                 (Sts.seq_exp (d exp) (Nk.seq res))
     end
-  | Nkexp.Union es -> List.map d es |> Sts.union
-  | Nkexp.Star e -> Sts.seq_exp (d e) (Nkexp.star e)
-  | Nkexp.Intersect es -> List.map d es |> Sts.intersect
-  | Nkexp.Neg exp -> failwith "Derivative is not defined for negation of arbitrary expressions"
-  | Nkexp.Fwd _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Bwd _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Exists _ -> failwith ("TODO: " ^ __LOC__)
-  | Nkexp.Forall _ -> failwith ("TODO: " ^ __LOC__)
+  | Nk.Union es -> List.map d es |> Sts.union
+  | Nk.Star e -> Sts.seq_exp (d e) (Nk.star e)
+  | Nk.Intersect es -> List.map d es |> Sts.intersect

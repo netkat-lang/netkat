@@ -70,28 +70,28 @@ let modf f v =
     mk_union (f, ValueMap.empty, ValueMap.singleton v Skip, Drop)
 
 let rec to_exp = function
-  | Skip -> Nkexp.skip
-  | Drop -> Nkexp.drop
+  | Skip -> Nk.skip
+  | Drop -> Nk.drop
   | Union (f,fms,ms,d) ->
       let branches = ValueMap.bindings fms 
         |> List.map (fun (vi,m) ->
             let mods = ValueMap.bindings m
-            |> List.map (fun (vj,spp) -> Nkexp.seq_pair (Nkexp.modif f vj) (to_exp spp))
-            |> Nkexp.union in
-            Nkexp.seq_pair (Nkexp.filter true f vi) mods)
-        |> Nkexp.union in
+            |> List.map (fun (vj,spp) -> Nk.seq_pair (Nk.modif f vj) (to_exp spp))
+            |> Nk.union in
+            Nk.seq_pair (Nk.filter true f vi) mods)
+        |> Nk.union in
       let uneq = ValueMap.bindings fms
-        |> List.map (fun (vi,_) -> Nkexp.filter false f vi) |> Nkexp.seq in
+        |> List.map (fun (vi,_) -> Nk.filter false f vi) |> Nk.seq in
       let mods = ValueMap.bindings ms
-        |> List.map (fun (vi, sppi) -> Nkexp.seq_pair (Nkexp.modif f vi) (to_exp sppi))
-        |> Nkexp.union in
-      let def = Nkexp.seq_pair (ValueMap.bindings ms
-        |> List.map (fun (vi,_) -> Nkexp.filter false f vi)
-        |> Nkexp.seq) (to_exp d) in
-      let defaults = Nkexp.seq_pair uneq (Nkexp.union_pair mods def) in
-      Nkexp.union_pair branches defaults
+        |> List.map (fun (vi, sppi) -> Nk.seq_pair (Nk.modif f vi) (to_exp sppi))
+        |> Nk.union in
+      let def = Nk.seq_pair (ValueMap.bindings ms
+        |> List.map (fun (vi,_) -> Nk.filter false f vi)
+        |> Nk.seq) (to_exp d) in
+      let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
+      Nk.union_pair branches defaults
 
-let to_string t = to_exp t |> Nkexp.to_string
+let to_string t = to_exp t |> Nk.to_string
 
 let vm_to_string (m: Sp.t ValueMap.t): string =
   List.map (fun (vj, sp) ->

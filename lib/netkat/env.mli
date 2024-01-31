@@ -1,2 +1,2 @@
-val bind : string -> Nkexp.t -> unit
-val lookup : string -> Nkexp.t
+val bind : string -> Nk.t -> unit
+val lookup : string -> Nk.t

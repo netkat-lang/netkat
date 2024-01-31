@@ -33,5 +33,5 @@ val neg : t -> t
 val xor : t -> t -> t
 
 (*---------- Output ------------------ *)
-val to_exp : t -> Nkexp.t
+val to_exp : t -> Nk.t
 val to_string : t -> string

@@ -7,7 +7,7 @@ val to_string : t -> string
 
 (** Convert a Netkat expression to a Netkat automaton by taking Brzozowski
     derivatives *)
-val autom : Nkexp.t -> t
+val autom : Nk.t -> t
 
 (** Decide whether the two Netkat automaton are bisimilar. Note that because
     the representation forces that the automata are deterministic, this is

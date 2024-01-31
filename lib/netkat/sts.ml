@@ -1,13 +1,13 @@
-module ExpMap = Map.Make(Nkexp)
+module ExpMap = Map.Make(Nk)
 
 type t = Spp.t ExpMap.t
 
-let trans (sts: t) (e: Nkexp.t) : Spp.t = ExpMap.find e sts
+let trans (sts: t) (e: Nk.t) : Spp.t = ExpMap.find e sts
 
 let to_list = ExpMap.bindings
 
-let drop = ExpMap.singleton Nkexp.drop Spp.skip
-let dup = ExpMap.singleton Nkexp.skip Spp.skip
+let drop = ExpMap.singleton Nk.drop Spp.skip
+let dup = ExpMap.singleton Nk.skip Spp.skip
 
 let union_pair t1 t2 = List.fold_left (fun m (e,spp) ->
   match ExpMap.find_opt e m with
@@ -21,4 +21,4 @@ let intersect_pair t1 t2 = failwith ("TODO" ^ __LOC__)
 
 let seq_spp spp sts = ExpMap.map (fun sppi -> Spp.seq_pair spp sppi) sts
 let seq_exp sts exp = List.fold_left (fun m (e,spp) ->
-  ExpMap.add (Nkexp.seq_pair e exp) spp m) ExpMap.empty (ExpMap.bindings sts)
+  ExpMap.add (Nk.seq_pair e exp) spp m) ExpMap.empty (ExpMap.bindings sts)

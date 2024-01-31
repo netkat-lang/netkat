@@ -2,9 +2,9 @@
 
 type t
 
-val trans : t -> Nkexp.t -> Spp.t
+val trans : t -> Nk.t -> Spp.t
 
-val to_list : t -> (Nkexp.t * Spp.t) list
+val to_list : t -> (Nk.t * Spp.t) list
 
 val drop : t
 val dup : t
@@ -16,4 +16,4 @@ val intersect : t list -> t
 val intersect_pair : t -> t -> t
 
 val seq_spp : Spp.t -> t -> t
-val seq_exp : t -> Nkexp.t -> t
+val seq_exp : t -> Nk.t -> t
