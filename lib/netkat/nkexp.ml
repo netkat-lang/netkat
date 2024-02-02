@@ -3,7 +3,15 @@
 open Pk
 
 type t =
-  | Exp of Nk.t
+  | Drop
+  | Skip
+  | Dup
+  | Filter of bool * field * value
+  | Mod of field * value
+  | Seq of t list
+  | Union of t list
+  | Star of t
+  | Intersect of t list
   | Neg of t
   | Fwd of t
   | Bwd of t
@@ -13,8 +21,45 @@ type t =
   (* | Lam of  *)
   (* | Range of *) (* TODO *)
 
+let skip = Skip
+let drop = Drop
+let dup = Dup
+let filter b f v = Filter (b,f,v)
+let modif f v = Mod (f,v)
+
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
+  | Drop, Drop -> 0
+  | Drop, _ -> -1
+  | _, Drop -> 1
+  | Skip, Skip -> 0
+  | Skip, _ -> -1
+  | _, Skip -> 1
+  | Dup, Dup -> 0
+  | Dup, _ -> -1
+  | _, Dup -> 1
+  | Filter (true,_,_), Filter (false,_,_) -> 1
+  | Filter (false,_,_), Filter (true,_,_) -> -1
+  | Filter (b1,f1,v1), Filter (b2,f2,v2) ->
+      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+  | Filter (_,_,_), _ -> -1
+  | _, Filter (_,_,_) -> 1
+  | Mod (f1,v1), Mod (f2,v2)->
+      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+  | Mod (_,_), _ -> -1
+  | _, Mod (_,_) -> 1
+  | Seq lst1, Seq lst2 -> List.compare compare lst1 lst2
+  | Seq _, _ -> -1
+  | _, Seq _ -> 1
+  | Union t1, Union t2 -> List.compare compare t1 t2
+  | Union _, _ -> -1
+  | _, Union _ -> 1
+  | Star s1, Star s2 -> compare s1 s2
+  | Star _, _ -> -1
+  | _, Star _ -> 1
+  | Intersect s1, Intersect s2 -> List.compare compare s1 s2
+  | Intersect _, _ -> -1
+  | _, Intersect _ -> 1
   | Fwd s1, Fwd s2 -> compare s1 s2
   | Fwd _, _ -> -1
   | _, Fwd _ -> 1
@@ -31,9 +76,6 @@ let rec compare (t1:t) (t2:t) =
   | Neg _, _ -> -1
   | _, Neg _ -> 1
   | Var s1, Var s2 -> String.compare s1 s2
-  | Var _, _ -> -1
-  | _, Var _ -> 1
-  | Exp e1, Exp e2 -> Nk.compare e1 e2
 
 (* Syntactic eqalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
@@ -104,4 +146,57 @@ let difference (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
 
 let xor (r1:t) (r2:t) : t =
   union_pair (difference r1 r2) (difference r2 r1)
-let eval (e: t) : Nk.t = failwith ("TODO: " ^ __LOC__)
+
+let to_string (e: t) : string =
+  (* TODO: we likely need more precedences here... *)
+  let prec (e0:t) : int =
+    match e0 with
+    | Fwd _
+    | Bwd _
+    | Forall _
+    | Exists _ -> 0
+    | Union _ -> 1
+    | Intersect _ -> 2
+    | Seq _ -> 3
+    | _ -> 4 in
+
+  let rec to_string_parent (parent_prec: int) (e: t) : string =
+    let s = match e with
+    | Drop  -> "drop"
+    | Skip -> "skip"
+    | Seq e0 -> String.concat "⋅" (List.map (to_string_parent (prec e)) e0)
+    | Union e0 -> String.concat " ∪ " (List.map (to_string_parent (prec e)) e0)
+    | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
+    | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
+    | Dup -> "dup"
+    | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
+    | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
+    | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
+    | Var x -> x
+    | Fwd _
+    | Bwd _
+    | Forall _
+    | Exists _ -> failwith ("TODO: " ^ __LOC__)
+    in
+
+    if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
+
+  to_string_parent 0 e
+
+let rec eval (e: t) : Nk.t =
+    match e with
+    | Drop  -> Nk.Drop
+    | Skip -> Nk.Skip
+    | Seq e0 -> List.map eval e0 |> Nk.seq
+    | Union e0 -> List.map eval e0 |> Nk.union
+    | Star e0 -> eval e0 |> Nk.star
+    | Intersect e0 -> List.map eval e0 |> Nk.intersect
+    | Dup -> Nk.dup
+    | Filter (b,f,v) -> Nk.filter b f v
+    | Mod (f,v) -> Nk.modif f v
+    | Neg _
+    | Var _
+    | Fwd _
+    | Bwd _
+    | Forall _
+    | Exists _ -> failwith ("TODO: " ^ __LOC__)

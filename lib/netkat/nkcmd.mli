@@ -2,9 +2,9 @@
 
 type t =
   | Import of string
-  | Check of bool * Nk.t * Nk.t
-  | Print of Nk.t
-  | Let of string * Nk.t
+  | Check of bool * Nkexp.t * Nkexp.t
+  | Print of Nkexp.t
+  | Let of string * Nkexp.t
   (* | For of string * value * value * t *) (* TODO *)
 
 (** Interpret / execute the nkpl command *)
