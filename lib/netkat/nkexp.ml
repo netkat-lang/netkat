@@ -24,6 +24,7 @@ type t =
 let skip = Skip
 let drop = Drop
 let dup = Dup
+let var s = Var s
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
 

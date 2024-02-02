@@ -20,6 +20,7 @@ val forall : field -> t -> t
 val skip : t
 val drop : t
 val dup : t
+val var : string -> t
 val filter : bool -> field -> value -> t
 val modif : field -> value -> t
 

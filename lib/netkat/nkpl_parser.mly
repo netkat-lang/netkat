@@ -32,12 +32,12 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
-  | var=VAR; TST; e=nk_exp { Env.bind var e; Nkcmd.Let (var,e) }
+  | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
   ;
 
 nk_exp:
-  | FWD; e=nk_exp { Nkexp.Fwd e }
-  | BWD; e=nk_exp { Nkexp.Bwd e }
+  | FWD; e=nk_exp { Nkexp.fwd e }
+  | BWD; e=nk_exp { Nkexp.bwd e }
   | e=nk_sum { e }
 
 nk_sum:
@@ -72,7 +72,7 @@ nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }
-  | var=VAR { Env.lookup var }
+  | v=VAR { Nkexp.var v }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }
   | SKIP { Nkexp.skip }
