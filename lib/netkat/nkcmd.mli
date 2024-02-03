@@ -5,10 +5,8 @@ type t =
   | Check of bool * Nkexp.t * Nkexp.t
   | Print of Nkexp.t
   | Let of string * Nkexp.t
+  | VLet of string * Pk.value
   (* | For of string * value * value * t *) (* TODO *)
-
-(** Interpret / execute the nkpl command *)
-val interp : t -> unit
 
 (** Pretty print the netkat expression. *)
 val to_string : t -> string

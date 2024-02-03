@@ -1,4 +1,4 @@
-(menhir (modules nkpl_parser))
+(menhir (modules nkpl_parser) (flags --explain --inspection --table --dump))
 
 (env
   (dev

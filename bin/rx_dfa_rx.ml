@@ -9,7 +9,7 @@ let () =
   begin
     Printf.printf "Your rx: %s\n%!" (Rx.to_string a rx);
 
-    let dfa: Dfa.t = Dfa.of_rx a rx in
+    let dfa: Dfa.t = Dfa.of_rx a rx |> Dfa.minimize in
 
     Printf.printf "Dfa: ";
     Dfa.print dfa;

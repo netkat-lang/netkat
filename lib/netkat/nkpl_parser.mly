@@ -33,6 +33,7 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
+  | var=VAR; TST; v=NUM { Nkcmd.VLet (var, value_of_int v) }
   ;
 
 nk_exp:
@@ -53,7 +54,6 @@ nk_conj:
 
 nk_seq:
   | r1=nk_un; DOT; r2=nk_seq { Nkexp.seq_pair  r1 r2  }
-  | c1=nk_at; r2=nk_seq { Nkexp.seq_pair c1 r2 }
   | r=nk_un { r }
   ;
 
@@ -72,6 +72,9 @@ nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }
+  | f = IDENT; TST; v = VAR { Nkexp.vfilter true (get_or_assign_fid f) v }
+  | f = IDENT; NTST; v = VAR { Nkexp.vfilter false (get_or_assign_fid f) v }
+  | f = IDENT; MOD; v = VAR { Nkexp.vmodif (get_or_assign_fid f) v }
   | v=VAR { Nkexp.var v }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }

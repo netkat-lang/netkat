@@ -65,7 +65,10 @@ let rec token buf =
           
   | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
   | '@', Plus letter -> IDENT (Sedlexing.Latin1.lexeme buf)
-  | '"', fn, '"' -> FILENAME (Sedlexing.Latin1.lexeme buf)
+  | '"', fn, '"' -> 
+      let s = Sedlexing.Latin1.lexeme buf in
+      let fn = String.sub s 1 (String.length s - 2) in
+      FILENAME fn
   | eof -> EOF
   | _ -> let first,last = Sedlexing.lexing_positions buf in
          let () = Printf.printf "unrecognized character line %d, col %d\n%!"

@@ -9,7 +9,6 @@ val compare : t -> t -> int
 (** [eq r] decides if the two regexs are *syntactically* equal *)
 val eq : t -> t -> bool
 
-
 (*---------------------- Smart constructors: ---------------------- *)
 val neg : t -> t
 val fwd : t -> t
@@ -23,6 +22,8 @@ val dup : t
 val var : string -> t
 val filter : bool -> field -> value -> t
 val modif : field -> value -> t
+val vfilter : bool -> field -> string -> t
+val vmodif : field -> string -> t
 
 (** Construct a netkat expression which is the concatenation of a list of
     netkat expressions. *)
@@ -62,5 +63,6 @@ val xor : t -> t -> t
 
 (** Pretty print the netkat expression. *)
 val to_string : t -> string
+
 (** Evaluate a Nkexp to a fully formed Nk term. *)
-val eval : t -> Nk.t
+val eval : Env.t -> t -> Nk.t

@@ -8,6 +8,8 @@ type t =
   | Dup
   | Filter of bool * field * value
   | Mod of field * value
+  | VFilter of bool * field * string
+  | VMod of field * string
   | Seq of t list
   | Union of t list
   | Star of t
@@ -19,6 +21,7 @@ type t =
   | Forall of field * t
   | Var of string
   (* | Lam of  *)
+  (* | App of  *)
   (* | Range of *) (* TODO *)
 
 let skip = Skip
@@ -27,6 +30,8 @@ let dup = Dup
 let var s = Var s
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
+let vfilter b f v = VFilter (b,f,v)
+let vmodif f v = VMod (f,v)
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
@@ -45,10 +50,20 @@ let rec compare (t1:t) (t2:t) =
       if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
   | Filter (_,_,_), _ -> -1
   | _, Filter (_,_,_) -> 1
+  | VFilter (true,_,_), VFilter (false,_,_) -> 1
+  | VFilter (false,_,_), VFilter (true,_,_) -> -1
+  | VFilter (b1,f1,v1), VFilter (b2,f2,v2) ->
+      if f1 = f2 then String.compare v1 v2 else cmp_field f1 f2
+  | VFilter (_,_,_), _ -> -1
+  | _, VFilter (_,_,_) -> 1
   | Mod (f1,v1), Mod (f2,v2)->
       if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
   | Mod (_,_), _ -> -1
   | _, Mod (_,_) -> 1
+  | VMod (f1,v1), VMod (f2,v2)->
+      if f1 = f2 then String.compare v1 v2 else cmp_field f1 f2
+  | VMod (_,_), _ -> -1
+  | _, VMod (_,_) -> 1
   | Seq lst1, Seq lst2 -> List.compare compare lst1 lst2
   | Seq _, _ -> -1
   | _, Seq _ -> 1
@@ -171,7 +186,9 @@ let to_string (e: t) : string =
     | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
     | Dup -> "dup"
     | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
+    | VFilter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ v
     | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
+    | VMod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ v
     | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
     | Var x -> x
     | Fwd _
@@ -184,19 +201,21 @@ let to_string (e: t) : string =
 
   to_string_parent 0 e
 
-let rec eval (e: t) : Nk.t =
+let rec eval (env: Env.t) (e: t) : Nk.t =
     match e with
     | Drop  -> Nk.Drop
     | Skip -> Nk.Skip
-    | Seq e0 -> List.map eval e0 |> Nk.seq
-    | Union e0 -> List.map eval e0 |> Nk.union
-    | Star e0 -> eval e0 |> Nk.star
-    | Intersect e0 -> List.map eval e0 |> Nk.intersect
+    | Seq e0 -> List.map (eval env) e0 |> Nk.seq
+    | Union e0 -> List.map (eval env) e0 |> Nk.union
+    | Star e0 -> eval env e0 |> Nk.star
+    | Intersect e0 -> List.map (eval env) e0 |> Nk.intersect
     | Dup -> Nk.dup
     | Filter (b,f,v) -> Nk.filter b f v
+    | VFilter (b,f,var) -> Nk.filter b f (Env.lookup_val env var)
     | Mod (f,v) -> Nk.modif f v
+    | VMod (f,var) -> Nk.modif f (Env.lookup_val env var)
+    | Var x -> Env.lookup_exp env x
     | Neg _
-    | Var _
     | Fwd _
     | Bwd _
     | Forall _

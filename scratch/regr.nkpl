@@ -51,4 +51,15 @@ check @x=1⋅(@x=1⋅@x←2 ∪ @x=2⋅@x←3 ∪ @x=3⋅@x←4)⋆ ≡ @x=1⋅(
 A = @x=1⋅@y←3 ∪ @x=2⋅@y←7
 B = @x=2⋅@y←7
 
--- check A ≡ A ∪ B
+check A ≡ A ∪ B
+check B ≢ A ∪ B
+
+C = 3
+D = 4
+
+check @x=C ≡ @x=3
+check @x=C ≢ @x=D
+
+import "scratch/import.nkpl"
+check @y=E ≢ @y=F
+check @y=E ≡ @y=7
