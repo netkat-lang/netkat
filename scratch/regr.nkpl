@@ -60,6 +60,9 @@ D = 4
 check @x=C ≡ @x=3
 check @x=C ≢ @x=D
 
-import "scratch/import.nkpl"
+import "import.nkpl"
 check @y=E ≢ @y=F
 check @y=E ≡ @y=7
+
+import "nested/nestedimport.nkpl"
+check G ≡ G⋆

@@ -201,6 +201,7 @@ let intersect_pair spp1 spp2 = match spp1,spp2 with
   | Union _, Union _ -> failwith ("TODO: " ^ __LOC__)
   
 let intersect _ = failwith ("TODO: " ^ __LOC__)
+
 let rec diff spp1 spp2 = match spp1, spp2 with
   | Skip,Skip
   | Drop, _ -> Drop

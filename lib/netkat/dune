@@ -8,7 +8,7 @@
   (name nerode_netkat)
   (public_name nerode.netkat)
   (preprocess (pps sedlex.ppx))
-  (libraries yojson menhirLib sedlex))
+  (libraries core_unix yojson menhirLib sedlex))
 
 (documentation
   (package nerode)

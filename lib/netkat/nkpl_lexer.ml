@@ -1,10 +1,10 @@
 open Nkpl_parser
 
 let digit = [%sedlex.regexp? '0' .. '9']
-let number = [%sedlex.regexp? Plus digit]
+let number = [%sedlex.regexp? Opt '-', Plus digit]
 let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
-let alphanum = [%sedlex.regexp? digit | letter ]
-let ch = [%sedlex.regexp? digit | number | letter | '.' | '/']
+let alphanum = [%sedlex.regexp? digit | letter | '_' ]
+let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_']
 let fn = [%sedlex.regexp? Star ch]
 
 let rec token buf =
@@ -64,7 +64,7 @@ let rec token buf =
                  end
           
   | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
-  | '@', Plus letter -> IDENT (Sedlexing.Latin1.lexeme buf)
+  | '@', Plus alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
   | '"', fn, '"' -> 
       let s = Sedlexing.Latin1.lexeme buf in
       let fn = String.sub s 1 (String.length s - 2) in
