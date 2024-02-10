@@ -9,6 +9,10 @@ type t =
 let skip = Skip
 let drop = Drop
 
+let map_op = map_op drop
+let map_op_pair = map_op_pair drop
+let right_join = right_join drop
+
 let dummy f d = Union (f, ValueMap.empty, ValueMap.empty, d)
 
 let rec compare spp1 spp2 = match spp1, spp2 with
@@ -103,12 +107,10 @@ let vmpp_to_string (m: t ValueMap.t): string =
       string_of_val vj ^ "↦" ^ (to_string sp)) (ValueMap.bindings m)
         |> String.concat ", "
 
-        (*
 let vmm_to_string (m: t ValueMap.t ValueMap.t): string = 
   List.map (fun (vi, mi) ->
-    (string_of_val vi) ^ "--->" ^ (vm_to_string mi)
+    (string_of_val vi) ^ "--->" ^ (vmpp_to_string mi)
     ) (ValueMap.bindings m) |> String.concat "; "
-    *)
 
 let get_branch (x: t) (v: value) : t ValueMap.t =
   match x with
@@ -193,14 +195,30 @@ let rec seq_pair spp1 spp2 = match spp1, spp2 with
 
 let seq = List.fold_left seq_pair Skip
 
-let intersect_pair spp1 spp2 = match spp1,spp2 with
+let rec intersect_pair spp1 spp2 =
+  match spp1,spp2 with
   | Drop, _
   | _, Drop -> Drop
-  | Skip, _ -> spp2
-  | _, Skip -> spp1
-  | Union _, Union _ -> failwith ("TODO: " ^ __LOC__)
-  
-let intersect _ = failwith ("TODO: " ^ __LOC__)
+  | Skip, Skip -> Skip
+  | Skip, Union(f,fms,ms,d) -> intersect_pair (dummy f Skip) spp2
+  | Union(f,fms,ms,d), Skip -> intersect_pair spp1 (dummy f Skip)
+  | Union (f1,fms1,ms1,d1), Union (f2,fms2,ms2,d2) ->
+      if f1 < f2 then
+        intersect_pair spp1 (dummy f1 spp2)
+      else if f2 < f1 then
+        intersect_pair (dummy f2 spp1) spp2
+      else
+        let keyset = ValueSet.union (union_keys [fms1; fms2]) (union_keys [ms1; ms2]) in
+        let fms = ValueSet.fold (fun v m -> 
+          ValueMap.add v (map_op_pair intersect_pair (get_branch spp1 v) (get_branch spp2 v)) m) keyset ValueMap.empty in
+        let ms = map_op_pair intersect_pair ms1 ms2 in
+        let d = intersect_pair d1 d2 in
+        mk_union(f1, fms, ms, d)
+
+let intersect spps = match spps with
+                     | [] -> Drop
+                     | [x] -> x
+                     | x::ys -> List.fold_left intersect_pair x ys
 
 let rec diff spp1 spp2 = match spp1, spp2 with
   | Skip,Skip
@@ -238,10 +256,10 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
       let thru_fms = List.map (fun (v,vms) ->
           ValueMap.mapi (fun v spp -> push Sp.Skip spp) vms) (ValueMap.bindings fms)
         (* |> (fun x -> begin Printf.printf "thru_fmss: %s\n" (List.map vm_to_string x |> String.concat " ") end; x) *)
-        |> map_op Sp.union_pair in
+        |> Pk.map_op Sp.drop Sp.union_pair in
       (* let () = Printf.printf "thru fms: %s\n" (vm_to_string thru_fms) in *)
       let thru_ms = ValueMap.mapi (fun v spp -> push Sp.Skip spp) ms in
-      let thru_both = map_op_pair Sp.union_pair thru_fms thru_ms in
+      let thru_both = Pk.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms in
       let matched_values = ValueSet.union (keys fms) (keys ms) in
       (* let () = Printf.printf "matched values: %s\n" (ValueSet.elements matched_values |> List.map string_of_val |> String.concat ", ") in *)
       (* let () = Printf.printf "thru_both %s\n" (vm_to_string thru_both) in *)
@@ -269,8 +287,8 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
           let tsts = ValueMap.mapi (fun v spi -> push sp spp) muts in
           Sp.mk_union(f2, tsts, Sp.Drop)) (ValueMap.bindings fms2) |> Sp.union in
 
-        let ms = right_join (ValueMap.map (Fun.const Sp.drop) fms2)
-                            (ValueMap.map (fun sppi -> push sp sppi) ms2) in
+        let ms = Pk.right_join Sp.drop (ValueMap.map (Fun.const Sp.drop) fms2)
+                                       (ValueMap.map (fun sppi -> push sp sppi) ms2) in
         let fmsB = Sp.mk_union(f2, ms, push sp d2) in
         Sp.union_pair fmsA fmsB
       else  (* f1 = f2 *)
@@ -291,8 +309,8 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
                                             else let tsts = ValueMap.map (fun sppj -> push d1 sppj) sppi in
                                             Sp.mk_union(f1, tsts, Sp.drop)) (ValueMap.bindings fms2) |> Sp.union in
         let ms = ValueMap.map (Fun.const Sp.drop) fms1
-                 |> left_join (ValueMap.map (Fun.const Sp.drop) fms2)
-                 |> left_join (ValueMap.map (fun sppi -> push d1 sppi) ms2) in
+                 |> Pk.left_join Sp.drop (ValueMap.map (Fun.const Sp.drop) fms2)
+                 |> Pk.left_join Sp.drop (ValueMap.map (fun sppi -> push d1 sppi) ms2) in
         let pkC = Sp.mk_union(f1, ms, push d1 d2) in
         Sp.union [pkA; pkB; pkC]
 

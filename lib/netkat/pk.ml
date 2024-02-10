@@ -34,12 +34,17 @@ let get_or_fail_fid (n: field) : string =
   | Some f -> f
   | None -> failwith ("unknown field index: " ^ string_of_int n)
 
-let map_op_pair op m1 m2 = ValueMap.union (fun _ x y -> Some (op x y)) m1 m2
+let map_op_pair d op m1 m2 = ValueMap.merge(fun _ x y ->
+    match x, y with
+    | None, None -> None
+    | None, Some y' -> Some (op d y')
+    | Some x', None -> Some (op x' d)
+    | Some x', Some y' -> Some (op x' y')) m1 m2
 
-let map_op op = List.fold_left (map_op_pair op) ValueMap.empty
+let map_op d op = List.fold_left (map_op_pair d op) ValueMap.empty
 
-let right_join (m1: 'a ValueMap.t) (m2: 'a ValueMap.t) = map_op_pair (fun a b -> b) m1 m2
-let left_join (m1: 'a ValueMap.t) (m2: 'a ValueMap.t) = map_op_pair (fun a b -> a) m1 m2
+let right_join d (m1: 'a ValueMap.t) (m2: 'a ValueMap.t) = map_op_pair d (fun a b -> b) m1 m2
+let left_join d (m1: 'a ValueMap.t) (m2: 'a ValueMap.t) = map_op_pair d (fun a b -> a) m1 m2
 (* XXX: Doesn't compile?
     left_join = Fun.flip right_join *)
 

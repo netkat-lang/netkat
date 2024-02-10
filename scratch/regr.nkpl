@@ -66,3 +66,15 @@ check @y=E ≡ @y=7
 
 import "nested/nestedimport.nkpl"
 check G ≡ G⋆
+
+-- Intersect
+check ε & @x←2 ≡ @x=2
+check @x=3 ∩ @x=3 ≡ @x=3
+check @x=3 ∩ @x=4 ≡ ∅
+check @x=3⋅@y=2 ∩ @x=3 ≡ @x=3⋅@y=2
+check @x=3⋅@y←2 ∩ @x=3 ≡ @x=3⋅@y=2
+check @x=3⋅@y←2 ∩ (@x=4 ∪ (@x=1∪@x=3)⋅(@x←2 ∪ @y←2)) ≡ @x=3⋅@y←2
+
+check ε ∪ @d←2⋆⋅@d←2 ≡ ε ∪ @d←2
+
+check (@e←4 ∪ δ)⋅@d←2 ≡ (δ ∪ @e←4)⋅@d←2

@@ -183,7 +183,7 @@ let to_string (e: t) : string =
     | Seq e0 -> String.concat "⋅" (List.map (to_string_parent (prec e)) e0)
     | Union e0 -> String.concat " ∪ " (List.map (to_string_parent (prec e)) e0)
     | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
-    | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
+    | Intersect e0 -> String.concat " & " (List.map (to_string_parent (prec e)) e0)
     | Dup -> "dup"
     | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
     | VFilter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ v

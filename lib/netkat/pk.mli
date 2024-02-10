@@ -23,10 +23,10 @@ val string_of_val : value -> string
 
 (*---------- Utility operations for ValueMaps---------------------- *)
 
-val map_op_pair : ('a -> 'a -> 'a) -> 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
-val map_op : ('a -> 'a -> 'a) -> 'a ValueMap.t list -> 'a ValueMap.t
-val right_join : 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
-val left_join : 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
+val map_op_pair : 'a -> ('a -> 'a -> 'a) -> 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
+val map_op : 'a -> ('a -> 'a -> 'a) -> 'a ValueMap.t list -> 'a ValueMap.t
+val right_join : 'a -> 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
+val left_join : 'a -> 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
 
 val keys : 'a ValueMap.t -> ValueSet.t
 val union_keys : 'a ValueMap.t list -> ValueSet.t

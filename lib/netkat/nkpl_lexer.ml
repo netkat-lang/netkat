@@ -42,7 +42,7 @@ let rec token buf =
   | math -> begin match Sedlexing.Utf8.lexeme buf with
             | "\u{2295}" -> XOR   (* ⊕ *)
             | "\u{2227}"          (* ∧ *)
-            | "\u{2229}" -> AND   (* ∩ *) 
+            | "\u{2229}" -> AND   (* ∩ *)
             | "\u{00AC}" -> NEG   (* ¬ *)
             | "\u{22c5}" -> DOT   (* ⋅ *)
             | "\u{03b4}" -> DUP   (* δ *)

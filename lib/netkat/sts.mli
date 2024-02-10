@@ -12,8 +12,11 @@ val dup : t
 val union : t list -> t
 val union_pair : t -> t -> t
 
-val intersect : t list -> t
 val intersect_pair : t -> t -> t
+val intersect : t list -> t
 
 val seq_spp : Spp.t -> t -> t
 val seq_exp : t -> Nk.t -> t
+
+val to_exp : t -> Nk.t
+val to_string : t -> string
