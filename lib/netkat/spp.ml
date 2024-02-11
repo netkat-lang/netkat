@@ -278,15 +278,19 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
           ValueMap.add v (Sp.union_pair sp_cur push_default) m) branchesD diffkeys in
       Sp.mk_union (f, branchesE, push_default)
 
+      (*
+      pushing @b≠4 through @a=3⋅@a←3...
+        got @b=3...
+      pushing @b≠4 through @a=3⋅@a←3⋅@b≠4⋅@b←4...
+      *)
   | Union (f1,fms1,d1), Union (f2,fms2,ms2,d2) ->
       if f1 < f2 then
         let fms = ValueMap.mapi (fun v spi -> push spi spp) fms1 in
         Sp.mk_union(f1, fms, push d1 spp)
-      else if f2 < f2 then
+      else if f2 < f1 then
         let fmsA = List.map (fun (_, muts) ->
-          let tsts = ValueMap.mapi (fun v spi -> push sp spp) muts in
+          let tsts = ValueMap.mapi (fun v sppi -> push sp sppi) muts in
           Sp.mk_union(f2, tsts, Sp.Drop)) (ValueMap.bindings fms2) |> Sp.union in
-
         let ms = Pk.right_join Sp.drop (ValueMap.map (Fun.const Sp.drop) fms2)
                                        (ValueMap.map (fun sppi -> push sp sppi) ms2) in
         let fmsB = Sp.mk_union(f2, ms, push sp d2) in

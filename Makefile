@@ -29,7 +29,7 @@ doc:
 run:
 	dune exec $(NAME)
 
-install:
+install: build
 	dune install
 
 test:

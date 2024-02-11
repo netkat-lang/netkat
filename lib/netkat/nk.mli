@@ -58,7 +58,7 @@ val star : t -> t
 
 (** Construct a netkat expression which is the difference (as sets) of first
     netkat expression and the second one. *)
-val difference : t -> t -> t
+val diff : t -> t -> t
 
 (** Construct a netkat expression which is the symmetric difference (as sets)
     of two netkat expressions *)

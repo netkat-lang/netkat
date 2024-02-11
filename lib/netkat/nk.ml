@@ -51,31 +51,36 @@ let rec compare (t1:t) (t2:t) =
   | _, Star _ -> 1
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
 
-(* Syntactic eqalence *)
+(* Syntactic equivalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
 
 (* Sort and remove adjacent duplicates *)
-(*
 let usort (lst: t list) : t list =
-  List.sort ~compare:compare lst |>
-  List.fold_left ~f:(fun r x ->
+  List.sort compare lst |>
+  List.fold_left (fun r x ->
     match r with
     | [] -> [x]
     | p::rem -> if eq x p then r else x::r
-    ) ~init:[] |>
+    ) [] |>
   List.rev
-  *)
 
+(** We have to implement ACI here so that taking derivatives terminates.*)
 let rec union_pair (r1:t) (r2:t) : t =
   match r1,r2 with
   | Drop, _ -> r2
   | _, Drop -> r1
   | Star r, Skip
   | Skip, Star r -> Star r
-  | Union t1, Union t2 -> Union (t1 @ t2)
-  | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then r1 else Union (r2::t1)
-  | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else Union (r1::t2)
-  | _, _ -> if eq r1 r2 then r1 else Union [r1;r2]
+  | Union t1, Union t2 -> Union (usort (t1 @ t2))
+  | Union t1, _ -> if List.exists (fun x -> eq x r2) t1 then
+                      r1
+                   else
+                     Union (usort (r2::t1))
+  | _, Union t2 -> if List.exists (fun x -> eq x r1) t2 then
+                      r2
+                   else
+                     Union (usort (r1::t2))
+  | _, _ -> if eq r1 r2 then r1 else Union (usort [r1;r2])
 and union lst = List.fold_left union_pair Drop lst
 
 let rec seq_pair (r1:t) (r2:t) : t =
@@ -119,13 +124,13 @@ let intersect_pair (r1:t) (r2:t) : t =
   | _, Intersect t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else intersect (r1::t2)
   | _, _ -> if eq r1 r2 then r1 else intersect [r1;r2]
 
-let difference (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
+let diff (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
   (*
   intersect_pair r1 (neg r2)
   *)
 
 let xor (r1:t) (r2:t) : t =
-  union_pair (difference r1 r2) (difference r2 r1)
+  union_pair (diff r1 r2) (diff r2 r1)
 
 (* --- Pretty print --- *)
 

@@ -34,23 +34,24 @@ let to_string (a: t) =
   "\nobs: " ^ (StateMap.bindings a.obs |> List.map ebinding_to_string  |> String.concat ", ") ^ "\n\n"
 
 let autom (e: Nk.t) : t =
-  let rec loop (q: Nk.t list) (visited: StateSet.t) tr ob = match q with
-  | [] -> {
-    states = visited;
-    start = e;
-    trans = tr;
-    obs = ob;
-  }
-  | e0::rem -> if StateSet.mem e0 visited then
-                 loop rem visited tr ob
-               else
-                 let vis = StateSet.add e0 visited in
-                 let sts = Deriv.d e0 in
-                 let ob' = StateMap.add e0 (Deriv.e e0) ob in
-                 let tr' = StateMap.add e0 sts tr in
-                 let q' = Sts.to_list sts |> List.map (fun (e,_) -> e) in
-                 loop (q'@rem) vis tr' ob' in
-  loop [e] StateSet.empty StateMap.empty StateMap.empty
+  let rec loop (q: Nk.t list) (visited: StateSet.t) tr ob =
+    match q with
+    | [] -> {
+      states = visited;
+      start = e;
+      trans = tr;
+      obs = ob;
+    }
+    | e0::rem -> if StateSet.mem e0 visited then
+                   loop rem visited tr ob
+                 else
+                   let vis = StateSet.add e0 visited in
+                   let sts = Deriv.d e0 in
+                   let ob' = StateMap.add e0 (Deriv.e e0) ob in
+                   let tr' = StateMap.add e0 sts tr in
+                   let q' = Sts.to_list sts |> List.map (fun (e,_) -> e) in
+                   loop (q'@rem) vis tr' ob' in
+    loop [e] StateSet.empty StateMap.empty StateMap.empty
 
 let bisim (a1: t) (a2: t) : bool =
   (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string a1) (to_string a2) in *)
@@ -72,7 +73,9 @@ let bisim (a1: t) (a2: t) : bool =
                            let tr2 = StateMap.find s2 a2.trans |> Sts.to_list in
                            let next = List.fold_left (fun a (ei, sppi)->
                               (List.map (fun (ej, sppj) ->
-                                let pk' = Sp.intersect_pair (Spp.push pk sppi) (Spp.push pk sppj) in
+                                (* let () = Printf.printf "pushing %s through %s...\n" (Sp.to_string pk) (Spp.intersect_pair sppi sppj |> Spp.to_string) in *)
+                                let pk' = Spp.push pk (Spp.intersect_pair sppi sppj) in
+                                (* let () = Printf.printf "got %s...\n" (Sp.to_string pk') in *)
                                 (pk', ei, ej)) tr2)@a) [] tr1 in
                            let visited' = PairMap.add (s1,s2) pk visited in
                            bq next visited'

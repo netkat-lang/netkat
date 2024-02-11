@@ -5,7 +5,7 @@ open Pk
 
 %token LPAR RPAR EOF
 %token IMPORT CHECK PRINT EQUIV NEQUIV
-%token PLUS AND DOT STAR NEG XOR
+%token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD
 %token NTST TST MOD
 %token SKIP DROP DUP
@@ -43,6 +43,7 @@ nk_exp:
 
 nk_sum:
   | r1=nk_conj; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }
+  | r1=nk_conj; DIFF; r2=nk_sum { Nkexp.diff r1 r2 }
   | r1=nk_conj; XOR; r2=nk_sum { Nkexp.xor r1 r2 }
   | r=nk_conj { r }
   ;

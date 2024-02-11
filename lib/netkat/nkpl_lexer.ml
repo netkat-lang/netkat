@@ -24,12 +24,14 @@ let rec token buf =
   | ')' -> RPAR
   | '|'
   | '+' -> PLUS
+  | '-' -> DIFF
   | '.'
   | ';' -> DOT
   | '*' -> STAR
   | '~' -> NEG
   | '&' -> AND
   | '=' -> TST
+  | '^' -> XOR
   | "dup" -> DUP
   | ":="
   | "<-" -> MOD

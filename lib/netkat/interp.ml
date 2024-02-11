@@ -19,9 +19,9 @@ and interp (bn: string) (env: Env.t) (c: t) =
   | Import s -> interp_file_with_env env (bn ^ s)
   | Check (b, e1, e2) -> let start = Core_unix.gettimeofday () in
                          let a1 = Nkexp.eval env e1 |> Nka.autom in
-                         (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nkexpa.to_string a1) in *)
+                         (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
                          let a2 = Nkexp.eval env e2 |> Nka.autom in
-                         (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nkexpa.to_string a2) in *)
+                         (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
                          let sgn = if b then "≡" else "≢" in
                          let res = Nka.bisim a1 a2 in
                          let stop = Core_unix.gettimeofday () in

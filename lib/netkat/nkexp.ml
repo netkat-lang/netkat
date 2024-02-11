@@ -155,13 +155,13 @@ let intersect_pair (r1:t) (r2:t) : t =
   | _, Intersect t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else intersect (r1::t2)
   | _, _ -> if eq r1 r2 then r1 else intersect [r1;r2]
 
-let difference (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
+let diff (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
   (*
   intersect_pair r1 (neg r2)
   *)
 
 let xor (r1:t) (r2:t) : t =
-  union_pair (difference r1 r2) (difference r2 r1)
+  union_pair (diff r1 r2) (diff r2 r1)
 
 let to_string (e: t) : string =
   (* TODO: we likely need more precedences here... *)
