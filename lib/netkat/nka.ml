@@ -56,13 +56,16 @@ let autom (e: Nk.t) : t =
     loop [e] StateSet.empty StateMap.empty StateMap.empty
 
 let bisim (a1: t) (a2: t) : bool =
-  (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string a1) (to_string a2) in *)
+  (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string
+     a1) (to_string a2) in *)
   let rec bq q visited = 
     match q with
     | [] -> true
     | (pk,s1,s2)::rem -> let () = () in
-                          (* let () = Printf.printf "comparing %s ; %s (for pk=%s)\n%!" (Nk.to_string s1) (Nk.to_string s2) (Sp.to_string pk) in *)
-                         if Sp.eq pk Sp.drop ||
+                         (* let () = Printf.printf "comparing %s ; %s (for
+                            pk=%s)\n%!" (Nk.to_string s1) (Nk.to_string s2)
+                            (Sp.to_string pk) in *)
+                         if Nk.eq s1 s2 || Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
                            bq rem visited
@@ -78,6 +81,11 @@ let bisim (a1: t) (a2: t) : bool =
                                 let pk' = Spp.push pk (Spp.intersect_pair sppi sppj) in
                                 (* let () = Printf.printf "got %s...\n" (Sp.to_string pk') in *)
                                 (pk', ei, ej)) tr2)@a) [] tr1 in
-                           let visited' = PairMap.add (s1,s2) pk visited in
+                           (* Update the visited set to include everything in
+                              this packet (plus everything there already for this pair of states. *)
+                           let vpk = match PairMap.find_opt (s1,s2) visited with
+                                     | None -> pk
+                                     | Some a -> Sp.union_pair pk a in
+                           let visited' = PairMap.add (s1,s2) vpk visited in
                            bq next visited'
   in bq [(Sp.skip, a1.start, a2.start)] PairMap.empty
