@@ -27,11 +27,13 @@ type t = {
 let to_string (a: t) =
   let ebinding_to_string ((e,p): Nk.t * Spp.t) =
     (Nk.to_string e) ^ "↦(" ^ (Spp.to_string p) ^ ")" in
-  "states: " ^ (StateSet.elements a.states |> List.map Nk.to_string |> String.concat ", ") ^
-  "\nstart: " ^ (Nk.to_string a.start) ^
-  "\ntrans: " ^ (StateMap.bindings a.trans
-          |> List.map (fun (e,sts) -> (Nk.to_string e) ^ "↦" ^ Sts.to_string sts) |> String.concat "; ") ^
-  "\nobs: " ^ (StateMap.bindings a.obs |> List.map ebinding_to_string  |> String.concat ", ") ^ "\n\n"
+  "States: " ^ (StateSet.elements a.states |> List.map Nk.to_string |> String.concat ", ") ^
+  "\nStart: " ^ (Nk.to_string a.start) ^
+  "\nTrans:\n  " ^ (StateMap.bindings a.trans
+  |> List.map (fun (e,sts) -> "  " ^ (Nk.to_string e) ^ "↦" ^ Sts.to_string sts
+  ) |> String.concat "  \n  ") ^
+  "\nObs:\n  " ^ (StateMap.bindings a.obs |> List.map ebinding_to_string  |>
+  String.concat "  \n  ") ^ "\n\n"
 
 let autom (e: Nk.t) : t =
   let rec loop (q: Nk.t list) (visited: StateSet.t) tr ob =
@@ -59,11 +61,10 @@ let bisim (a1: t) (a2: t) : bool =
     match q with
     | [] -> true
     | (pk,s1,s2)::rem -> let () = () in
-                         (* let () = Printf.printf "comparing %s ; %s (for pk=%s)\n%!" (Nk.to_string s1) (Nk.to_string s2) (Sp.to_string pk) in *)
+                          (* let () = Printf.printf "comparing %s ; %s (for pk=%s)\n%!" (Nk.to_string s1) (Nk.to_string s2) (Sp.to_string pk) in *)
                          if Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
-                           (* let () = Printf.printf "%s\n%!" __LOC__ in *)
                            bq rem visited
                          else if not (Spp.eq (Spp.seq_pair (Spp.of_sp pk) (StateMap.find s1 a1.obs))
                                              (Spp.seq_pair (Spp.of_sp pk) (StateMap.find s2 a2.obs))) then

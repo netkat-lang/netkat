@@ -58,5 +58,5 @@ let to_exp t = List.map (fun (e,spp) -> Nk.seq [Spp.to_exp spp; Nk.dup; e]) (to_
 
 (* let to_string t = to_exp t |> Nk.to_string *)
 
-let to_string t = List.map (fun (e,spp) -> (Spp.to_string spp) ^ "⋅dup⋅" ^ (Nk.to_string e)) (to_list t)
-                  |> String.concat " ∪ "
+let to_string t = List.map (fun (e,spp) -> "--[" ^ (Spp.to_string spp) ^ "]-->" ^ (Nk.to_string e)) (to_list t)
+                     |> String.concat "; "

@@ -19,11 +19,13 @@ let rec d = function
   | Nk.Filter _
   | Nk.Mod _ -> Sts.drop
   | Nk.Dup -> Sts.dup
-  | Nk.Seq es -> begin match es with
+  | Nk.Seq es -> begin 
+    match es with
     | [] -> Sts.drop
     | exp::res -> Sts.union_pair (Sts.seq_spp (e exp) (d (Nk.seq res)))
                                  (Sts.seq_exp (d exp) (Nk.seq res))
     end
   | Nk.Union es -> List.map d es |> Sts.union
-  | Nk.Star e -> Sts.seq_exp (d e) (Nk.star e)
+  | Nk.Star exp -> Sts.seq_spp (Spp.star (e exp))
+                               (Sts.seq_exp (d exp) (Nk.star exp))
   | Nk.Intersect es -> List.map d es |> Sts.intersect
