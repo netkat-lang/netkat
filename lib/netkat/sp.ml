@@ -66,17 +66,6 @@ let le sp1 sp2 = match sp1, sp2 with
   | _, Drop
   | Skip, _ -> false (* because _, Skip is already marked true *)
   | _, _ -> eq sp2 (union_pair sp1 sp2)
-  (*
-  | Union (f1,m1,d1), Union (f2,m2,d2) ->
-      if f1 < f2 then le d1 sp2
-      else if f2 < f1 then le sp1 d2
-      else
-        le d1 d2 &&
-        List.fold_left (fun b (v,spj) ->
-          b && match ValueMap.find_opt v m1 with
-               | Some spi -> le spi spj
-               | None -> false) true (ValueMap.bindings m2)
-  *)
 
 
 let rec seq_pair (t1: t) (t2: t) : t =
@@ -104,12 +93,12 @@ let intersect = seq
 
 let star _ = Skip
 
-let neg e = match e with
+let rec neg e = match e with
   | Skip -> Drop
   | Drop -> Skip
-  | Union (f, vm, d) -> failwith ("TODO" ^ __LOC__)
+  | Union (f, vm, d) -> mk_union (f, ValueMap.map neg vm, neg d)
 
-let diff t1 t2 = intersect_pair t1 (neg t1)
+let diff t1 t2 = intersect_pair t1 (neg t2)
 
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
 

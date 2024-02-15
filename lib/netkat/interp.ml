@@ -11,6 +11,15 @@ let rec interp_file_with_env (env: Env.t) (fn: string) : Env.t =
            | Some i -> String.sub fn 0 (i+1) in
   List.fold_left (interp bn) env cmds
 
+and interp_string (env: Env.t) (s: string) =
+  let lexbuf = Sedlexing.Utf8.from_string s in
+  let lexer  = Sedlexing.with_tokenizer Nkpl_lexer.token lexbuf in
+  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.single_cmd in
+  let c = parser lexer in
+  match c with
+    | None -> env
+    | Some cmd -> interp "" env cmd
+
 and interp_file (fn: string) : Env.t =
   interp_file_with_env Env.empty fn
 
@@ -34,7 +43,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               exit 1
                             end; env
-  | Print e -> Printf.printf "%s\n%!" (Nkexp.to_string e); env
+  | Print e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Nk.to_string); env
   | Let (s, e) -> Env.bind_exp env s (Nkexp.eval env e)
   | VLet (s, v) -> Env.bind_val env s v
 

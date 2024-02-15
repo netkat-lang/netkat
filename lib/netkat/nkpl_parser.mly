@@ -15,11 +15,17 @@ open Pk
 %token <int> NUM
 
 %start <Nkcmd.t list> nkpl_file
+%start <Nkcmd.t option> single_cmd
 
 %%
 
 nkpl_file:
   | r=nkpl_cmd_list; EOF { r }
+  ;
+
+single_cmd:
+  | r=nkpl_cmd; EOF { Some r }
+  | EOF { None }
   ;
 
 nkpl_cmd_list:
@@ -40,6 +46,7 @@ nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }
   | BWD; e=nk_exp { Nkexp.bwd e }
   | e=nk_sum { e }
+  ;
 
 nk_sum:
   | r1=nk_conj; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }

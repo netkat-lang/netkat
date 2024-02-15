@@ -64,6 +64,21 @@ let rec of_sp = function
         ValueMap.add v (ValueMap.singleton v (of_sp t)) a) ValueMap.empty (ValueMap.bindings vs) in
       mk_union (f, vvs, ValueMap.empty, of_sp d)
 
+let rec to_sp_bwd (spp: t) : Sp.t = match spp with
+  | Skip -> Sp.Skip
+  | Drop -> Sp.Drop
+  | Union (f, fms, ms, d) ->
+      let ms1 = ValueMap.map (fun ms -> List.map (fun (_,sppi) -> (to_sp_bwd sppi))
+                                        (ValueMap.bindings ms) |> Sp.union) fms in
+      let y = List.map (fun (_,sppi) -> to_sp_bwd sppi) (ValueMap.bindings ms)
+              |> Sp.union in
+      let ms2 = List.fold_left (fun m (v, sppi) -> 
+                                  match ValueMap.find_opt v fms with
+                                  | None -> ValueMap.add v y m
+                                  | Some _ -> m) ValueMap.empty (ValueMap.bindings ms) in
+      Sp.mk_union (f, Pk.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
+
+
 let filter b f v =
   if b then
     mk_union (f, ValueMap.singleton v (ValueMap.singleton v Skip), ValueMap.empty, Drop)
