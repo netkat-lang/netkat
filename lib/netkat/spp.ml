@@ -38,7 +38,7 @@ let eq spp1 spp2 = compare spp1 spp2 = 0
 (** [mk_union (f, fms, ms, d)] performs canonicalization to guarantee that only
     semantically equivalent SPPs have the same representation. *)
 let mk_union (f, fms, ms, d) = (*Union (f, fms, ms, d)*)
-  (* First remove branches that are exactly [Drop] *)
+  (* First remove filter/mod branches that are exactly [Drop] *)
   let fms' = ValueMap.map (fun m -> ValueMap.filter_map (fun _ spp ->
     match spp with
         | Drop -> None
@@ -267,24 +267,19 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
   | _, Drop -> Sp.Drop
   | _, Skip -> sp
   | Sp.Skip, Union (f, fms, ms, d) ->
-      (* let () = Printf.printf "Pushing skip through %s...\n" (to_string spp) in *)
       let thru_fms = List.map (fun (v,vms) ->
           ValueMap.mapi (fun v spp -> push Sp.Skip spp) vms) (ValueMap.bindings fms)
-        (* |> (fun x -> begin Printf.printf "thru_fmss: %s\n" (List.map vm_to_string x |> String.concat " ") end; x) *)
         |> Pk.map_op Sp.drop Sp.union_pair in
-      (* let () = Printf.printf "thru fms: %s\n" (vm_to_string thru_fms) in *)
       let thru_ms = ValueMap.mapi (fun v spp -> push Sp.Skip spp) ms in
       let thru_both = Pk.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms in
       let matched_values = ValueSet.union (keys fms) (keys ms) in
-      (* let () = Printf.printf "matched values: %s\n" (ValueSet.elements matched_values |> List.map string_of_val |> String.concat ", ") in *)
-      (* let () = Printf.printf "thru_both %s\n" (vm_to_string thru_both) in *)
+
       (* Next we need to identify the right slice of [Skip] to push through [d],
          i.e. whatever doesn't match [fms] or [ms]. *)
       let branchesD,unmatched_vs = ValueSet.fold (fun v (m,uvs) -> 
         match ValueMap.find_opt v thru_both with
         | None -> ValueMap.add v Sp.Drop m, v::uvs
         | Some _ -> m,uvs) matched_values (thru_both,[]) in
-      (* let () = Printf.printf "unmatched values: %s\n" (List.map string_of_val unmatched_vs |> String.concat ", ") in *)
       let push_default = push Sp.Skip d in
       let diffkeys = ValueSet.diff (keys branchesD) matched_values
                  |> ValueSet.elements in
@@ -293,11 +288,6 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
           ValueMap.add v (Sp.union_pair sp_cur push_default) m) branchesD diffkeys in
       Sp.mk_union (f, branchesE, push_default)
 
-      (*
-      pushing @b≠4 through @a=3⋅@a←3...
-        got @b=3...
-      pushing @b≠4 through @a=3⋅@a←3⋅@b≠4⋅@b←4...
-      *)
   | Union (f1,fms1,d1), Union (f2,fms2,ms2,d2) ->
       if f1 < f2 then
         let fms = ValueMap.mapi (fun v spi -> push spi spp) fms1 in

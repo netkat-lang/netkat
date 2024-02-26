@@ -217,6 +217,11 @@ let rec eval (env: Env.t) (e: t) : Nk.t =
     | Var x -> Env.lookup_exp env x
     | Neg _
     | Fwd _
-    | Bwd _
-    | Forall _
-    | Exists _ -> failwith ("TODO: " ^ __LOC__)
+    | Bwd _ -> failwith ("TODO: " ^ __LOC__)
+    | Forall (f,e) -> begin
+                      match e with
+                      | Drop
+                      | Skip -> eval env e
+                      | _ -> failwith ("TODO: " ^ __LOC__)
+                      end
+    | Exists (f,e) -> failwith ("TODO: " ^ __LOC__)
