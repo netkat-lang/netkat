@@ -100,3 +100,29 @@ let bisim (a1: t) (a2: t) : bool =
                            let visited' = PairMap.add (s1,s2) vpk visited in
                            bq next' visited'
   in bq [(Sp.skip, a1.start, a2.start)] PairMap.empty
+
+let forward (e: Nk.t) : Sp.t =
+  (* This definition of [get] has the effect that an exp missing
+     from [visited] is equivalent to mapped to Drop *)
+  let get m exp = match StateMap.find_opt exp m with
+                  | None -> Sp.Drop
+                  | Some sp -> sp in
+
+  let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t StateMap.t) =
+    match todo with
+    | [] -> StateMap.bindings visited |>
+            List.map (fun (e, pk) -> Spp.push pk (Deriv.e e)) |>
+            Sp.union
+    | (Nk.Drop, _)::rem
+    | (_, Sp.Drop)::rem -> loop rem visited
+    | (e, pk)::rem ->
+        let p = Sp.diff pk (get visited e) in
+        let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
+        let next = Deriv.d e
+                   |> Sts.to_list
+                   |> List.map (fun (e', spp) -> (e', Spp.push pk spp)) in
+        loop (next@rem) v'
+
+  in loop [(e, Sp.Skip)] StateMap.empty
+
+let backward (e: Nk.t) : Sp.t = failwith ("TODO: " ^ __LOC__)

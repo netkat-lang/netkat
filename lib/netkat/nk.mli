@@ -64,5 +64,9 @@ val diff : t -> t -> t
     of two netkat expressions *)
 val xor : t -> t -> t
 
+(** Construct a netkat expression which is the negation of this expression. Note
+    that this fails for expression which are not SPs *)
+val neg : t -> t
+
 (** Pretty print the netkat expression. *)
 val to_string : t -> string

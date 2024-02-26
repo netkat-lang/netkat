@@ -6,7 +6,7 @@ open Pk
 %token LPAR RPAR EOF
 %token IMPORT CHECK PRINT EQUIV NEQUIV
 %token PLUS DIFF AND DOT STAR NEG XOR
-%token FWD BWD
+%token FWD BWD EXISTS FORALL
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token <string> VAR
@@ -45,6 +45,8 @@ nkpl_cmd:
 nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }
   | BWD; e=nk_exp { Nkexp.bwd e }
+  | FORALL; f=IDENT; e=nk_exp { Nkexp.forall (get_or_assign_fid f) e }
+  | EXISTS; f=IDENT; e=nk_exp { Nkexp.exists (get_or_assign_fid f) e }
   | e=nk_sum { e }
   ;
 

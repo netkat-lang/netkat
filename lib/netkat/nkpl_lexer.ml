@@ -20,6 +20,8 @@ let rec token buf =
   | "skip" -> SKIP
   | "forward" -> FWD
   | "backward" -> BWD
+  | "exists" -> EXISTS
+  | "forall" -> FORALL
   | '(' -> LPAR
   | ')' -> RPAR
   | '|'

@@ -132,6 +132,18 @@ let diff (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
 let xor (r1:t) (r2:t) : t =
   union_pair (diff r1 r2) (diff r2 r1)
 
+
+let rec neg (e: t) = match e with
+  | Drop -> Skip
+  | Skip -> Drop
+  | Dup -> failwith "Negation undefined for dup"
+  | Filter (b,f,v) -> Filter (not b, f, v)
+  | Mod (f,v) -> failwith "Negation undefined for mod"
+  | Seq es -> List.map neg es |> union
+  | Union es -> List.map neg es |> seq
+  | Star e -> Star (neg e)
+  | Intersect es -> List.map neg es |> intersect
+
 (* --- Pretty print --- *)
 
 let to_string (nk: t) : string =

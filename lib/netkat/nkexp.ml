@@ -191,10 +191,10 @@ let to_string (e: t) : string =
     | VMod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ v
     | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
     | Var x -> x
-    | Fwd _
-    | Bwd _
-    | Forall _
-    | Exists _ -> failwith ("TODO: " ^ __LOC__)
+    | Fwd e -> "forward " ^ (to_string_parent (prec e) e)
+    | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
+    | Forall (f,e) -> "forall " ^ (get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
+    | Exists (f,e) -> "exists " ^ (get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
@@ -215,9 +215,9 @@ let rec eval (env: Env.t) (e: t) : Nk.t =
     | Mod (f,v) -> Nk.modif f v
     | VMod (f,var) -> Nk.modif f (Env.lookup_val env var)
     | Var x -> Env.lookup_exp env x
-    | Neg _
-    | Fwd _
-    | Bwd _ -> failwith ("TODO: " ^ __LOC__)
+    | Neg e -> Nk.neg (eval env e)
+    | Fwd e -> Nka.forward (eval env e) |> Sp.to_exp
+    | Bwd e -> Nka.backward (eval env e) |> Sp.to_exp
     | Forall (f,e) -> begin
                       match e with
                       | Drop

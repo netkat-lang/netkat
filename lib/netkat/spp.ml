@@ -64,6 +64,7 @@ let rec of_sp = function
         ValueMap.add v (ValueMap.singleton v (of_sp t)) a) ValueMap.empty (ValueMap.bindings vs) in
       mk_union (f, vvs, ValueMap.empty, of_sp d)
 
+
 let rec to_sp_bwd (spp: t) : Sp.t = match spp with
   | Skip -> Sp.Skip
   | Drop -> Sp.Drop
