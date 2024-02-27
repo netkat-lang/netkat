@@ -54,6 +54,20 @@ let seq_spp spp sts = List.fold_left (fun t (e,sppi) ->
 let seq_exp sts exp = List.fold_left (fun t (e,sppi) ->
       add t (Nk.seq_pair e exp) sppi) ExpMap.empty (to_list sts)
 
+let diff t1 t2 =
+  let add k v m =
+    let v' = match ExpMap.find_opt k m with
+             | None -> v
+             | Some vp -> Spp.union_pair v vp in
+    ExpMap.add k v' m in
+  let d = List.fold_left (fun m (qi,pi) -> 
+            List.fold_left (fun m' (qj,pj) ->
+              let qdiff = Nk.diff qi qj in
+              let pcap = Spp.intersect_pair pi pj in
+              add qdiff pcap m') m (ExpMap.bindings t2)) ExpMap.empty (to_list t1) in
+  let all2 = to_list t2 |> List.map (fun (e,spp) -> spp) |> List.fold_left Spp.union_pair Spp.drop in
+  List.fold_left (fun m (e, spp) -> add e (Spp.diff spp all2) m) d (to_list t1)
+
 let to_exp t = List.map (fun (e,spp) -> Nk.seq [Spp.to_exp spp; Nk.dup; e]) (to_list t) |> Nk.union
 
 (* let to_string t = to_exp t |> Nk.to_string *)

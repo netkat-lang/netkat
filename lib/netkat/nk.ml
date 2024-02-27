@@ -12,12 +12,14 @@ type t =
   | Union of t list
   | Star of t
   | Intersect of t list
+  | Diff of t * t
 
 let skip = Skip
 let drop = Drop
 let dup = Dup
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
+let diff t1 t2 = Diff (t1,t2)
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
@@ -49,6 +51,9 @@ let rec compare (t1:t) (t2:t) =
   | Star s1, Star s2 -> compare s1 s2
   | Star _, _ -> -1
   | _, Star _ -> 1
+  | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
+  | Diff _, _ -> -1
+  | _, Diff _ -> 1
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
 
 (* Syntactic equivalence *)
@@ -124,14 +129,8 @@ let intersect_pair (r1:t) (r2:t) : t =
   | _, Intersect t2 -> if List.exists (fun x -> eq x r1) t2 then r2 else intersect (r1::t2)
   | _, _ -> if eq r1 r2 then r1 else intersect [r1;r2]
 
-let diff (r1:t) (r2:t) : t = failwith ("TODO: " ^ __LOC__)
-  (*
-  intersect_pair r1 (neg r2)
-  *)
-
 let xor (r1:t) (r2:t) : t =
   union_pair (diff r1 r2) (diff r2 r1)
-
 
 let rec neg (e: t) = match e with
   | Drop -> Skip
@@ -142,6 +141,7 @@ let rec neg (e: t) = match e with
   | Seq es -> List.map neg es |> union
   | Union es -> List.map neg es |> seq
   | Star e -> Star (neg e)
+  | Diff (e1,e2) -> failwith "Negation undefined for diff"
   | Intersect es -> List.map neg es |> intersect
 
 (* --- Pretty print --- *)
@@ -163,7 +163,7 @@ let to_string (nk: t) : string =
     | Union e0 -> String.concat " ∪ " (List.map (to_string_parent (prec e)) e0)
     | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
     | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
-    (*| Neg e0 -> (to_string_parent (prec e) e0) ^ "^"*)
+    | Diff (e0,e1) -> (to_string_parent (prec e) e0) ^ "-" ^ (to_string_parent (prec e) e1)
     | Dup -> "dup"
     | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
     | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
@@ -172,19 +172,3 @@ let to_string (nk: t) : string =
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
 
   to_string_parent 0 nk
-
-(*
-
-let rec matches (r:t) (u:word) : bool =
-  match u with
-  | [] ->
-     e r
-  | c::v ->
-     matches (d c r) v
-
-let rec of_word w = match w with
-  | [] ->
-      Skip
-  | c::w ->
-      seq_pair (Char c) (of_word w)
-*)

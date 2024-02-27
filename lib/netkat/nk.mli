@@ -13,6 +13,7 @@ type t =
   | Union of t list
   | Star of t
   | Intersect of t list
+  | Diff of t * t
 
 (** Provides a comparison using the standard interface to [compare] *)
 val compare : t -> t -> int

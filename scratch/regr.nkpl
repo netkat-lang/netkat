@@ -87,3 +87,7 @@ check ((@a←3 ∪ ε)⋅((@d←1∪δ⋆)⋅(δ⋅@a=2)⋆))⋆ ≡
       ((@a←3 ∪ ε)⋅(@d←1⋅(@a=2⋅δ)⋆ ∪ δ⋆⋅(@a=2⋅δ)⋆))⋆⋅((@a←3 ∪ ε)⋅(@d←1⋅(@a=2⋅δ)⋆∪ δ⋆⋅(@a=2⋅δ)⋆))
 check @x=1⋅δ⋅@x←2⋅δ ≢ ∅
 check forward @x←3 ≡ @x=3
+check (forward ((@a=5⋅@a←5)^(@a=5))) ≡ ∅
+check (backward ((@a=5⋅@a←5)^(@a=5))) ≡ ∅
+check (forward ((@a=5⋅@a←5)-(@a=5))) ≡ ∅
+check (backward ((@a=5⋅@a←5)-(@a=5))) ≡ ∅

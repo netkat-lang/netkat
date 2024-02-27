@@ -1,5 +1,3 @@
-
-
 type t
 
 val trans : t -> Nk.t -> Spp.t
@@ -18,5 +16,8 @@ val intersect : t list -> t
 val seq_spp : Spp.t -> t -> t
 val seq_exp : t -> Nk.t -> t
 
+val diff : t -> t -> t
+
 val to_exp : t -> Nk.t
 val to_string : t -> string
+
