@@ -324,7 +324,4 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
         let pkC = Sp.mk_union(f1, ms, push d1 d2) in
         Sp.union [pkA; pkB; pkC]
 
-let pull (spp: t) (sp: Sp.t) = match spp with
-  | Drop -> Sp.drop
-  | Skip -> sp
-  | Union _ -> failwith ("TODO: " ^ __LOC__)
+let pull (spp: t) (sp: Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd

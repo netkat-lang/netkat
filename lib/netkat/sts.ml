@@ -2,19 +2,17 @@ module ExpMap = Map.Make(Nk)
 
 type t = Spp.t ExpMap.t
 
-let trans (sts: t) (e: Nk.t) : Spp.t = ExpMap.find e sts
+let trans (e: Nk.t) (sts: t) : Spp.t = match ExpMap.find_opt e sts with
+                                       | None -> Spp.drop
+                                       | Some spp -> spp
 
 let to_list = ExpMap.bindings
 
 let drop = ExpMap.singleton Nk.drop Spp.skip
 let dup = ExpMap.singleton Nk.skip Spp.skip
 
-let lookup e m = match ExpMap.find_opt e m with
-               | None -> Spp.drop
-               | Some spp -> spp
-
 let add_nonempty e s m =
-  if Spp.eq s Spp.drop then m else ExpMap.add e (Spp.union_pair (lookup e m) s) m
+  if Spp.eq s Spp.drop then m else ExpMap.add e (Spp.union_pair (trans e m) s) m
 
 (** Add a transition to [e] along [spp]. The trick is that SPPs
     transitions out of [t] need to be disjoint, so we have to go through and

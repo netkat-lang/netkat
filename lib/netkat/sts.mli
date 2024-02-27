@@ -1,6 +1,6 @@
 type t
 
-val trans : t -> Nk.t -> Spp.t
+val trans : Nk.t -> t -> Spp.t
 
 val to_list : t -> (Nk.t * Spp.t) list
 
