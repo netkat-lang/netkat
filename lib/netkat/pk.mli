@@ -30,3 +30,8 @@ val left_join : 'a -> 'a ValueMap.t -> 'a ValueMap.t -> 'a ValueMap.t
 
 val keys : 'a ValueMap.t -> ValueSet.t
 val union_keys : 'a ValueMap.t list -> ValueSet.t
+
+
+(* Operations for concrete packets *)
+
+type t

@@ -2,6 +2,7 @@
 type field = int
 type value = int
 
+module FieldSet = Set.Make(Int)
 module FieldMap = Map.Make(Int)
 
 module ValueMap = struct
@@ -53,3 +54,8 @@ let keys m =
 
 let union_keys ms =
   List.map keys ms |> List.fold_left ValueSet.union ValueSet.empty
+
+
+(* The remaining type t and funtions deal with concrete packets. *)
+
+type t = value FieldMap.t

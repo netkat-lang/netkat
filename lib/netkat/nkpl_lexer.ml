@@ -4,7 +4,7 @@ let digit = [%sedlex.regexp? '0' .. '9']
 let number = [%sedlex.regexp? Opt '-', Plus digit]
 let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
 let alphanum = [%sedlex.regexp? digit | letter | '_' ]
-let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_']
+let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_' | '-']
 let fn = [%sedlex.regexp? Star ch]
 
 let rec token buf =
