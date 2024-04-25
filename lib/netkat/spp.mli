@@ -34,3 +34,5 @@ val star : t -> t
 
 val push : Sp.t -> t -> Sp.t
 val pull : t -> Sp.t -> Sp.t
+
+val rep : t -> FieldSet.t -> Pk.t * Pk.t

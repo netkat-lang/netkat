@@ -325,3 +325,17 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
         Sp.union [pkA; pkB; pkC]
 
 let pull (spp: t) (sp: Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
+
+let rep (spp: t) (fields: FieldSet.t) =
+  let fresh s f m =
+    let v = Pk.val_outside s in
+    FieldMap.add f v m in
+  let rec repr (s: t) (fs: FieldSet.t) (partial: (value*value) FieldMap.t) =
+      match spp with
+        | Drop -> failwith "Can't take representative of empty SPP!"
+        | Skip -> let pk = FieldSet.fold (fresh ValueSet.empty) fields FieldMap.empty in (pk, pk)
+        | Union (f, b, m, d) ->
+            let mub = ValueSet.union (keys m) (keys b) in
+            if d != Drop then repr d fs (fresh mub f partial) else
+
+  repr spp fields FieldMap.empty

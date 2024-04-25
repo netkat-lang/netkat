@@ -7,6 +7,7 @@ val cmp_field : field -> field -> int
 val cmp_value : value -> value -> int
 
 module FieldMap : Map.S with type key = field
+module FieldSet : Set.S with type elt = field
 module ValueMap : sig
   include Map.S with type key = value
   val fold_bdgs : ('b -> key -> 'a -> 'b) -> 'b -> 'a t -> 'b
@@ -34,4 +35,6 @@ val union_keys : 'a ValueMap.t list -> ValueSet.t
 
 (* Operations for concrete packets *)
 
-type t
+type t = value FieldMap.t
+
+val val_outside : ValueSet.t -> value
