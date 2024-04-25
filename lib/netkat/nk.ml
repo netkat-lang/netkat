@@ -35,11 +35,11 @@ let rec compare (t1:t) (t2:t) =
   | Filter (true,_,_), Filter (false,_,_) -> 1
   | Filter (false,_,_), Filter (true,_,_) -> -1
   | Filter (b1,f1,v1), Filter (b2,f2,v2) ->
-      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+      if f1 = f2 then Value.compare v1 v2 else Field.compare f1 f2
   | Filter (_,_,_), _ -> -1
   | _, Filter (_,_,_) -> 1
   | Mod (f1,v1), Mod (f2,v2)->
-      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+      if f1 = f2 then Value.compare v1 v2 else Field.compare f1 f2
   | Mod (_,_), _ -> -1
   | _, Mod (_,_) -> 1
   | Seq lst1, Seq lst2 -> List.compare compare lst1 lst2
@@ -165,8 +165,8 @@ let to_string (nk: t) : string =
     | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
     | Diff (e0,e1) -> (to_string_parent (prec e) e0) ^ "-" ^ (to_string_parent (prec e) e1)
     | Dup -> "dup"
-    | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
-    | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
+    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.string_of_val v)
+    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.string_of_val v)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in

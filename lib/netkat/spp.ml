@@ -337,5 +337,5 @@ let rep (spp: t) (fields: FieldSet.t) =
         | Union (f, b, m, d) ->
             let mub = ValueSet.union (keys m) (keys b) in
             if d != Drop then repr d fs (fresh mub f partial) else
-
+            failwith "TODO" in
   repr spp fields FieldMap.empty

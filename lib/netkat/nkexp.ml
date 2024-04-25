@@ -48,21 +48,21 @@ let rec compare (t1:t) (t2:t) =
   | Filter (true,_,_), Filter (false,_,_) -> 1
   | Filter (false,_,_), Filter (true,_,_) -> -1
   | Filter (b1,f1,v1), Filter (b2,f2,v2) ->
-      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+      if f1 = f2 then Value.compare v1 v2 else Field.compare f1 f2
   | Filter (_,_,_), _ -> -1
   | _, Filter (_,_,_) -> 1
   | VFilter (true,_,_), VFilter (false,_,_) -> 1
   | VFilter (false,_,_), VFilter (true,_,_) -> -1
   | VFilter (b1,f1,v1), VFilter (b2,f2,v2) ->
-      if f1 = f2 then String.compare v1 v2 else cmp_field f1 f2
+      if f1 = f2 then String.compare v1 v2 else Field.compare f1 f2
   | VFilter (_,_,_), _ -> -1
   | _, VFilter (_,_,_) -> 1
   | Mod (f1,v1), Mod (f2,v2)->
-      if f1 = f2 then cmp_value v1 v2 else cmp_field f1 f2
+      if f1 = f2 then Value.compare v1 v2 else Field.compare f1 f2
   | Mod (_,_), _ -> -1
   | _, Mod (_,_) -> 1
   | VMod (f1,v1), VMod (f2,v2)->
-      if f1 = f2 then String.compare v1 v2 else cmp_field f1 f2
+      if f1 = f2 then String.compare v1 v2 else Field.compare f1 f2
   | VMod (_,_), _ -> -1
   | _, VMod (_,_) -> 1
   | Seq lst1, Seq lst2 -> List.compare compare lst1 lst2
@@ -91,10 +91,10 @@ let rec compare (t1:t) (t2:t) =
   | Bwd s1, Bwd s2 -> compare s1 s2
   | Bwd _, _ -> -1
   | _, Bwd _ -> 1
-  | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else cmp_field f1 f2
+  | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else Field.compare f1 f2
   | Exists _, _ -> -1
   | _, Exists _ -> 1
-  | Forall (f1,s1), Forall (f2,s2) -> if f1 = f2 then compare s1 s2 else cmp_field f1 f2
+  | Forall (f1,s1), Forall (f2,s2) -> if f1 = f2 then compare s1 s2 else Field.compare f1 f2
   | Forall _, _ -> -1
   | _, Forall _ -> 1
   | Neg e1, Neg e2 -> compare e1 e2
