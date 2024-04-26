@@ -193,18 +193,18 @@ let to_string (e: t) : string =
     | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
     | Intersect e0 -> String.concat " & " (List.map (to_string_parent (prec e)) e0)
     | Dup -> "dup"
-    | Filter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (string_of_val v)
-    | VFilter (b,f,v) -> (get_or_fail_fid f) ^ (if b then "=" else "≠") ^ v
-    | Mod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ (string_of_val v)
-    | VMod (f,v) -> (get_or_fail_fid f) ^ "\u{2190}" ^ v
+    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.string_of_val v)
+    | VFilter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ v
+    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.string_of_val v)
+    | VMod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ v
     | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
     | Var x -> x
     (* | Xor (t1,t2) -> (to_string_parent (prec e) t1) ^ " ⊕ " ^ (to_string_parent (prec e) t2) *)
     | Diff (t1,t2) ->  (to_string_parent (prec e) t1) ^ " - " ^ (to_string_parent (prec e) t2)
     | Fwd e -> "forward " ^ (to_string_parent (prec e) e)
     | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
-    | Forall (f,e) -> "forall " ^ (get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
-    | Exists (f,e) -> "exists " ^ (get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
+    | Forall (f,e) -> "forall " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
+    | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in

@@ -35,4 +35,4 @@ val star : t -> t
 val push : Sp.t -> t -> Sp.t
 val pull : t -> Sp.t -> Sp.t
 
-val rep : t -> Field.S.t -> Pk.t * Pk.t
+val rep : t -> Field.S.t -> Pkpair.t

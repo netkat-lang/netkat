@@ -1,6 +1,4 @@
 %{
-open Pk
-
 %}
 
 %token LPAR RPAR EOF
@@ -39,14 +37,14 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
-  | var=VAR; TST; v=NUM { Nkcmd.VLet (var, value_of_int v) }
+  | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.value_of_int v) }
   ;
 
 nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }
   | BWD; e=nk_exp { Nkexp.bwd e }
-  | FORALL; f=IDENT; e=nk_exp { Nkexp.forall (get_or_assign_fid f) e }
-  | EXISTS; f=IDENT; e=nk_exp { Nkexp.exists (get_or_assign_fid f) e }
+  | FORALL; f=IDENT; e=nk_exp { Nkexp.forall (Field.get_or_assign_fid f) e }
+  | EXISTS; f=IDENT; e=nk_exp { Nkexp.exists (Field.get_or_assign_fid f) e }
   | e=nk_sum { e }
   ;
 
@@ -79,12 +77,12 @@ nk_par:
   ;
 
 nk_at:
-  | f = IDENT; TST; v = NUM { Nkexp.filter true (get_or_assign_fid f) (value_of_int v) }
-  | f = IDENT; NTST; v = NUM { Nkexp.filter false (get_or_assign_fid f) (value_of_int v) }
-  | f = IDENT; MOD; v = NUM { Nkexp.modif (get_or_assign_fid f) (value_of_int v) }
-  | f = IDENT; TST; v = VAR { Nkexp.vfilter true (get_or_assign_fid f) v }
-  | f = IDENT; NTST; v = VAR { Nkexp.vfilter false (get_or_assign_fid f) v }
-  | f = IDENT; MOD; v = VAR { Nkexp.vmodif (get_or_assign_fid f) v }
+  | f = IDENT; TST; v = NUM { Nkexp.filter true (Field.get_or_assign_fid f) (Value.value_of_int v) }
+  | f = IDENT; NTST; v = NUM { Nkexp.filter false (Field.get_or_assign_fid f) (Value.value_of_int v) }
+  | f = IDENT; MOD; v = NUM { Nkexp.modif (Field.get_or_assign_fid f) (Value.value_of_int v) }
+  | f = IDENT; TST; v = VAR { Nkexp.vfilter true (Field.get_or_assign_fid f) v }
+  | f = IDENT; NTST; v = VAR { Nkexp.vfilter false (Field.get_or_assign_fid f) v }
+  | f = IDENT; MOD; v = VAR { Nkexp.vmodif (Field.get_or_assign_fid f) v }
   | v=VAR { Nkexp.var v }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }
