@@ -330,12 +330,24 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
   let fresh_const s f m =
     let v = Value.val_outside s in
     Pkpair.addf f (v,v) m in
-  let rec repr (s: t) (fs: Field.S.t) (partial: Pkpair.t) =
-      match spp with
-        | Drop -> failwith "Can't take representative of empty SPP!"
-        | Skip -> Field.S.fold (fresh_const Value.S.empty) fields Pkpair.empty
-        | Union (f, b, m, d) ->
+  let rec repr (p: t) (fs: Field.S.t) (partial: Pkpair.t) =
+    if fs = Field.S.empty then partial else
+    match p with
+      | Drop -> failwith "Can't take representative of empty SPP!"
+      | Skip -> Field.S.fold (fresh_const Value.S.empty) fs Pkpair.empty
+      | Union (f, b, m, d) ->
+          let nextf = Field.S.min_elt fs in
+          let fs' = Field.S.remove f fs in
+          if nextf < f then
+            let fs'' = Field.S.remove nextf fs in
+            repr p fs'' (fresh_const Value.S.empty f partial)
+          else if d != Drop then
             let mub = Value.(S.union (keys m) (keys b)) in
-            if d != Drop then repr d fs (fresh_const mub f partial) else
+            repr d fs' (fresh_const mub f partial)
+          else if m != Value.M.empty then
+            let v0 = Value.val_outside Value.S.empty in
+            let (v1, q) = Value.M.choose m in (* [spp'] can't be Drop since [spp] is canonical *)
+            repr q fs' (Pkpair.addf f (v0, v1) partial)
+          else (* do b *)
             failwith "TODO" in
   repr spp fields Pkpair.empty
