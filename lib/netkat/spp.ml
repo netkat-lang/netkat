@@ -346,8 +346,10 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
             repr d fs' (fresh_const mub f partial)
           else if m != Value.M.empty then
             let v0 = Value.val_outside Value.S.empty in
-            let (v1, q) = Value.M.choose m in (* [spp'] can't be Drop since [spp] is canonical *)
+            let (v1, q) = Value.M.choose m in (* [q] can't be Drop since [p] is canonical *)
             repr q fs' (Pkpair.addf f (v0, v1) partial)
-          else (* do b *)
-            failwith "TODO" in
-  repr spp fields Pkpair.empty
+          else (* find one in b *)
+            let (v0, bm) = List.find (fun (v, m) -> m != Value.M.empty) (Value.M.bindings b) in
+            let (v1, q) = Value.M.choose bm in (* [q] can't be Drop since [p] is canonical *)
+            repr q fs' (Pkpair.addf f (v0, v1) partial)
+    in repr spp fields Pkpair.empty
