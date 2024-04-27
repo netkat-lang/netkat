@@ -35,9 +35,9 @@ let rec compare spp1 spp2 = match spp1, spp2 with
 
 let eq spp1 spp2 = compare spp1 spp2 = 0
 
-(** [mk_union (f, fms, ms, d)] performs canonicalization to guarantee that only
+(** [mk (f, fms, ms, d)] performs canonicalization to guarantee that only
     semantically equivalent SPPs have the same representation. *)
-let mk_union (f, fms, ms, d) = (*Union (f, fms, ms, d)*)
+let mk (f, fms, ms, d) = (*Union (f, fms, ms, d)*)
   (* First remove filter/mod branches that are exactly [Drop] *)
   let fms' = Value.M.map (fun m -> Value.M.filter_map (fun _ spp ->
     match spp with
@@ -62,7 +62,7 @@ let rec of_sp = function
   | Sp.Union (f, vs, d) ->
       let vvs = List.fold_left (fun a (v, t) ->
         Value.M.add v (Value.M.singleton v (of_sp t)) a) Value.M.empty (Value.M.bindings vs) in
-      mk_union (f, vvs, Value.M.empty, of_sp d)
+      mk (f, vvs, Value.M.empty, of_sp d)
 
 
 let rec to_sp_bwd (spp: t) : Sp.t = match spp with
@@ -77,17 +77,17 @@ let rec to_sp_bwd (spp: t) : Sp.t = match spp with
                                   match Value.M.find_opt v fms with
                                   | None -> Value.M.add v y m
                                   | Some _ -> m) Value.M.empty (Value.M.bindings ms) in
-      Sp.mk_union (f, Value.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
+      Sp.mk (f, Value.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
 
 
 let filter b f v =
   if b then
-    mk_union (f, Value.M.singleton v (Value.M.singleton v Skip), Value.M.empty, Drop)
+    mk (f, Value.M.singleton v (Value.M.singleton v Skip), Value.M.empty, Drop)
   else
-    mk_union (f, Value.M.singleton v (Value.M.empty), Value.M.empty, Skip)
+    mk (f, Value.M.singleton v (Value.M.empty), Value.M.empty, Skip)
 
 let modf f v = 
-    mk_union (f, Value.M.empty, Value.M.singleton v Skip, Drop)
+    mk (f, Value.M.empty, Value.M.singleton v Skip, Drop)
 
 let rec to_exp = function
   | Skip -> Nk.skip
@@ -172,7 +172,7 @@ let rec union_pair spp1 spp2 = match spp1, spp2 with
           Value.M.add v vm m) keyset Value.M.empty in
         let ms = map_op_pair union_pair ms1 ms2 in
         let d = union_pair d1 d2 in
-        mk_union (f1, fms, ms, d)
+        mk (f1, fms, ms, d)
 
 let union = List.fold_left union_pair Drop
 let union_map_pair = map_op_pair union_pair
@@ -204,7 +204,7 @@ let rec seq_pair spp1 spp2 = match spp1, spp2 with
           Value.M.add v (union_maps res) m) keyset Value.M.empty in
         let msB = List.fold_left (fun m (v,spp) ->
           Value.M.add v (seq_pair d1 spp) m) Value.M.empty (Value.M.bindings ms2) in
-        mk_union (f1,
+        mk (f1,
                   fms,
                   union_map_pair msA msB,
                   seq_pair d1 d2)
@@ -229,7 +229,7 @@ let rec intersect_pair spp1 spp2 =
           Value.M.add v (map_op_pair intersect_pair (get_branch spp1 v) (get_branch spp2 v)) m) keyset Value.M.empty in
         let ms = map_op_pair intersect_pair ms1 ms2 in
         let d = intersect_pair d1 d2 in
-        mk_union(f1, fms, ms, d)
+        mk(f1, fms, ms, d)
 
 let intersect spps = match spps with
                      | [] -> Drop
@@ -251,7 +251,7 @@ let rec diff spp1 spp2 = match spp1, spp2 with
           Value.M.add v vm m) keyset Value.M.empty in
         let ms = map_op_pair diff ms1 ms2 in
         let d =  diff d1 d2 in
-        mk_union (f1, fms, ms, d)
+        mk (f1, fms, ms, d)
 
 let xor spp1 spp2 = union_pair (diff spp1 spp2) (diff spp2 spp1)
 
@@ -287,19 +287,19 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
       let branchesE = List.fold_left (fun m v ->
           let sp_cur = Value.M.find v branchesD in
           Value.M.add v (Sp.union_pair sp_cur push_default) m) branchesD diffkeys in
-      Sp.mk_union (f, branchesE, push_default)
+      Sp.mk (f, branchesE, push_default)
 
   | Union (f1,fms1,d1), Union (f2,fms2,ms2,d2) ->
       if f1 < f2 then
         let fms = Value.M.mapi (fun v spi -> push spi spp) fms1 in
-        Sp.mk_union(f1, fms, push d1 spp)
+        Sp.mk(f1, fms, push d1 spp)
       else if f2 < f1 then
         let fmsA = List.map (fun (_, muts) ->
           let tsts = Value.M.mapi (fun v sppi -> push sp sppi) muts in
-          Sp.mk_union(f2, tsts, Sp.Drop)) (Value.M.bindings fms2) |> Sp.union in
+          Sp.mk(f2, tsts, Sp.Drop)) (Value.M.bindings fms2) |> Sp.union in
         let ms = Value.(right_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
                                            (Value.M.map (fun sppi -> push sp sppi) ms2)) in
-        let fmsB = Sp.mk_union(f2, ms, push sp d2) in
+        let fmsB = Sp.mk(f2, ms, push sp d2) in
         Sp.union_pair fmsA fmsB
       else  (* f1 = f2 *)
         (* XXX Do we need the comparison to drop case? if so it goes here. *)
@@ -309,22 +309,34 @@ let rec push (sp: Sp.t) (spp: t) = match sp, spp with
                     begin
                     match Value.M.find_opt v ms2 with
                     | None -> let tsts' = Value.M.add v (push spi d2) tsts in
-                              Sp.mk_union (f1, tsts', Sp.drop)
-                    | Some sppj -> Sp.mk_union(f1, tsts, Sp.drop)
+                              Sp.mk (f1, tsts', Sp.drop)
+                    | Some sppj -> Sp.mk(f1, tsts, Sp.drop)
                     end
           | Some m -> let tsts = Value.M.map (fun sppj -> push spi sppj) m in
-                      Sp.mk_union(f1, tsts, Sp.drop)) (Value.M.bindings fms1)
+                      Sp.mk(f1, tsts, Sp.drop)) (Value.M.bindings fms1)
           |> Sp.union in
         let pkB = List.map (fun (v,sppi) -> if Value.M.mem v fms1 then Sp.drop
                                             else let tsts = Value.M.map (fun sppj -> push d1 sppj) sppi in
-                                            Sp.mk_union(f1, tsts, Sp.drop)) (Value.M.bindings fms2) |> Sp.union in
+                                            Sp.mk(f1, tsts, Sp.drop)) (Value.M.bindings fms2) |> Sp.union in
         let ms = Value.M.map (Fun.const Sp.drop) fms1
                  |> Value.left_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
                  |> Value.left_join Sp.drop (Value.M.map (fun sppi -> push d1 sppi) ms2) in
-        let pkC = Sp.mk_union(f1, ms, push d1 d2) in
+        let pkC = Sp.mk(f1, ms, push d1 d2) in
         Sp.union [pkA; pkB; pkC]
 
 let pull (spp: t) (sp: Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
+
+let mem (spp: t) (pp: Pkpair.t) : bool =
+  let memrec bdgs =
+    match spp, bdgs with
+    | Drop, _ -> false
+    | Skip, [] -> true
+    | Skip, (f, (v0,v1))::bdgs' -> failwith ("TODO: " ^ __LOC__)
+    | _, [] -> failwith "Inconsistent field set"
+    | Union (f, b, m, d), (f', (v0,v1))::bdgs' ->
+        if Field.compare f f' = 0 then failwith "Inconsistent field set" else
+        failwith ("TODO: " ^ __LOC__)
+  in memrec (Pkpair.to_list pp)
 
 let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
   let fresh_const s f m =

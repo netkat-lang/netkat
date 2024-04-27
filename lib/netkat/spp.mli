@@ -10,6 +10,8 @@ val drop : t
 val filter : bool -> field -> value -> t
 val modf : field -> value -> t
 
+val mk : field * ((t Value.M.t) Value.M.t) * (t Value.M.t) * t -> t
+
 val to_exp : t -> Nk.t
 val to_string : t -> string
 
@@ -35,4 +37,5 @@ val star : t -> t
 val push : Sp.t -> t -> Sp.t
 val pull : t -> Sp.t -> Sp.t
 
+val mem : t -> Pkpair.t -> bool
 val rep : t -> Field.S.t -> Pkpair.t

@@ -29,7 +29,7 @@ let rec compare sp1 sp2 = match sp1, sp2 with
 
 let eq sp1 sp2 = compare sp1 sp2 = 0
 
-let mk_union (f, m, d) =
+let mk (f, m, d) =
   let m' = List.fold_left (fun m (vi,spi) ->
     if eq spi d then
       m
@@ -48,13 +48,13 @@ let rec union_pair (t1:t) (t2:t) : t =
   | _, Drop -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if Field.compare f1 f2 = 0 then
-      mk_union (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
+      mk (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (union_pair p1 d2)
                                  | None, Some p2 -> Some (union_pair d1 p2)
                                  | Some p1, Some p2 -> Some (union_pair p1 p2)) vm1 vm2, union_pair d1 d2)
     else if Field.compare f1 f2 < 0 then
-      mk_union (f1, Value.M.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
+      mk (f1, Value.M.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
     else
       union_pair t2 t1
 
@@ -76,13 +76,13 @@ let rec seq_pair (t1: t) (t2: t) : t =
   | _, Skip -> t1
   | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
     if Field.compare f1 f2 = 0 then
-      mk_union (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
+      mk (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
                                  | None, None -> None
                                  | Some p1, None -> Some (seq_pair p1 d2)
                                  | None, Some p2 -> Some (seq_pair d1 p2)
                                  | Some p1, Some p2 -> Some (seq_pair p1 p2)) vm1 vm2, seq_pair d1 d2)
     else if Field.compare f1 f2 < 0 then
-      mk_union (f1, Value.M.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
+      mk (f1, Value.M.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
     else
       seq_pair t2 t1
 
@@ -96,7 +96,7 @@ let star _ = Skip
 let rec neg e = match e with
   | Skip -> Drop
   | Drop -> Skip
-  | Union (f, vm, d) -> mk_union (f, Value.M.map neg vm, neg d)
+  | Union (f, vm, d) -> mk (f, Value.M.map neg vm, neg d)
 
 let diff t1 t2 = intersect_pair t1 (neg t2)
 

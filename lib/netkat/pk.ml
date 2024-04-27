@@ -5,3 +5,8 @@ type value = Value.t
 
 type t = value Field.M.t
 
+let to_string p =
+  let bdgs = Field.M.bindings p
+           |> List.map (fun (f,v) -> (Field.get_or_fail_fid f) ^ "=" ^ (Value.string_of_val v)) in
+  let hdr = String.concat "," bdgs in
+  "[" ^ hdr ^ "]"

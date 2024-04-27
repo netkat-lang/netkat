@@ -14,7 +14,7 @@ val le : t -> t -> bool
 
 val skip : t
 val drop : t
-val mk_union : field * (t Value.M.t) * t -> t
+val mk : field * (t Value.M.t) * t -> t
 
 val union_pair : t -> t -> t
 val union : t list -> t

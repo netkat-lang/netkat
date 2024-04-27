@@ -14,3 +14,9 @@ let mk (t1: Pk.t) (t2: Pk.t) : t =
 
 let addf = Field.M.add
 let empty = Field.M.empty
+
+let to_string pp =
+  let (a,b) = split pp in
+  (Pk.to_string a) ^ "->" ^ (Pk.to_string b)
+
+let to_list = Field.M.bindings
