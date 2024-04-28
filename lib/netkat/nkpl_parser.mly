@@ -14,6 +14,7 @@
 
 %start <Nkcmd.t list> nkpl_file
 %start <Nkcmd.t option> single_cmd
+%start <Nkexp.t> single_exp
 
 %%
 
@@ -24,6 +25,10 @@ nkpl_file:
 single_cmd:
   | r=nkpl_cmd; EOF { Some r }
   | EOF { None }
+  ;
+
+single_exp:
+  | r=nk_sum; EOF {r }
   ;
 
 nkpl_cmd_list:
