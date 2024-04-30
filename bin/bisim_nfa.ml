@@ -1,5 +1,5 @@
 open Core
-open Nerode
+open Nerode_regular
 
 module CharNfa = Nfa.Make(struct
   module StateSet = Stdlib.Set.Make(Char)
