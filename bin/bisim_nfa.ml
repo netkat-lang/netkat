@@ -24,16 +24,14 @@ let f3_trans =
   ]
 let fig3 = CharNfa.mk_nfa f3_alpha start f3_final f3_trans
 
+(*
 let f5_alpha = Alphabet.intalph 1
 let f5_final = [0; 1; 2]
 let f5_trans n =
-  Array.of_list (
-
-
-
-  )
+  Array.of_list [
 
 let fig5 n =
+  *)
 
 
 let run_bisim upto nfa x1 x2 =
