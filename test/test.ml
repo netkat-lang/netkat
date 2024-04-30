@@ -1,6 +1,6 @@
 (** Some unit tests for the modules in Nerode. *)
 
-open Nerode
+open Nerode_regular
 
 (* More tests might be appropriate..*)
 
