@@ -21,3 +21,4 @@ val left_join : 'a -> 'a M.t -> 'a M.t -> 'a M.t
 val keys : 'a M.t -> S.t
 val union_keys : 'a M.t list -> S.t
 val val_outside : S.t -> t
+val choose : t
