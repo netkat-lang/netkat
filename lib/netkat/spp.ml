@@ -361,20 +361,20 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
       | Drop -> failwith "Can't take representative of empty SPP!"
       | Skip -> Field.S.fold (fresh_const Value.S.empty) fs partial
       | Union (f, b, m, d) ->
+          let mub = Value.(S.union (keys m) (keys b)) in
           let nextf = Field.S.min_elt fs in
           let fs' = Field.S.remove f fs in
           if nextf < f then
             let fs'' = Field.S.remove nextf fs in
             repr p fs'' (fresh_const Value.S.empty nextf partial)
           else if not (eq d Drop) then
-            let mub = Value.(S.union (keys m) (keys b)) in
             (*
             let () = Printf.printf "picking val outside...\n" in
             let () = Value.S.iter (fun v -> Printf.printf "%s\n" (Value.string_of_val v)) mub in
             *)
             repr d fs' (fresh_const mub f partial)
           else if m != Value.M.empty then
-            let v0 = Value.val_outside Value.S.empty in
+            let v0 = Value.val_outside mub in
             let (v1, q) = Value.M.choose m in (* [q] can't be Drop since [p] is canonical *)
             repr q fs' (Pkpair.addf f (v0, v1) partial)
           else (* find one in b *)
