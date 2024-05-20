@@ -114,7 +114,7 @@ end
 let skip = !(fetch Skip)
 let drop = !(fetch Drop)
 
-let eq sp1 sp2 = compare sp1 sp2 = 0
+let eq = ( == )
 
 let () =
   Memo.(
