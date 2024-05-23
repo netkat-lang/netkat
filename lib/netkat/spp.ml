@@ -53,6 +53,36 @@ let rec to_exp = function
       let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
       Nk.union_pair branches defaults
 
+let rec truncate =
+  let p = 393241 in
+  let extract lst =
+    let lst = Value.M.bindings lst in
+    List.nth lst (p mod List.length lst)
+  in
+  let map_of_tuple tuple =
+    let a, b = tuple in
+    Value.M.empty |> Value.M.add a b
+  in
+  let extract_fms fms =
+    let fms_k, fms_v = extract fms in
+    if fms_v = Value.M.empty then map_of_tuple (fms_k, fms_v)
+    else 
+      let fms_k', fms_v' = extract fms_v in 
+      map_of_tuple (fms_k, map_of_tuple (fms_k', truncate fms_v'))
+  in
+  let extract_ms ms = 
+    let ms_k, ms_v = extract ms in 
+    map_of_tuple (ms_k, truncate ms_v)
+  in
+  function
+  | Skip -> Skip
+  | Drop -> Drop
+  | Union (f, fms, ms, d) ->
+      if fms = Value.M.empty && ms = Value.M.empty then Union (f, fms, ms, d)
+      else if fms = Value.M.empty then Union (f, fms, extract_ms ms, d)
+      else if ms = Value.M.empty then Union (f, extract_fms fms, ms, d)
+      else Union (f, extract_fms fms, extract_ms ms, d)
+
 let to_string t = to_exp t |> Nk.to_string
 
 let rec compare spp1 spp2 =
@@ -78,11 +108,10 @@ module SPPHashtbl = Hashtbl.Make (struct
   type t = spp
 
   let equal spp1 spp2 = compare spp1 spp2 = 0
-  let hash spp = spp |> to_string |> Hashtbl.hash
+  let hash spp = spp |> truncate |> Hashtbl.hash
 end)
 
 let pool_size = 64
-
 let pool = SPPHashtbl.create pool_size
 
 let fetch x =
@@ -130,48 +159,74 @@ let mk (f, fms, ms, d) =
           if Value.M.mem vi ms' || d == Drop then ms'
           else Value.M.add vi d ms'
         in
-        not (Value.M.equal (==) mi drop_branch))
+        not (Value.M.equal ( == ) mi drop_branch))
       fms''
   in
   if Value.M.is_empty fms''' && Value.M.is_empty ms' then !(fetch d)
   else !(fetch (Union (f, fms''', ms', d)))
 
-let rec of_sp = function
-  | Sp.Skip -> Skip
-  | Sp.Drop -> Drop
-  | Sp.Union (f, vs, d) ->
-      let vvs =
-        List.fold_left
-          (fun a (v, t) -> Value.M.add v (Value.M.singleton v (of_sp t)) a)
-          Value.M.empty (Value.M.bindings vs)
+let of_sp_main = Hashtbl.create 16
+
+let rec of_sp sp =
+  let spref = Sp.fetch sp in
+  match Hashtbl.find_opt of_sp_main spref with
+  | Some z -> !z
+  | None ->
+      let z =
+        match sp with
+        | Sp.Skip -> Skip
+        | Sp.Drop -> Drop
+        | Sp.Union (f, vs, d) ->
+            let vvs =
+              List.fold_left
+                (fun a (v, t) ->
+                  Value.M.add v (Value.M.singleton v (of_sp t)) a)
+                Value.M.empty (Value.M.bindings vs)
+            in
+            mk (f, vvs, Value.M.empty, of_sp d)
       in
-      mk (f, vvs, Value.M.empty, of_sp d)
+      let refz = fetch z in
+      Hashtbl.add of_sp_main spref refz;
+      !refz
+
+let to_sp_main = Hashtbl.create 16
 
 let rec to_sp_bwd (spp : t) : Sp.t =
-  match spp with
-  | Skip -> Sp.Skip
-  | Drop -> Sp.Drop
-  | Union (f, fms, ms, d) ->
-      let ms1 =
-        Value.M.map
-          (fun ms ->
-            List.map (fun (_, sppi) -> to_sp_bwd sppi) (Value.M.bindings ms)
-            |> Sp.union)
-          fms
+  let sppref = fetch spp in
+  match Hashtbl.find_opt to_sp_main sppref with
+  | Some z -> !z
+  | None ->
+      let z =
+        match spp with
+        | Skip -> Sp.Skip
+        | Drop -> Sp.Drop
+        | Union (f, fms, ms, d) ->
+            let ms1 =
+              Value.M.map
+                (fun ms ->
+                  List.map
+                    (fun (_, sppi) -> to_sp_bwd sppi)
+                    (Value.M.bindings ms)
+                  |> Sp.union)
+                fms
+            in
+            let y =
+              List.map (fun (_, sppi) -> to_sp_bwd sppi) (Value.M.bindings ms)
+              |> Sp.union
+            in
+            let ms2 =
+              List.fold_left
+                (fun m (v, sppi) ->
+                  match Value.M.find_opt v fms with
+                  | None -> Value.M.add v y m
+                  | Some _ -> m)
+                Value.M.empty (Value.M.bindings ms)
+            in
+            Sp.mk (f, Value.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
       in
-      let y =
-        List.map (fun (_, sppi) -> to_sp_bwd sppi) (Value.M.bindings ms)
-        |> Sp.union
-      in
-      let ms2 =
-        List.fold_left
-          (fun m (v, sppi) ->
-            match Value.M.find_opt v fms with
-            | None -> Value.M.add v y m
-            | Some _ -> m)
-          Value.M.empty (Value.M.bindings ms)
-      in
-      Sp.mk (f, Value.right_join Sp.drop ms1 ms2, to_sp_bwd d)
+      let refz = Sp.fetch z in
+      Hashtbl.add to_sp_main sppref refz;
+      !refz
 
 let filter b f v =
   if b then
@@ -239,6 +294,7 @@ let vmm_to_string (m : t Value.M.t Value.M.t) : string =
 
 module Memo_op = struct
   type opcode = Union | Seq | Diff | Star | Intersect
+
   let init_size = 64
   let main1 = Hashtbl.create init_size
   let main2_uncom = Hashtbl.create init_size
@@ -431,7 +487,6 @@ let intersect_pair =
           let d = self d1 d2 in
           mk (f1, fms, ms, d)
   in
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
 
   Memo_op.memo2_com Intersect intersect_pair
 
@@ -480,87 +535,119 @@ let star =
   in
   Memo_op.memo1 Star star
 
+let push_main = Hashtbl.create 16
+
 let rec push (sp : Sp.t) (spp : t) =
-  match (sp, spp) with
-  | Sp.Drop, _ | _, Drop -> Sp.Drop
-  | _, Skip -> sp
-  | Sp.Skip, Union (f, fms, ms, d) ->
-      let thru_fms =
-        List.map
-          (fun (v, vms) -> Value.M.mapi (fun v spp -> push Sp.Skip spp) vms)
-          (Value.M.bindings fms)
-        |> Value.map_op Sp.drop Sp.union_pair
-      in
-      let thru_ms = Value.M.mapi (fun v spp -> push Sp.Skip spp) ms in
-      let thru_both = Value.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms in
-      let matched_values = Value.S.union (Value.keys fms) (Value.keys ms) in
+  let spref, sppref = (Sp.fetch sp, fetch spp) in
+  match Hashtbl.find_opt push_main (spref, sppref) with
+  | Some z -> !z
+  | None ->
+      let z =
+        match (sp, spp) with
+        | Sp.Drop, _ | _, Drop -> Sp.Drop
+        | _, Skip -> sp
+        | Sp.Skip, Union (f, fms, ms, d) ->
+            let thru_fms =
+              List.map
+                (fun (v, vms) ->
+                  Value.M.mapi (fun v spp -> push Sp.Skip spp) vms)
+                (Value.M.bindings fms)
+              |> Value.map_op Sp.drop Sp.union_pair
+            in
+            let thru_ms = Value.M.mapi (fun v spp -> push Sp.Skip spp) ms in
+            let thru_both =
+              Value.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms
+            in
+            let matched_values = Value.S.union (Value.keys fms) (Value.keys ms) in
 
-      (* Next we need to identify the right slice of [Skip] to push through [d],
-         i.e. whatever doesn't match [fms] or [ms]. *)
-      let branchesD, unmatched_vs =
-        Value.S.fold
-          (fun v (m, uvs) ->
-            match Value.M.find_opt v thru_both with
-            | None -> (Value.M.add v Sp.Drop m, v :: uvs)
-            | Some _ -> (m, uvs))
-          matched_values (thru_both, [])
+            (* Next we need to identify the right slice of [Skip] to push through [d],
+               i.e. whatever doesn't match [fms] or [ms]. *)
+            let branchesD, unmatched_vs =
+              Value.S.fold
+                (fun v (m, uvs) ->
+                  match Value.M.find_opt v thru_both with
+                  | None -> (Value.M.add v Sp.Drop m, v :: uvs)
+                  | Some _ -> (m, uvs))
+                matched_values (thru_both, [])
+            in
+            let push_default = push Sp.Skip d in
+            let diffkeys =
+              Value.S.diff (Value.keys branchesD) matched_values |> Value.S.elements
+            in
+            let branchesE =
+              List.fold_left
+                (fun m v ->
+                  let sp_cur = Value.M.find v branchesD in
+                  Value.M.add v (Sp.union_pair sp_cur push_default) m)
+                branchesD diffkeys
+            in
+            Sp.mk (f, branchesE, push_default)
+        | Union (f1, fms1, d1), Union (f2, fms2, ms2, d2) ->
+            if f1 < f2 then
+              let fms = Value.M.mapi (fun v spi -> push spi spp) fms1 in
+              Sp.mk (f1, fms, push d1 spp)
+            else if f2 < f1 then
+              let fmsA =
+                List.map
+                  (fun (_, muts) ->
+                    let tsts =
+                      Value.M.mapi (fun v sppi -> push sp sppi) muts
+                    in
+                    Sp.mk (f2, tsts, Sp.Drop))
+                  (Value.M.bindings fms2)
+                |> Sp.union
+              in
+              let ms =
+                Value.right_join Sp.drop
+                  (Value.M.map (Fun.const Sp.drop) fms2)
+                  (Value.M.map (fun sppi -> push sp sppi) ms2)
+              in
+              let fmsB = Sp.mk (f2, ms, push sp d2) in
+              Sp.union_pair fmsA fmsB
+            else
+              (* f1 = f2 *)
+              (* XXX Do we need the comparison to drop case? if so it goes here. *)
+              let pkA =
+                List.map
+                  (fun (v, spi) ->
+                    match Value.M.find_opt v fms2 with
+                    | None -> (
+                        let tsts =
+                          Value.M.map (fun sppj -> push spi sppj) ms2
+                        in
+                        match Value.M.find_opt v ms2 with
+                        | None ->
+                            let tsts' = Value.M.add v (push spi d2) tsts in
+                            Sp.mk (f1, tsts', Sp.drop)
+                        | Some sppj -> Sp.mk (f1, tsts, Sp.drop))
+                    | Some m ->
+                        let tsts = Value.M.map (fun sppj -> push spi sppj) m in
+                        Sp.mk (f1, tsts, Sp.drop))
+                  (Value.M.bindings fms1)
+                |> Sp.union
+              in
+              let pkB =
+                List.map
+                  (fun (v, sppi) ->
+                    if Value.M.mem v fms1 then Sp.drop
+                    else
+                      let tsts = Value.M.map (fun sppj -> push d1 sppj) sppi in
+                      Sp.mk (f1, tsts, Sp.drop))
+                  (Value.M.bindings fms2)
+                |> Sp.union
+              in
+              let ms =
+                Value.M.map (Fun.const Sp.drop) fms1
+                |> Value.left_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
+                |> Value.left_join Sp.drop
+                     (Value.M.map (fun sppi -> push d1 sppi) ms2)
+              in
+              let pkC = Sp.mk (f1, ms, push d1 d2) in
+              Sp.union [ pkA; pkB; pkC ]
       in
-      let push_default = push Sp.Skip d in
-      let diffkeys =
-        Value.S.diff (Value.keys branchesD) matched_values |> Value.S.elements
-      in
-      let branchesE =
-        List.fold_left
-          (fun m v ->
-            let sp_cur = Value.M.find v branchesD in
-            Value.M.add v (Sp.union_pair sp_cur push_default) m)
-          branchesD diffkeys
-      in
-      Sp.mk (f, branchesE, push_default)
-  | Union (f1, fms1, d1), Union (f2, fms2, ms2, d2) ->
-      if f1 < f2 then
-        let fms = Value.M.mapi (fun v spi -> push spi spp) fms1 in
-        Sp.mk (f1, fms, push d1 spp)
-      else if f2 < f1 then
-        let fmsA =
-          List.map
-            (fun (_, muts) ->
-              let tsts = Value.M.mapi (fun v sppi -> push sp sppi) muts in
-              Sp.mk (f2, tsts, Sp.Drop))
-            (Value.M.bindings fms2)
-          |> Sp.union
-        in
-        let ms =
-          Value.right_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2) (Value.M.map (fun sppi -> push sp sppi) ms2)
-        in
-        let fmsB = Sp.mk (f2, ms, push sp d2) in
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
-        Sp.union_pair fmsA fmsB
-      else
-        (* f1 = f2 *)
-        (* XXX Do we need the comparison to drop case? if so it goes here. *)
-        let pkA = List.map (fun (v,spi) ->
-          match Value.M.find_opt v fms2 with
-          | None -> let tsts = Value.M.map (fun sppj -> push spi sppj) ms2 in
-                    begin
-                    match Value.M.find_opt v ms2 with
-                    | None -> let tsts' = Value.M.add v (push spi d2) tsts in
-                              Sp.mk (f1, tsts', Sp.drop)
-                    | Some sppj -> Sp.mk(f1, tsts, Sp.drop)
-                    end
-          | Some m -> let tsts = Value.M.map (fun sppj -> push spi sppj) m in
-                      Sp.mk(f1, tsts, Sp.drop)) (Value.M.bindings fms1)
-          |> Sp.union in
-        let pkB = List.map (fun (v,sppi) -> if Value.M.mem v fms1 then Sp.drop
-                                            else let tsts = Value.M.map (fun sppj -> push d1 sppj) sppi in
-                                            Sp.mk(f1, tsts, Sp.drop)) (Value.M.bindings fms2) |> Sp.union in
-        let ms = Value.M.map (Fun.const Sp.drop) fms1
-                 |> Value.left_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
-                 |> Value.left_join Sp.drop (Value.M.map (fun sppi -> push d1 sppi) ms2) in
-        let pkC = Sp.mk(f1, ms, push d1 d2) in
-        Sp.union [pkA; pkB; pkC]
-
-let pull (spp: t) (sp: Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
+      let refz = Sp.fetch z in
+      Hashtbl.add push_main (spref, sppref) refz;
+      !refz
 
 (* TODO: Maybe this can be reimplemented with `push`? *)
 let mem (spp: t) (pp: Pkpair.t) : bool =

@@ -5,6 +5,24 @@ open Pk
 type t = Skip | Drop | Union of field * t Value.M.t * t
 type spt = t
 
+let rec truncate =
+  let p = 393241 in
+  let extract lst =
+    let lst = Value.M.bindings lst in
+    List.nth lst (p mod List.length lst)
+  in
+  let map_of_tuple tuple =
+    let a, b = tuple in
+    Value.M.empty |> Value.M.add a b
+  in
+  function
+  | Skip -> Skip
+  | Drop -> Drop
+  | Union (f, vm, d) when vm = Value.M.empty -> Union (f, vm, d)
+  | Union (f, vm, d) ->
+      let vm_k, vm_v = extract vm in
+      Union (f, map_of_tuple (vm_k, truncate vm_v), d)
+
 let rec to_exp = function
   | Skip -> Nk.skip
   | Drop -> Nk.drop
@@ -45,7 +63,7 @@ module SPHashtbl = Hashtbl.Make (struct
   type t = spt
 
   let equal spp1 spp2 = compare spp1 spp2 = 0
-  let hash sp = sp |> to_string |> Hashtbl.hash
+  let hash sp = sp |> truncate |> Hashtbl.hash
 end)
 
 let pool = SPHashtbl.create 8
@@ -113,7 +131,6 @@ end
 
 let skip = !(fetch Skip)
 let drop = !(fetch Drop)
-
 let eq = ( == )
 
 let () =
@@ -161,7 +178,7 @@ let le sp1 sp2 =
   match (sp1, sp2) with
   | Drop, _ | _, Skip -> true
   | _, Drop | Skip, _ -> false (* because _, Skip is already marked true *)
-  | _, _ -> sp2 == (union_pair sp1 sp2)
+  | _, _ -> sp2 == union_pair sp1 sp2
 
 let seq_pair =
   let seq_pair self (t1 : t) (t2 : t) : t =
