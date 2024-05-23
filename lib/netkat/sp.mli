@@ -7,8 +7,6 @@ type t =
   | Drop 
   | Union of field * (t Value.M.t) * t
 
-val fetch : t -> t ref 
-
 val compare : t -> t -> int
 val eq : t -> t -> bool
 
