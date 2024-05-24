@@ -54,7 +54,7 @@ let rec to_exp_inner = function
 let to_exp x = to_exp_inner !x
 let to_string t = to_exp_inner !t |> Nk.to_string
 
-let rec compare_inner spp1 spp2 =
+let compare_inner spp1 spp2 =
   match (spp1, spp2) with
   | Drop, Drop -> 0
   | Drop, _ -> -1
@@ -67,60 +67,56 @@ let rec compare_inner spp1 spp2 =
       else if f2 < f1 then 1
       else
         let cmp_fms =
-          Value.M.compare (Value.M.compare compare_inner) !!!fms1 !!!fms2
+          Value.M.compare (Value.M.compare Stdlib.compare) fms1 fms2
         in
         if cmp_fms < 0 then -1
         else if cmp_fms > 0 then 1
         else
-          let cmp_ms = Value.M.compare compare_inner !!ms1 !!ms2 in
+          let cmp_ms = Value.M.compare Stdlib.compare ms1 ms2 in
           if cmp_ms < 0 then -1
           else if cmp_ms > 0 then 1
-          else compare_inner !d1 !d2
-
+          else Stdlib.compare d1 d2
 let compare spp1 spp2 = compare_inner !spp1 !spp2
 
-let rec truncate spp =
-   let p = 393241 in
-   let extract lst =
-     let lst = Value.M.bindings lst in
-     List.nth lst (p mod List.length lst)
-   in
-   let map_of_tuple tuple =
-     let a, b = tuple in
-     Value.M.empty |> Value.M.add a b
-   in
-   let extract_fms fms =
-     let fms_k, fms_v = extract fms in
-     if fms_v = Value.M.empty then map_of_tuple (fms_k, fms_v)
-     else
-       let fms_k', fms_v' = extract fms_v in
-       map_of_tuple (fms_k, map_of_tuple (fms_k', truncate !fms_v'))
-   in
-   let extract_ms ms =
-     let ms_k, ms_v = extract ms in
-     map_of_tuple (ms_k, truncate !ms_v)
-   in
-   match spp with
-   | Skip -> ref Skip
-   | Drop -> ref Drop
-   | Union (f, fms, ms, d) ->
-       ref
-         (if fms = Value.M.empty && ms = Value.M.empty then
-            Union (f, fms, ms, d)
-          else if fms = Value.M.empty then Union (f, fms, extract_ms ms, d)
-          else if ms = Value.M.empty then Union (f, extract_fms fms, ms, d)
-          else Union (f, extract_fms fms, extract_ms ms, d))
+let eq spp1 spp2 = 
+  match (spp1, spp2) with 
+  | Drop, Drop -> true
+  | Drop, _ -> false 
+  | _, Drop -> false 
+  | Skip, Skip -> true 
+  | Skip, _ -> false 
+  | _, Skip -> false 
+  | Union (f1, fms1, ms1, d1), Union (f2, fms2, ms2, d2) ->
+      f1 = f2 
+      && Value.M.equal (fun m1 m2 -> Value.M.equal ( == ) m1 m2) fms1 fms2 
+      && Value.M.equal ( == ) ms1 ms2 
+      && d1 == d2
+
+let skip = ref Skip 
+let drop = ref Drop 
+
+let hash = 
+  let magic_hash x = (x |> Obj.repr |> Obj.magic) * 1 in 
+  let skip_v = Hashtbl.hash skip in 
+  let drop_v = Hashtbl.hash drop in 
+  function 
+  | Skip -> skip_v 
+  | Drop -> drop_v
+  | Union (f, fms, ms, d) -> 
+    let fms_v = 
+      Value.M.fold (fun v m acc -> Value.M.fold (fun x y acc -> 
+        Hashtbl.hash (x, magic_hash y, acc)) m 0) fms 0 in 
+    let ms_v = Value.M.fold (fun x y acc -> Hashtbl.hash (x, magic_hash y, acc)) ms 0 in 
+    Hashtbl.hash (f, fms_v, ms_v, magic_hash d)
 
 module SPPHashtbl = Hashtbl.Make (struct
   type t = spp
 
-  let equal spp1 spp2 = compare_inner spp1 spp2 = 0
-
-  let hash1 spp = spp |> to_exp_inner |> Hashtbl.hash 
-
-  let hash2 spp = spp |> truncate |> to_exp |> Hashtbl.hash 
-  let hash = hash2
+  let equal = eq 
+  let hash = hash
 end)
+
+let eq = ( == )
 
 let pool_size = 64
 let pool = SPPHashtbl.create pool_size
@@ -132,10 +128,10 @@ let fetch x =
       let refx = ref x in
       SPPHashtbl.add pool x refx;
       refx
+      
+let () = SPPHashtbl.add pool Skip skip; 
+         SPPHashtbl.add pool Drop drop 
 
-let eq = ( == )
-let skip = fetch Skip
-let drop = fetch Drop
 let map_op = Value.map_op drop
 let map_op_pair = Value.map_op_pair drop
 let right_join = Value.right_join drop
