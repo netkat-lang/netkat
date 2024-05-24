@@ -54,7 +54,10 @@ let rec to_exp_inner = function
 let to_exp x = to_exp_inner !x
 let to_string t = to_exp_inner !t |> Nk.to_string
 
-let compare_inner spp1 spp2 =
+let magic_hash x = (x |> Obj.repr |> Obj.magic) * 1
+let magic_compare spp1 spp2 = Stdlib.compare (magic_hash spp1) (magic_hash spp2)
+
+let compare_inner spp1 spp2 = 
   match (spp1, spp2) with
   | Drop, Drop -> 0
   | Drop, _ -> -1
@@ -67,15 +70,15 @@ let compare_inner spp1 spp2 =
       else if f2 < f1 then 1
       else
         let cmp_fms =
-          Value.M.compare (Value.M.compare Stdlib.compare) fms1 fms2
+          Value.M.compare (Value.M.compare magic_compare) fms1 fms2
         in
         if cmp_fms < 0 then -1
         else if cmp_fms > 0 then 1
         else
-          let cmp_ms = Value.M.compare Stdlib.compare ms1 ms2 in
+          let cmp_ms = Value.M.compare magic_compare ms1 ms2 in
           if cmp_ms < 0 then -1
           else if cmp_ms > 0 then 1
-          else Stdlib.compare d1 d2
+          else magic_compare d1 d2
 let compare spp1 spp2 = compare_inner !spp1 !spp2
 
 let eq spp1 spp2 = 
@@ -96,7 +99,6 @@ let skip = ref Skip
 let drop = ref Drop 
 
 let hash = 
-  let magic_hash x = (x |> Obj.repr |> Obj.magic) * 1 in 
   let skip_v = Hashtbl.hash skip in 
   let drop_v = Hashtbl.hash drop in 
   function 
@@ -397,7 +399,6 @@ let union_pair =
   in
   Memo_op.memo2_com Union union_pair
 
-let ref_list = List.map (fun x -> fetch x)
 let union = List.fold_left union_pair drop
 let union_map_pair = map_op_pair union_pair
 let union_maps = map_op union_pair
