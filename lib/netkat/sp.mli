@@ -9,6 +9,8 @@ type sp =
 
 type t = sp ref 
 
+val get_hash : sp -> int 
+
 val compare : t -> t -> int
 val eq : t -> t -> bool
 

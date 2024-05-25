@@ -286,12 +286,14 @@ let vmm_to_string (m : spp ref Value.M.t Value.M.t) : string =
 module Memo_op = struct
   module Memo1_tbl = Hashtbl.Make (struct
     type t = spp ref
+
     let equal = ( == )
     let hash x = get_hash !x
   end)
 
   module Memo2_tbl = Hashtbl.Make (struct
-    type t = spp ref * spp ref 
+    type t = spp ref * spp ref
+
     let equal (a, b) (c, d) = a == c && b == d
     let hash (x, y) = Hashtbl.hash (get_hash !x, get_hash !y)
   end)
@@ -302,8 +304,12 @@ module Memo_op = struct
   let main1 = Hashtbl.create init_size
   let main2_uncom = Hashtbl.create init_size
   let main2_com = Hashtbl.create init_size
-  let add_op_1 opcode table = Hashtbl.add table opcode (Memo1_tbl.create init_size)
-  let add_op_2 opcode table = Hashtbl.add table opcode (Memo2_tbl.create init_size)
+
+  let add_op_1 opcode table =
+    Hashtbl.add table opcode (Memo1_tbl.create init_size)
+
+  let add_op_2 opcode table =
+    Hashtbl.add table opcode (Memo2_tbl.create init_size)
 
   let memo1 (opcode : opcode) (f : (spp ref -> spp ref) -> spp ref -> spp ref)
       xref =
@@ -338,7 +344,8 @@ module Memo_op = struct
     let main = Hashtbl.find main2_com opcode in
     let rec f' refx refy =
       match
-        (Memo2_tbl.find_opt main (refx, refy), Memo2_tbl.find_opt main (refy, refx))
+        ( Memo2_tbl.find_opt main (refx, refy),
+          Memo2_tbl.find_opt main (refy, refx) )
       with
       | Some refz, Some _ | Some refz, None | None, Some refz -> refz
       | None, None ->
@@ -545,7 +552,20 @@ let star =
   in
   Memo_op.memo1 Star star_ref
 
+module Push_memo_tbl = Hashtbl.Make (struct
+  type t = Sp.t * spp ref
+
+  let equal (a, b) (c, d) = Sp.eq a c && b == d
+  let hash (a, b) = Hashtbl.hash (Sp.get_hash !a, get_hash !b)
+end)
+
+let push_main = Push_memo_tbl.create 64 
+
 let rec push (spref : Sp.t) (sppref : t) =
+  match Push_memo_tbl.find_opt push_main (spref, sppref) with 
+  | Some z -> z 
+  | None -> 
+  let res = 
   let sp, spp = (!spref, !sppref) in
   match (sp, spp) with
   | Sp.Drop, _ | _, Drop -> Sp.drop
@@ -640,6 +660,9 @@ let rec push (spref : Sp.t) (sppref : t) =
         in
         let pkC = Sp.mk (f1, ms, push d1 d2) in
         Sp.union [ pkA; pkB; pkC ]
+      in 
+      Push_memo_tbl.add push_main (spref, sppref) res; 
+      res 
 
 let pull (spp : t) (sp : Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
 

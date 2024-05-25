@@ -81,23 +81,42 @@ let mk (f, m, d) =
   else fetch (Union (f, m', d, init_hash (f, m', d)))
 
 module Memo_op = struct
+  module Memo1_tbl = Hashtbl.Make (struct
+    type t = sp ref
+
+    let equal = ( == )
+    let hash x = get_hash !x
+  end)
+
+  module Memo2_tbl = Hashtbl.Make (struct
+    type t = sp ref * sp ref
+
+    let equal (a, b) (c, d) = a == c && b == d
+    let hash (x, y) = Hashtbl.hash (get_hash !x, get_hash !y)
+  end)
+
   type opcode = Union | Seq | Neg
 
   let init_size = 64
   let main1 = Hashtbl.create init_size
   let main2_uncom = Hashtbl.create init_size
   let main2_com = Hashtbl.create init_size
-  let add_op opcode table = Hashtbl.add table opcode (Hashtbl.create init_size)
+
+  let add_op_1 opcode table =
+    Hashtbl.add table opcode (Memo1_tbl.create init_size)
+
+  let add_op_2 opcode table =
+    Hashtbl.add table opcode (Memo2_tbl.create init_size)
 
   let memo1 (opcode : opcode) (f : (sp ref -> sp ref) -> sp ref -> sp ref) xref
       =
     let main = Hashtbl.find main1 opcode in
     let rec f' refx =
-      match Hashtbl.find_opt main refx with
+      match Memo1_tbl.find_opt main refx with
       | Some z -> z
       | None ->
           let refz = f f' refx in
-          Hashtbl.add main refx refz;
+          Memo1_tbl.add main refx refz;
           refz
     in
     f' xref
@@ -108,12 +127,13 @@ module Memo_op = struct
     let main = Hashtbl.find main2_com opcode in
     let rec f' refx refy =
       match
-        (Hashtbl.find_opt main (refx, refy), Hashtbl.find_opt main (refy, refx))
+        ( Memo2_tbl.find_opt main (refx, refy),
+          Memo2_tbl.find_opt main (refy, refx) )
       with
       | Some refz, Some _ | Some refz, None | None, Some refz -> refz
       | None, None ->
           let refz = f f' refx refy in
-          Hashtbl.add main (refx, refy) refz;
+          Memo2_tbl.add main (refx, refy) refz;
           refz
     in
     f' xref yref
@@ -121,9 +141,9 @@ end
 
 let () =
   Memo_op.(
-    add_op Union main2_com;
-    add_op Seq main2_com;
-    add_op Neg main1)
+    add_op_2 Union main2_com;
+    add_op_2 Seq main2_com;
+    add_op_1 Neg main1)
 
 let union_pair =
   let union_pair self t1ref t2ref =
