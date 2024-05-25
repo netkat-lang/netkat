@@ -2,114 +2,226 @@
 
 open Pk
 
-type t =
-  | Skip 
-  | Drop 
-  | Union of field * (t Value.M.t) * t
+type sp = Skip | Drop | Union of field * sp ref Value.M.t * sp ref * int
+type t = sp ref
 
-let skip = Skip
-let drop = Drop
+let get_hash = function
+  | Skip -> Hashtbl.hash Skip
+  | Drop -> Hashtbl.hash Drop
+  | Union (_, _, _, x) -> x
 
-let rec compare sp1 sp2 = match sp1, sp2 with
+let deref_fms fms = Value.M.map (fun m -> Value.M.map (fun x -> !x) m) fms
+let deref_ms = Value.M.map (fun x -> !x)
+let ( !!! ) = deref_fms
+let ( !! ) = deref_ms
+
+let compare_inner sp1 sp2 =
+  let magic_compare sp1 sp2 = Stdlib.compare (get_hash !sp1) (get_hash !sp2) in
+  match (sp1, sp2) with
   | Drop, Drop -> 0
   | Drop, _ -> -1
   | _, Drop -> 1
   | Skip, Skip -> 0
   | Skip, _ -> -1
   | _, Skip -> 1
-  | Union (f1, fs1, d1), Union (f2, fs2, d2) ->
+  | Union (f1, fs1, d1, _), Union (f2, fs2, d2, _) ->
       if f1 < f2 then -1
       else if f2 < f1 then 1
       else
-        let cmp_maps = Value.M.compare compare fs1 fs2 in
-        if cmp_maps = 0 then
-          compare d1 d2
-        else
-          cmp_maps
+        let cmp_maps = Value.M.compare magic_compare fs1 fs2 in
+        if cmp_maps = 0 then magic_compare d1 d2 else cmp_maps
 
-let eq sp1 sp2 = compare sp1 sp2 = 0
+let compare sp1 sp2 = compare_inner !sp1 !sp2
+
+let init_hash (f, fs, d) =
+  let fs_v =
+    Value.M.fold (fun k m acc -> Hashtbl.hash (k, get_hash !m, acc)) fs 0
+  in
+  Hashtbl.hash (f, fs_v, d)
+
+module SPHashtbl = Hashtbl.Make (struct
+  type t = sp
+
+  let equal spp1 spp2 =
+    match (spp1, spp2) with
+    | Drop, Drop -> true
+    | Drop, _ -> false
+    | _, Drop -> false
+    | Skip, Skip -> true
+    | Skip, _ -> false
+    | _, Skip -> false
+    | Union (f1, fs1, d1, _), Union (f2, fs2, d2, _) ->
+        f1 = f2 && Value.M.equal ( == ) fs1 fs2 && d1 == d2
+
+  let hash = get_hash
+end)
+
+let eq = ( == )
+let pool_size = 64
+let pool = SPHashtbl.create pool_size
+
+let fetch x =
+  match SPHashtbl.find_opt pool x with
+  | Some refx -> refx
+  | None ->
+      let refx = ref x in
+      SPHashtbl.add pool x refx;
+      refx
+
+let skip = fetch Skip
+let drop = fetch Drop
 
 let mk (f, m, d) =
-  let m' = List.fold_left (fun m (vi,spi) ->
-    if eq spi d then
-      m
-    else
-      Value.M.add vi spi m) Value.M.empty (Value.M.bindings m) in
-  if Value.M.cardinal m' = 0 then
-    d
-  else
-    Union (f, m', d)
+  let m' =
+    List.fold_left
+      (fun m (vi, spi) -> if eq spi d then m else Value.M.add vi spi m)
+      Value.M.empty (Value.M.bindings m)
+  in
+  if Value.M.cardinal m' = 0 then d
+  else fetch (Union (f, m', d, init_hash (f, m', d)))
 
-let rec union_pair (t1:t) (t2:t) : t =
-  match t1,t2 with
-  | Skip, _
-  | _, Skip -> Skip
-  | Drop, _ -> t2
-  | _, Drop -> t1
-  | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-    if Field.compare f1 f2 = 0 then
-      mk (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
-                                 | None, None -> None
-                                 | Some p1, None -> Some (union_pair p1 d2)
-                                 | None, Some p2 -> Some (union_pair d1 p2)
-                                 | Some p1, Some p2 -> Some (union_pair p1 p2)) vm1 vm2, union_pair d1 d2)
-    else if Field.compare f1 f2 < 0 then
-      mk (f1, Value.M.map (fun p -> union_pair p t2) vm1, union_pair d1 t2)
-    else
-      union_pair t2 t1
+module Memo_op = struct
+  type opcode = Union | Seq | Neg
 
-let union = List.fold_left union_pair Drop
+  let init_size = 64
+  let main1 = Hashtbl.create init_size
+  let main2_uncom = Hashtbl.create init_size
+  let main2_com = Hashtbl.create init_size
+  let add_op opcode table = Hashtbl.add table opcode (Hashtbl.create init_size)
 
-let le sp1 sp2 = match sp1, sp2 with
-  | Drop, _
-  | _, Skip -> true
-  | _, Drop
-  | Skip, _ -> false (* because _, Skip is already marked true *)
-  | _, _ -> eq sp2 (union_pair sp1 sp2)
+  let memo1 (opcode : opcode) (f : (sp ref -> sp ref) -> sp ref -> sp ref) xref
+      =
+    let main = Hashtbl.find main1 opcode in
+    let rec f' refx =
+      match Hashtbl.find_opt main refx with
+      | Some z -> z
+      | None ->
+          let refz = f f' refx in
+          Hashtbl.add main refx refz;
+          refz
+    in
+    f' xref
 
-let rec seq_pair (t1: t) (t2: t) : t =
-  match t1, t2 with
-  | Drop, _
-  | _, Drop -> Drop
-  | Skip, _ -> t2
-  | _, Skip -> t1
-  | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-    if Field.compare f1 f2 = 0 then
-      mk (f1, Value.M.merge (fun v p1o p2o -> match p1o, p2o with
-                                 | None, None -> None
-                                 | Some p1, None -> Some (seq_pair p1 d2)
-                                 | None, Some p2 -> Some (seq_pair d1 p2)
-                                 | Some p1, Some p2 -> Some (seq_pair p1 p2)) vm1 vm2, seq_pair d1 d2)
-    else if Field.compare f1 f2 < 0 then
-      mk (f1, Value.M.map (fun p -> seq_pair p t2) vm1, seq_pair d1 t2)
-    else
-      seq_pair t2 t1
+  let memo2_com (opcode : opcode)
+      (f : (sp ref -> sp ref -> sp ref) -> sp ref -> sp ref -> sp ref) xref yref
+      =
+    let main = Hashtbl.find main2_com opcode in
+    let rec f' refx refy =
+      match
+        (Hashtbl.find_opt main (refx, refy), Hashtbl.find_opt main (refy, refx))
+      with
+      | Some refz, Some _ | Some refz, None | None, Some refz -> refz
+      | None, None ->
+          let refz = f f' refx refy in
+          Hashtbl.add main (refx, refy) refz;
+          refz
+    in
+    f' xref yref
+end
 
-let seq = List.fold_left seq_pair Skip
+let () =
+  Memo_op.(
+    add_op Union main2_com;
+    add_op Seq main2_com;
+    add_op Neg main1)
 
+let union_pair =
+  let union_pair self t1ref t2ref =
+    let t1, t2 = (!t1ref, !t2ref) in
+    match (t1, t2) with
+    | Skip, _ | _, Skip -> skip
+    | Drop, _ -> t2ref
+    | _, Drop -> t1ref
+    | Union (f1, vm1, d1, _), Union (f2, vm2, d2, _) ->
+        if Field.compare f1 f2 = 0 then
+          mk
+            ( f1,
+              Value.M.merge
+                (fun v p1o p2o ->
+                  match (p1o, p2o) with
+                  | None, None -> None
+                  | Some p1, None -> Some (self p1 d2)
+                  | None, Some p2 -> Some (self d1 p2)
+                  | Some p1, Some p2 -> Some (self p1 p2))
+                vm1 vm2,
+              self d1 d2 )
+        else if Field.compare f1 f2 < 0 then
+          mk (f1, Value.M.map (fun p -> self p t2ref) vm1, self d1 t2ref)
+        else self t2ref t1ref
+  in
+  Memo_op.memo2_com Union union_pair
+
+let union = List.fold_left union_pair drop
+
+let le sp1ref sp2ref =
+  let sp1, sp2 = (!sp1ref, !sp2ref) in
+  match (sp1, sp2) with
+  | Drop, _ | _, Skip -> true
+  | _, Drop | Skip, _ -> false (* because _, Skip is already marked true *)
+  | _, _ -> eq sp2ref (union_pair sp1ref sp2ref)
+
+let seq_pair =
+  let seq_pair self t1ref t2ref =
+    let t1, t2 = (!t1ref, !t2ref) in
+    match (t1, t2) with
+    | Drop, _ | _, Drop -> drop
+    | Skip, _ -> t2ref
+    | _, Skip -> t1ref
+    | Union (f1, vm1, d1, _), Union (f2, vm2, d2, _) ->
+        if Field.compare f1 f2 = 0 then
+          mk
+            ( f1,
+              Value.M.merge
+                (fun v p1o p2o ->
+                  match (p1o, p2o) with
+                  | None, None -> None
+                  | Some p1, None -> Some (self p1 d2)
+                  | None, Some p2 -> Some (self d1 p2)
+                  | Some p1, Some p2 -> Some (self p1 p2))
+                vm1 vm2,
+              self d1 d2 )
+        else if Field.compare f1 f2 < 0 then
+          mk (f1, Value.M.map (fun p -> self p t2ref) vm1, self d1 t2ref)
+        else self t2ref t1ref
+  in
+  Memo_op.memo2_com Seq seq_pair
+
+let seq = List.fold_left seq_pair skip
 let intersect_pair = seq_pair
 let intersect = seq
+let star _ = skip
 
-let star _ = Skip
-
-let rec neg e = match e with
-  | Skip -> Drop
-  | Drop -> Skip
-  | Union (f, vm, d) -> mk (f, Value.M.map neg vm, neg d)
+let neg =
+  let neg self eref =
+    let e = !eref in
+    match e with
+    | Skip -> drop
+    | Drop -> skip
+    | Union (f, vm, d, _) -> mk (f, Value.M.map self vm, self d)
+  in
+  Memo_op.memo1 Neg neg
 
 let diff t1 t2 = intersect_pair t1 (neg t2)
-
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
 
-let rec to_exp = function
+let rec to_exp_inner = function
   | Skip -> Nk.skip
   | Drop -> Nk.drop
-  | Union (f, vm, d) -> let tsts = Nk.union (List.map (fun (v,t') -> 
-                            let tst = Nk.filter true f v in
-                            let next = to_exp t' in
-                            Nk.seq_pair tst next) (Value.M.bindings vm)) in
-                         let ntsts = Nk.seq (List.map (fun (v,_) ->
-                            Nk.filter false f v) (Value.M.bindings vm)) in
-                         Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp d))
+  | Union (f, vm, d, _) ->
+      let tsts =
+        Nk.union
+          (List.map
+             (fun (v, t') ->
+               let tst = Nk.filter true f v in
+               let next = to_exp_inner t' in
+               Nk.seq_pair tst next)
+             (Value.M.bindings !!vm))
+      in
+      let ntsts =
+        Nk.seq
+          (List.map (fun (v, _) -> Nk.filter false f v) (Value.M.bindings vm))
+      in
+      Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
 
+let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string

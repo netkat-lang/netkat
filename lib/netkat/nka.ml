@@ -71,7 +71,7 @@ let bisim (a1: t) (a2: t) : bool =
                            bq rem visited
                          else
                            let prev = match PairMap.find_opt (s1,s2) visited with
-                                      | None -> Sp.Drop
+                                      | None -> Sp.drop
                                       | Some a -> a in
                            let rem = Sp.diff pk prev in
                          if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s1 a1.obs))
@@ -105,7 +105,7 @@ let forward (e: Nk.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing
      from [visited] is equivalent to mapped to Drop *)
   let get m exp = match StateMap.find_opt exp m with
-                  | None -> Sp.Drop
+                  | None -> Sp.drop
                   | Some sp -> sp in
 
   let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t StateMap.t) =
@@ -113,17 +113,20 @@ let forward (e: Nk.t) : Sp.t =
     | [] -> StateMap.bindings visited |>
             List.map (fun (e, pk) -> Spp.push pk (Deriv.e e)) |>
             Sp.union
-    | (Nk.Drop, _)::rem
-    | (_, Sp.Drop)::rem -> loop rem visited
-    | (e, pk)::rem ->
-        let p = Sp.diff pk (get visited e) in
-        let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
-        let next = Deriv.d e
-                   |> Sts.to_list
-                   |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
-        loop (next@rem) v'
+    | (e, pkref) :: rem -> 
+      let pk = !pkref in 
+      match (e, pk) with 
+      | (Nk.Drop, _)
+      | (_, Sp.Drop) -> loop rem visited
+      | (e, pk) ->
+          let p = Sp.diff pkref (get visited e) in
+          let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
+          let next = Deriv.d e
+                    |> Sts.to_list
+                    |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
+          loop (next@rem) v'
 
-  in loop [(e, Sp.Skip)] StateMap.empty
+  in loop [(e, Sp.skip)] StateMap.empty
 
 let backward (e: Nk.t) : Sp.t =
   let a = autom e in
@@ -134,16 +137,19 @@ let backward (e: Nk.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing
      from [visited] is equivalent to mapped to Drop *)
   let get m exp = match StateMap.find_opt exp m with
-                  | None -> Sp.Drop
+                  | None -> Sp.drop
                   | Some sp -> sp in
 
   let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t StateMap.t) =
     match todo with
     | [] -> get visited a.start
-    | (Nk.Drop, _)::rem
-    | (_, Sp.Drop)::rem -> loop rem visited
-    | (e,pk)::rem ->
-        let p = Sp.diff pk (get visited e) in
+    | (e, pkref) :: rem -> 
+      let pk = !pkref in 
+      match (e, pk) with 
+    | (Nk.Drop, _)
+    | (_, Sp.Drop) -> loop rem visited
+    | (e,pk) ->
+        let p = Sp.diff pkref (get visited e) in
         let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
         let next = StateSet.elements a.states 
                    |> List.map (fun e' -> (e', Deriv.d e' |> Sts.trans e))

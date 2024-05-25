@@ -2,10 +2,12 @@
 
 open Pk
 
-type t =
+type sp =
   | Skip 
   | Drop 
-  | Union of field * (t Value.M.t) * t
+  | Union of field * (sp ref Value.M.t) * sp ref * int 
+
+type t = sp ref 
 
 val compare : t -> t -> int
 val eq : t -> t -> bool
