@@ -7,8 +7,9 @@
 (library
   (name nerode_netkat)
   (public_name nerode.netkat)
-  (preprocess (pps sedlex.ppx))
-  (libraries core_unix yojson menhirLib sedlex))
+  (instrumentation (backend landmarks))
+  (preprocess (pps landmarks-ppx sedlex.ppx))
+  (libraries landmarks core_unix yojson menhirLib sedlex))
 
 (documentation
   (package nerode)

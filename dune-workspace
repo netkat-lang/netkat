@@ -1,4 +1,24 @@
-(lang dune 1.2)
+(lang dune 2.7)
 (env
  (dev (flags (:standard -warn-error "-27-32" -w -27-32)))
+)
+
+(context default)
+(context 
+  (default 
+    (name profiling)
+    (instrument_with landmarks) 
+    (env 
+      (_ (env-vars ("OCAML_LANDMARKS" "on")))
+    )
+  )
+)
+(context 
+  (default 
+    (name profiling-auto)
+    (instrument_with landmarks) 
+    (env 
+      (_ (env-vars ("OCAML_LANDMARKS" "auto")))
+    )
+  )
 )
