@@ -688,7 +688,7 @@ let mem (spp: t) (pp: Pkpair.t) : bool = failwith "TODO: convert to refs"
             match Value.M.find_opt v1 m with
             | Some spp' -> memrec spp' bdgs' (* XXX Suspect this is not quite right*)
             | None -> memrec d bdgs' (* XXX: Need to look at v0 ...*)
-  in memrec spp (Value.air.to_list pp)
+  in memrec spp (Pkpair.to_list pp)
   *)
 
 (** Give a pair of packets that are in the semantics of a given spp [t] *)
@@ -696,8 +696,8 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t = failwith "TODO: convert to ref
   (*
   let fresh_const s f m =
     let v = Value.val_outside s in
-    Value.air.addf f (v,v) m in
-  let rec repr (p: t) (fs: Field.S.t) (partial: Value.air.t) =
+    Pkpair.addf f (v,v) m in
+  let rec repr (p: t) (fs: Field.S.t) (partial: Pkpair.t) =
     if fs = Field.S.empty then partial else
     match p with
       | Drop -> failwith "Can't take representative of empty SPP!"
@@ -718,10 +718,10 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t = failwith "TODO: convert to ref
           else if m != Value.M.empty then
             let v0 = Value.val_outside mub in
             let (v1, q) = Value.M.choose m in (* [q] can't be Drop since [p] is canonical *)
-            repr q fs' (Value.air.addf f (v0, v1) partial)
+            repr q fs' (Pkpair.addf f (v0, v1) partial)
           else (* find one in b *)
             let (v0, bm) = List.find (fun (v, m) -> m != Value.M.empty) (Value.M.bindings b) in
             let (v1, q) = Value.M.choose bm in (* [q] can't be Drop since [p] is canonical *)
-            repr q fs' (Value.air.addf f (v0, v1) partial)
-    in repr spp fields Value.air.empty
+            repr q fs' (Pkpair.addf f (v0, v1) partial)
+    in repr spp fields Pkpair.empty
     *)
