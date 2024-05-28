@@ -165,8 +165,8 @@ let to_string (nk: t) : string =
     | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
     | Diff (e0,e1) -> (to_string_parent (prec e) e0) ^ "-" ^ (to_string_parent (prec e) e1)
     | Dup -> "dup"
-    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.string_of_val v)
-    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.string_of_val v)
+    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.to_string v)
+    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.to_string v)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in

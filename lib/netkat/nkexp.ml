@@ -193,9 +193,9 @@ let to_string (e: t) : string =
     | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
     | Intersect e0 -> String.concat " & " (List.map (to_string_parent (prec e)) e0)
     | Dup -> "dup"
-    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.string_of_val v)
+    | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.to_string v)
     | VFilter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ v
-    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.string_of_val v)
+    | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.to_string v)
     | VMod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ v
     | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
     | Var x -> x

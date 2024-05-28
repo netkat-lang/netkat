@@ -6,7 +6,6 @@ type t =
   | Skip 
   | Drop 
   | Union of field * ((t Value.M.t) Value.M.t) * (t Value.M.t) * t
-type spt = t
 
 let skip = Skip
 let drop = Drop
@@ -42,6 +41,15 @@ let rec compare spp1 spp2 =
   | Union (f1, fms1, ms1, d1), Union (f2, fms2, ms2, d2) ->
       if f1 < f2 then -1
       else if f2 < f1 then 1
+<<<<<<< HEAD
+      else let cmp_fms = Value.M.compare (Value.M.compare compare) fms1 fms2 in
+           if cmp_fms < 0 then -1
+           else if cmp_fms > 0 then 1
+           else let cmp_ms = Value.M.compare compare ms1 ms2 in
+                if cmp_ms < 0 then -1
+                else if cmp_ms > 0 then 1
+                else compare d1 d2
+=======
       else
         let cmp_fms = Value.M.compare (Value.M.compare compare) fms1 fms2 in
         if cmp_fms < 0 then -1
@@ -49,12 +57,12 @@ let rec compare spp1 spp2 =
         else
           let cmp_ms = Value.M.compare compare ms1 ms2 in
           if cmp_ms < 0 then -1 else if cmp_ms > 0 then 1 else compare d1 d2
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let eq spp1 spp2 = compare spp1 spp2 = 0
 
 (** [mk (f, fms, ms, d)] performs canonicalization to guarantee that only
     semantically equivalent SPPs have the same representation. *)
-(*
 <<<<<<< HEAD
 let mk (f, fms, ms, d) = (*Union (f, fms, ms, d)*)
   (* First remove filter/mod branches that are exactly [Drop] *)
@@ -76,8 +84,7 @@ let mk (f, fms, ms, d) = (*Union (f, fms, ms, d)*)
     Union (f, fms''', ms', d)
     
 =======
-  *)
-let mk (f, fms, ms, d) =
+let mk_union (f, fms, ms, d) =
   (*Union (f, fms, ms, d)*)
   (* First remove filter/mod branches that are exactly [Drop] *)
   let fms' =
@@ -109,31 +116,29 @@ let mk (f, fms, ms, d) =
   if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
   else Union (f, fms''', ms', d)
 
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 let rec of_sp = function
   | Sp.Skip -> Skip
   | Sp.Drop -> Drop
   | Sp.Union (f, vs, d) ->
-      (*
 <<<<<<< HEAD
       let vvs = List.fold_left (fun a (v, t) ->
         Value.M.add v (Value.M.singleton v (of_sp t)) a) Value.M.empty (Value.M.bindings vs) in
       mk (f, vvs, Value.M.empty, of_sp d)
 =======
-  *)
       let vvs =
         List.fold_left
           (fun a (v, t) -> Value.M.add v (Value.M.singleton v (of_sp t)) a)
           Value.M.empty (Value.M.bindings vs)
       in
-      mk (f, vvs, Value.M.empty, of_sp d)
+      mk_union (f, vvs, Value.M.empty, of_sp d)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let rec to_sp_bwd (spp : t) : Sp.t =
   match spp with
   | Skip -> Sp.Skip
   | Drop -> Sp.Drop
   | Union (f, fms, ms, d) ->
-      (*
 <<<<<<< HEAD
       let ms1 = Value.M.map (fun ms -> List.map (fun (_,sppi) -> (to_sp_bwd sppi))
                                         (Value.M.bindings ms) |> Sp.union) fms in
@@ -145,7 +150,6 @@ let rec to_sp_bwd (spp : t) : Sp.t =
                                   | Some _ -> m) Value.M.empty (Value.M.bindings ms) in
       Sp.mk (f, Value.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
 =======
-  *)
       let ms1 =
         Value.M.map
           (fun ms ->
@@ -165,12 +169,11 @@ let rec to_sp_bwd (spp : t) : Sp.t =
             | Some _ -> m)
           Value.M.empty (Value.M.bindings ms)
       in
-      Sp.mk (f, Value.right_join Sp.drop ms1 ms2, to_sp_bwd d)
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+      Sp.mk_union (f, Pk.right_join Sp.Drop ms1 ms2, to_sp_bwd d)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let filter b f v =
   if b then
-    (*
 <<<<<<< HEAD
     mk (f, Value.M.singleton v (Value.M.singleton v Skip), Value.M.empty, Drop)
   else
@@ -179,17 +182,16 @@ let filter b f v =
 let modf f v = 
     mk (f, Value.M.empty, Value.M.singleton v Skip, Drop)
 =======
-  *)
-    mk (f, Value.M.singleton v (Value.M.singleton v Skip), Value.M.empty, Drop)
-  else mk (f, Value.M.singleton v Value.M.empty, Value.M.empty, Skip)
+    mk_union
+      (f, Value.M.singleton v (Value.M.singleton v Skip), Value.M.empty, Drop)
+  else mk_union (f, Value.M.singleton v Value.M.empty, Value.M.empty, Skip)
 
-let modf f v = mk (f, Value.M.empty, Value.M.singleton v Skip, Drop)
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+let modf f v = mk_union (f, Value.M.empty, Value.M.singleton v Skip, Drop)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let rec to_exp = function
   | Skip -> Nk.skip
   | Drop -> Nk.drop
-  (*
 <<<<<<< HEAD
   | Union (f,fms,ms,d) ->
       let branches = Value.M.bindings fms 
@@ -208,7 +210,6 @@ let rec to_exp = function
         |> List.map (fun (vi,_) -> Nk.filter false f vi)
         |> Nk.seq) (to_exp d) in
 =======
-  *)
   | Union (f, fms, ms, d) ->
       let branches =
         Value.M.bindings fms
@@ -240,27 +241,26 @@ let rec to_exp = function
           |> Nk.seq)
           (to_exp d)
       in
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
       let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
       Nk.union_pair branches defaults
 
 let to_string t = to_exp t |> Nk.to_string
 
-(*
 <<<<<<< HEAD
 let vm_to_string (m: Sp.t Value.M.t): string =
   List.map (fun (vj, sp) ->
-      Value.to_string vj ^ "↦" ^ (Sp.to_string sp)) (Value.M.bindings m)
+      Value.string_of_val vj ^ "↦" ^ (Sp.to_string sp)) (Value.M.bindings m)
         |> String.concat ", "
 
 let vmpp_to_string (m: t Value.M.t): string =
   List.map (fun (vj, sp) ->
-      Value.to_string vj ^ "↦" ^ (to_string sp)) (Value.M.bindings m)
+      Value.string_of_val vj ^ "↦" ^ (to_string sp)) (Value.M.bindings m)
         |> String.concat ", "
 
 let vmm_to_string (m: t Value.M.t Value.M.t): string = 
   List.map (fun (vi, mi) ->
-    (Value.to_string vi) ^ "--->" ^ (vmpp_to_string mi)
+    (Value.string_of_val vi) ^ "--->" ^ (vmpp_to_string mi)
     ) (Value.M.bindings m) |> String.concat "; "
 
 let get_branch (x: t) (v: value) : t Value.M.t =
@@ -274,22 +274,21 @@ let get_branch (x: t) (v: value) : t Value.M.t =
                                     else
                                       Value.M.add v d ms
 =======
-  *)
 let vm_to_string (m : Sp.t Value.M.t) : string =
   List.map
-    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ Sp.to_string sp)
+    (fun (vj, sp) -> string_of_val vj ^ "↦" ^ Sp.to_string sp)
     (Value.M.bindings m)
   |> String.concat ", "
 
 let vmpp_to_string (m : t Value.M.t) : string =
   List.map
-    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ to_string sp)
+    (fun (vj, sp) -> string_of_val vj ^ "↦" ^ to_string sp)
     (Value.M.bindings m)
   |> String.concat ", "
 
 let vmm_to_string (m : t Value.M.t Value.M.t) : string =
   List.map
-    (fun (vi, mi) -> Value.to_string vi ^ "--->" ^ vmpp_to_string mi)
+    (fun (vi, mi) -> string_of_val vi ^ "--->" ^ vmpp_to_string mi)
     (Value.M.bindings m)
   |> String.concat "; "
 
@@ -297,7 +296,7 @@ module Memo = struct
   let hash spp = spp |> to_string |> Hashtbl.hash
 
   module SPHashtbl = Hashtbl.Make (struct
-    type t = spt
+    type t = spp
 
     let equal = eq
     let hash = hash
@@ -382,7 +381,7 @@ let get_branch (x : t) (v : value) : t Value.M.t =
       | Some m -> m
       | None ->
           if Value.M.mem v ms || d == Drop then ms else Value.M.add v d ms)
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let union_pair =
   let union_pair self spp1 spp2 =
@@ -409,7 +408,6 @@ let union_pair =
                       // (3) Right side is only a single test?
                  then return TestMut.mk(xL, branchesL.updated(branchesR.head._1, branchesR.head._2), mutsL, idL)
           *)
-          (*
 <<<<<<< HEAD
         let keyset = Value.(S.union (union_keys [fms1; fms2]) (union_keys [ms1; ms2])) in
         let fms = Value.S.fold (fun v m ->
@@ -421,12 +419,11 @@ let union_pair =
         let d = union_pair d1 d2 in
         mk (f1, fms, ms, d)
 =======
-  *)
           let keyset =
-            Value.(S.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ]))
+            ValueSet.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ])
           in
           let fms =
-            Value.S.fold
+            ValueSet.fold
               (fun v m ->
                 let vm1 = get_branch spp1 v in
                 let vm2 = get_branch spp2 v in
@@ -436,16 +433,15 @@ let union_pair =
           in
           let ms = map_op_pair self ms1 ms2 in
           let d = self d1 d2 in
-          mk (f1, fms, ms, d)
+          mk_union (f1, fms, ms, d)
   in
   Memo.memo2_com Union union_pair
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let union = List.fold_left union_pair Drop
 let union_map_pair = map_op_pair union_pair
 let union_maps = map_op union_pair
 
-(*
 <<<<<<< HEAD
 let rec seq_pair spp1 spp2 = match spp1, spp2 with
   | Skip, _ -> spp2
@@ -500,7 +496,6 @@ let rec intersect_pair spp1 spp2 =
         let d = intersect_pair d1 d2 in
         mk(f1, fms, ms, d)
 =======
-  *)
 let seq_pair =
   let seq_pair self spp1 spp2 =
     match (spp1, spp2) with
@@ -519,12 +514,12 @@ let seq_pair =
           in
           let msA = union_maps (List.map matchup (Value.M.bindings ms1)) in
           let keyset =
-            Value.(S.union
+            ValueSet.union
               (union_keys [ fms1; fms2 ])
-              (union_keys [ ms1; ms2; msA ]))
+              (union_keys [ ms1; ms2; msA ])
           in
           let fms =
-            Value.S.fold
+            ValueSet.fold
               (fun v m ->
                 let spp_v = get_branch spp1 v |> Value.M.bindings in
                 let res =
@@ -545,7 +540,7 @@ let seq_pair =
               (fun m (v, spp) -> Value.M.add v (self d1 spp) m)
               Value.M.empty (Value.M.bindings ms2)
           in
-          mk (f1, fms, union_map_pair msA msB, self d1 d2)
+          mk_union (f1, fms, union_map_pair msA msB, self d1 d2)
   in
   Memo.memo2_uncom Seq seq_pair
 
@@ -563,10 +558,10 @@ let intersect_pair =
         else if f2 < f1 then self (dummy f2 spp1) spp2
         else
           let keyset =
-            Value.(S.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ]))
+            ValueSet.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ])
           in
           let fms =
-            Value.S.fold
+            ValueSet.fold
               (fun v m ->
                 Value.M.add v
                   (map_op_pair self (get_branch spp1 v) (get_branch spp2 v))
@@ -575,13 +570,12 @@ let intersect_pair =
           in
           let ms = map_op_pair self ms1 ms2 in
           let d = self d1 d2 in
-          mk (f1, fms, ms, d)
+          mk_union (f1, fms, ms, d)
   in
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
   Memo.memo2_com Intersect intersect_pair
 
-  (*
 <<<<<<< HEAD
 let rec diff spp1 spp2 = match spp1, spp2 with
   | Skip,Skip
@@ -600,7 +594,6 @@ let rec diff spp1 spp2 = match spp1, spp2 with
         let d =  diff d1 d2 in
         mk (f1, fms, ms, d)
 =======
-  *)
 let intersect spps =
   match spps with
   | [] -> Drop
@@ -619,10 +612,10 @@ let diff =
         else if f2 < f1 then self (dummy f2 spp1) spp2
         else
           let keyset =
-            Value.(S.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ]))
+            ValueSet.union (union_keys [ fms1; fms2 ]) (union_keys [ ms1; ms2 ])
           in
           let fms =
-            Value.S.fold
+            ValueSet.fold
               (fun v m ->
                 let vm =
                   map_op_pair self (get_branch spp1 v) (get_branch spp2 v)
@@ -632,10 +625,10 @@ let diff =
           in
           let ms = map_op_pair self ms1 ms2 in
           let d = self d1 d2 in
-          mk (f1, fms, ms, d)
+          mk_union (f1, fms, ms, d)
   in
   Memo.memo2_uncom Diff diff
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
 
 let xor spp1 spp2 = union_pair (diff spp1 spp2) (diff spp2 spp1)
 
@@ -652,7 +645,6 @@ let rec push (sp : Sp.t) (spp : t) =
   | Sp.Drop, _ | _, Drop -> Sp.Drop
   | _, Skip -> sp
   | Sp.Skip, Union (f, fms, ms, d) ->
-      (*
 <<<<<<< HEAD
       let thru_fms = List.map (fun (v,vms) ->
           Value.M.mapi (fun v spp -> push Sp.Skip spp) vms) (Value.M.bindings fms)
@@ -687,21 +679,20 @@ let rec push (sp : Sp.t) (spp : t) =
                                            (Value.M.map (fun sppi -> push sp sppi) ms2)) in
         let fmsB = Sp.mk(f2, ms, push sp d2) in
 =======
-  *)
       let thru_fms =
         List.map
           (fun (v, vms) -> Value.M.mapi (fun v spp -> push Sp.Skip spp) vms)
           (Value.M.bindings fms)
-        |> Value.map_op Sp.drop Sp.union_pair
+        |> Pk.map_op Sp.drop Sp.union_pair
       in
       let thru_ms = Value.M.mapi (fun v spp -> push Sp.Skip spp) ms in
-      let thru_both = Value.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms in
-      let matched_values = Value.S.union (Value.keys fms) (Value.keys ms) in
+      let thru_both = Pk.map_op_pair Sp.drop Sp.union_pair thru_fms thru_ms in
+      let matched_values = ValueSet.union (keys fms) (keys ms) in
 
       (* Next we need to identify the right slice of [Skip] to push through [d],
          i.e. whatever doesn't match [fms] or [ms]. *)
       let branchesD, unmatched_vs =
-        Value.S.fold
+        ValueSet.fold
           (fun v (m, uvs) ->
             match Value.M.find_opt v thru_both with
             | None -> (Value.M.add v Sp.Drop m, v :: uvs)
@@ -710,7 +701,7 @@ let rec push (sp : Sp.t) (spp : t) =
       in
       let push_default = push Sp.Skip d in
       let diffkeys =
-        Value.S.diff (Value.keys branchesD) matched_values |> Value.S.elements
+        ValueSet.diff (keys branchesD) matched_values |> ValueSet.elements
       in
       let branchesE =
         List.fold_left
@@ -719,29 +710,32 @@ let rec push (sp : Sp.t) (spp : t) =
             Value.M.add v (Sp.union_pair sp_cur push_default) m)
           branchesD diffkeys
       in
-      Sp.mk (f, branchesE, push_default)
+      Sp.mk_union (f, branchesE, push_default)
   | Union (f1, fms1, d1), Union (f2, fms2, ms2, d2) ->
       if f1 < f2 then
         let fms = Value.M.mapi (fun v spi -> push spi spp) fms1 in
-        Sp.mk (f1, fms, push d1 spp)
+        Sp.mk_union (f1, fms, push d1 spp)
       else if f2 < f1 then
         let fmsA =
           List.map
             (fun (_, muts) ->
               let tsts = Value.M.mapi (fun v sppi -> push sp sppi) muts in
-              Sp.mk (f2, tsts, Sp.Drop))
+              Sp.mk_union (f2, tsts, Sp.Drop))
             (Value.M.bindings fms2)
           |> Sp.union
         in
         let ms =
-          Value.right_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2) (Value.M.map (fun sppi -> push sp sppi) ms2)
+          Pk.right_join Sp.drop
+            (Value.M.map (Fun.const Sp.drop) fms2)
+            (Value.M.map (fun sppi -> push sp sppi) ms2)
         in
-        let fmsB = Sp.mk (f2, ms, push sp d2) in
-(* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)
+        let fmsB = Sp.mk_union (f2, ms, push sp d2) in
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)
         Sp.union_pair fmsA fmsB
       else
         (* f1 = f2 *)
         (* XXX Do we need the comparison to drop case? if so it goes here. *)
+<<<<<<< HEAD
         let pkA = List.map (fun (v,spi) ->
           match Value.M.find_opt v fms2 with
           | None -> let tsts = Value.M.map (fun sppj -> push spi sppj) ms2 in
@@ -809,7 +803,7 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
           else if not (eq d Drop) then
             (*
             let () = Printf.printf "picking val outside...\n" in
-            let () = Value.S.iter (fun v -> Printf.printf "%s\n" (Value.to_string v)) mub in
+            let () = Value.S.iter (fun v -> Printf.printf "%s\n" (Value.string_of_val v)) mub in
             *)
             repr d fs' (fresh_const mub f partial)
           else if m != Value.M.empty then
@@ -821,7 +815,6 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
             let (v1, q) = Value.M.choose bm in (* [q] can't be Drop since [p] is canonical *)
             repr q fs' (Pkpair.addf f (v0, v1) partial)
     in repr spp fields Pkpair.empty
-    (*
 =======
         let pkA =
           List.map
@@ -832,11 +825,11 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
                   match Value.M.find_opt v ms2 with
                   | None ->
                       let tsts' = Value.M.add v (push spi d2) tsts in
-                      Sp.mk (f1, tsts', Sp.drop)
-                  | Some sppj -> Sp.mk (f1, tsts, Sp.drop))
+                      Sp.mk_union (f1, tsts', Sp.drop)
+                  | Some sppj -> Sp.mk_union (f1, tsts, Sp.drop))
               | Some m ->
                   let tsts = Value.M.map (fun sppj -> push spi sppj) m in
-                  Sp.mk (f1, tsts, Sp.drop))
+                  Sp.mk_union (f1, tsts, Sp.drop))
             (Value.M.bindings fms1)
           |> Sp.union
         in
@@ -846,17 +839,17 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t =
               if Value.M.mem v fms1 then Sp.drop
               else
                 let tsts = Value.M.map (fun sppj -> push d1 sppj) sppi in
-                Sp.mk (f1, tsts, Sp.drop))
+                Sp.mk_union (f1, tsts, Sp.drop))
             (Value.M.bindings fms2)
           |> Sp.union
         in
         let ms =
           Value.M.map (Fun.const Sp.drop) fms1
-          |> Value.left_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
-          |> Value.left_join Sp.drop (Value.M.map (fun sppi -> push d1 sppi) ms2)
+          |> Pk.left_join Sp.drop (Value.M.map (Fun.const Sp.drop) fms2)
+          |> Pk.left_join Sp.drop (Value.M.map (fun sppi -> push d1 sppi) ms2)
         in
-        let pkC = Sp.mk (f1, ms, push d1 d2) in
+        let pkC = Sp.mk_union (f1, ms, push d1 d2) in
         Sp.union [ pkA; pkB; pkC ]
-  *)
 
 let pull (spp : t) (sp : Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
+>>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml)

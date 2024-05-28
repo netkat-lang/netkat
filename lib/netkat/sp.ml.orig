@@ -3,7 +3,6 @@
 open Pk
 
 type t = Skip | Drop | Union of field * t Value.M.t * t
-type spt = t
 
 let skip = Skip
 let drop = Drop
@@ -148,8 +147,8 @@ let union_pair =
     | Drop, _ -> t2
     | _, Drop -> t1
     | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-        if Field.compare f1 f2 = 0 then
-          mk
+        if cmp_field f1 f2 = 0 then
+          mk_union
             ( f1,
               Value.M.merge
                 (fun v p1o p2o ->
@@ -160,8 +159,8 @@ let union_pair =
                   | Some p1, Some p2 -> Some (self p1 p2))
                 vm1 vm2,
               self d1 d2 )
-        else if Field.compare f1 f2 < 0 then
-          mk (f1, Value.M.map (fun p -> self p t2) vm1, self d1 t2)
+        else if cmp_field f1 f2 < 0 then
+          mk_union (f1, Value.M.map (fun p -> self p t2) vm1, self d1 t2)
         else self t2 t1
   in
   Memo.memo2 Union union_pair
@@ -203,8 +202,8 @@ let seq_pair =
     | Skip, _ -> t2
     | _, Skip -> t1
     | Union (f1, vm1, d1), Union (f2, vm2, d2) ->
-        if Field.compare f1 f2 = 0 then
-          mk
+        if cmp_field f1 f2 = 0 then
+          mk_union
             ( f1,
               Value.M.merge
                 (fun v p1o p2o ->
@@ -215,8 +214,8 @@ let seq_pair =
                   | Some p1, Some p2 -> Some (self p1 p2))
                 vm1 vm2,
               self d1 d2 )
-        else if Field.compare f1 f2 < 0 then
-          mk (f1, Value.M.map (fun p -> self p t2) vm1, self d1 t2)
+        else if cmp_field f1 f2 < 0 then
+          mk_union (f1, Value.M.map (fun p -> self p t2) vm1, self d1 t2)
         else self t2 t1
   in
   Memo.memo2 Seq seq_pair
@@ -240,7 +239,7 @@ let neg =
     match e with
     | Skip -> Drop
     | Drop -> Skip
-    | Union (f, vm, d) -> mk (f, Value.M.map self vm, self d)
+    | Union (f, vm, d) -> mk_union (f, Value.M.map self vm, self d)
   in
   Memo.memo1 Neg neg
 (* >>>>>>> 4ea7704 (Added **some** hash-consing in sp and spp.ml) *)

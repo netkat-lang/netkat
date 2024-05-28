@@ -12,8 +12,8 @@ let keys m =
 let union_keys ms =
   List.map keys ms |> List.fold_left S.union S.empty
 
-let value_of_int = Fun.id
-let string_of_val = string_of_int
+let of_int = Fun.id
+let to_string = string_of_int
 
 let compare = Int.compare
 

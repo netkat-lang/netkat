@@ -2,8 +2,8 @@ type t
 
 val compare : t -> t -> int
 
-val value_of_int : int -> t
-val string_of_val : t -> string
+val of_int : int -> t
+val to_string : t -> string
 
 module M : sig
   include Map.S with type key = t
