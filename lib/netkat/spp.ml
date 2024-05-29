@@ -666,18 +666,19 @@ let rec push (spref : Sp.t) (sppref : t) =
 
 let pull (spp : t) (sp : Sp.t) = seq_pair spp (of_sp sp) |> to_sp_bwd
 
-let mem (spp: t) (pp: Pkpair.t) : bool = failwith "TODO: convert to refs"
-  (*
-  let rec memrec spp bdgs =
+let mem (sppref: t) (pp: Pkpair.t) : bool = 
+  
+  let rec memrec sppref bdgs =
+    let spp = !sppref in 
     match spp, bdgs with
     | Drop, _ -> false
     | Skip, [] -> true
     | Skip, (f, (v0,v1))::bdgs' ->
-        if v0 != v1 then false else memrec Skip bdgs'
-    | Union (f,_,_,_), [] -> failwith ("(a) Packet is missing field [" ^ (Field.get_or_fail_fid f) ^ "]!%!")
-    | Union (f, b, m, d), (f', (v0,v1))::bdgs' ->
+        if v0 != v1 then false else memrec skip bdgs'
+    | Union (f,_,_,_, _), [] -> failwith ("(a) Packet is missing field [" ^ (Field.get_or_fail_fid f) ^ "]!%!")
+    | Union (f, b, m, d, _), (f', (v0,v1))::bdgs' ->
         if Field.compare f f' < 0 then failwith ("(b) Packet is missing field [" ^ (Field.get_or_fail_fid f) ^ "]!%!") else
-        if Field.compare f f' > 0 then memrec spp bdgs' else
+        if Field.compare f f' > 0 then memrec sppref bdgs' else
         match Value.M.find_opt v0 b with
         | Some bm -> begin
                      match Value.M.find_opt v1 bm with
@@ -688,28 +689,29 @@ let mem (spp: t) (pp: Pkpair.t) : bool = failwith "TODO: convert to refs"
             match Value.M.find_opt v1 m with
             | Some spp' -> memrec spp' bdgs' (* XXX Suspect this is not quite right*)
             | None -> memrec d bdgs' (* XXX: Need to look at v0 ...*)
-  in memrec spp (Pkpair.to_list pp)
-  *)
+  in 
+  memrec sppref (Pkpair.to_list pp)
+ 
 
 (** Give a pair of packets that are in the semantics of a given spp [t] *)
-let rep (spp: t) (fields: Field.S.t) : Pkpair.t = failwith "TODO: convert to refs"
-  (*
+let rep (sppref: t) (fields: Field.S.t) : Pkpair.t =
   let fresh_const s f m =
     let v = Value.val_outside s in
     Pkpair.addf f (v,v) m in
-  let rec repr (p: t) (fs: Field.S.t) (partial: Pkpair.t) =
+  let rec repr (pref: t) (fs: Field.S.t) (partial: Pkpair.t) =
+    let p = !pref in 
     if fs = Field.S.empty then partial else
     match p with
       | Drop -> failwith "Can't take representative of empty SPP!"
       | Skip -> Field.S.fold (fresh_const Value.S.empty) fs partial
-      | Union (f, b, m, d) ->
+      | Union (f, b, m, d, _) ->
           let mub = Value.(S.union (keys m) (keys b)) in
           let nextf = Field.S.min_elt fs in
           let fs' = Field.S.remove f fs in
           if nextf < f then
             let fs'' = Field.S.remove nextf fs in
-            repr p fs'' (fresh_const Value.S.empty nextf partial)
-          else if not (eq d Drop) then
+            repr pref fs'' (fresh_const Value.S.empty nextf partial)
+          else if not (eq d drop) then
             (*
             let () = Printf.printf "picking val outside...\n" in
             let () = Value.S.iter (fun v -> Printf.printf "%s\n" (Value.to_string v)) mub in
@@ -723,5 +725,5 @@ let rep (spp: t) (fields: Field.S.t) : Pkpair.t = failwith "TODO: convert to ref
             let (v0, bm) = List.find (fun (v, m) -> m != Value.M.empty) (Value.M.bindings b) in
             let (v1, q) = Value.M.choose bm in (* [q] can't be Drop since [p] is canonical *)
             repr q fs' (Pkpair.addf f (v0, v1) partial)
-    in repr spp fields Pkpair.empty
-    *)
+    in repr sppref fields Pkpair.empty
+   
