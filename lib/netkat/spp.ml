@@ -727,3 +727,26 @@ let rep (sppref: t) (fields: Field.S.t) : Pkpair.t =
             let (v1, q) = Value.M.choose bm in (* [q] can't be Drop since [p] is canonical *)
             repr q fs' (Pkpair.addf f (v0, v1) partial)
     in repr sppref fields Pkpair.empty
+
+module Size_memo_tbl = Memo_op.Memo1_tbl
+
+let size_main = Size_memo_tbl.create 32
+
+let rec size sppref = 
+  match Size_memo_tbl.find_opt size_main sppref with 
+  | Some x -> x 
+  | None -> 
+  let res = 
+  match !sppref with 
+  | Skip | Drop -> 0 
+  | Union (_, b, m, d, _) -> 
+    let open Value.M in 
+    size d + 
+    cardinal m + 
+    cardinal b + 
+    fold (fun _ v acc -> acc + size v) m 0 + 
+    fold (fun _ m acc -> 
+      acc + cardinal m + fold (fun _ v acc -> acc + size v) m 0) b 0
+  in 
+  Size_memo_tbl.add size_main sppref res; 
+  res 

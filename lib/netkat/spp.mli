@@ -39,3 +39,5 @@ val pull : t -> Sp.t -> Sp.t
 
 val mem : t -> Pkpair.t -> bool
 val rep : t -> Field.S.t -> Pkpair.t
+
+val size : t -> int 
