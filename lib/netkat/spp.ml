@@ -689,7 +689,7 @@ let mem (sppref: t) (pp: Pkpair.t) : bool =
         | None ->
             match Value.M.find_opt v1 m with
             | Some spp' -> memrec spp' bdgs' (* XXX Suspect this is not quite right*)
-            | None -> memrec d bdgs' (* XXX: Need to look at v0 ...*)
+            | None -> if v0 <> v1 || Value.M.mem v0 m then false else memrec d bdgs'
   in 
   memrec sppref (Pkpair.to_list pp)
  
