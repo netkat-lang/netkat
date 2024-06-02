@@ -728,9 +728,13 @@ let rep (sppref: t) (fields: Field.S.t) : Pkpair.t =
             repr q fs' (Pkpair.addf f (v0, v1) partial)
     in repr sppref fields Pkpair.empty
 
+let compare a b = Stdlib.compare (get_hash !a) (get_hash !b) 
+
 module Size_memo_tbl = Memo_op.Memo1_tbl
 
 let size_main = Size_memo_tbl.create 32
+
+module Spp_set = Set.Make(struct type t = spp ref let compare = compare end) 
 
 let rec size sppref = 
   match Size_memo_tbl.find_opt size_main sppref with 
@@ -740,13 +744,16 @@ let rec size sppref =
   match !sppref with 
   | Skip | Drop -> 0 
   | Union (_, b, m, d, _) -> 
-    let open Value.M in 
-    size d + 
-    cardinal m + 
-    cardinal b + 
-    fold (fun _ v acc -> acc + size v) m 0 + 
-    fold (fun _ m acc -> 
-      acc + cardinal m + fold (fun _ v acc -> acc + size v) m 0) b 0
+    let children m =
+      Value.M.fold (fun _ v acc -> Spp_set.add v acc) m (Spp_set.empty) in 
+    let b_children = 
+      Value.M.fold (fun _ v acc -> Spp_set.union acc (children v)) 
+        b (Spp_set.empty) in 
+    let all_children = Spp_set.union (children m) b_children |> Spp_set.add d in 
+    Value.M.cardinal b + 
+    Value.M.cardinal m + 
+    Value.M.fold (fun _ v acc -> acc + Value.M.cardinal v) b 0 + 
+    Spp_set.fold (fun x acc -> acc + size x) all_children 0
   in 
   Size_memo_tbl.add size_main sppref res; 
   res 
