@@ -12,6 +12,9 @@ let compare = Int.compare
 let fields : (string, t) Hashtbl.t = Hashtbl.create 11
 let field_labels : (t, string) Hashtbl.t = Hashtbl.create 11
 
+let get_fields () =
+  Hashtbl.to_seq_keys field_labels |> S.of_seq
+
 let get_or_assign_fid (f: string) : t =
   match Hashtbl.find_opt fields f with
   | Some n -> n
