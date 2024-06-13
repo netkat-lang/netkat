@@ -55,6 +55,12 @@ let autom (e: Nk.t) : t =
                    loop (q'@rem) vis tr' ob' in
     loop [e; Nk.drop] StateSet.empty StateMap.empty StateMap.empty
 
+let accept (a: t) (trace: Trace.t) : bool =  failwith "TODO: implement Nka.accept"
+
+let rep (a: t) (fields: Field.S.t) = failwith "TODO: implement Nka.rep"
+
+let xor (a1: t) (a2: t) = failwith "TODO: implement xor"
+
 let bisim (a1: t) (a2: t) : bool =
   (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string
      a1) (to_string a2) in *)

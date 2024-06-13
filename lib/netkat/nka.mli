@@ -9,6 +9,16 @@ val to_string : t -> string
     derivatives *)
 val autom : Nk.t -> t
 
+(** Decide whether the given trace is accepted by the automaton. *)
+val accept : t -> Trace.t -> bool
+
+(** Return a trace accepted by this automaton for the given set of fields. Fail
+    if the automaton is equivalent to Drop. *)
+val rep : t -> Field.S.t -> Trace.t
+
+(** Compute the symmetric difference automaton *)
+val xor : t -> t -> t
+
 (** Decide whether the two Netkat automaton are bisimilar. Note that because
     the representation forces that the automata are deterministic, this is
     equivalent to deciding language equivalence. *)
