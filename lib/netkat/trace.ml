@@ -2,6 +2,8 @@
 (* A trace is a list of packets with length >= 2 *)
 type t = Pk.t list
 
+let empty = []
+
 let rec pairs (t: t) : Pkpair.t list =
   match t with
   | []

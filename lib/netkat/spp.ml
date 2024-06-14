@@ -722,10 +722,6 @@ let rep (sppref : t) (fields : Field.S.t) : Pkpair.t =
             let fs'' = Field.S.remove nextf fs in
             repr pref fs'' (fresh_const Value.S.empty nextf partial)
           else if not (eq d drop) then
-            (*
-            let () = Printf.printf "picking val outside...\n" in
-            let () = Value.S.iter (fun v -> Printf.printf "%s\n" (Value.to_string v)) mub in
-            *)
             repr d fs' (fresh_const mub f partial)
           else if m != Value.M.empty then
             let v0 = Value.val_outside mub in

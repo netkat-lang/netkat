@@ -1,13 +1,13 @@
 (** SP *)
 
-open Pk
-
 type sp =
   | Skip 
   | Drop 
-  | Union of field * (sp ref Value.M.t) * sp ref * int 
+  | Union of Field.t * (sp ref Value.M.t) * sp ref * int 
 
 type t = sp ref 
+
+val of_pk : Pk.t -> t
 
 val get_hash : sp -> int 
 
@@ -18,7 +18,7 @@ val le : t -> t -> bool
 
 val skip : t
 val drop : t
-val mk : field * (t Value.M.t) * t -> t
+val mk : Field.t * (t Value.M.t) * t -> t
 
 val union_pair : t -> t -> t
 val union : t list -> t
@@ -35,6 +35,8 @@ val diff : t -> t -> t
 val neg : t -> t
 
 val xor : t -> t -> t
+
+val rep : t -> Field.S.t -> Pk.t
 
 (*---------- Output ------------------ *)
 val to_exp : t -> Nk.t

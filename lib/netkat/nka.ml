@@ -55,11 +55,50 @@ let autom (e: Nk.t) : t =
                    loop (q'@rem) vis tr' ob' in
     loop [e; Nk.drop] StateSet.empty StateMap.empty StateMap.empty
 
-let accept (a: t) (trace: Trace.t) : bool =  failwith "TODO: implement Nka.accept"
+let accept (a: t) (trace: Trace.t) : bool =
+  let pairs = Trace.pairs trace in
+  let rec acc state rem =
+    match rem with
+    | [] -> failwith "Unreachable"
+    | [p] -> Spp.mem (StateMap.find state a.obs) p
+    | p::rem' ->
+        let sts = StateMap.find state a.trans in
+        let state' = match List.find_map (fun (s,spp) -> if Spp.mem spp p then Some s else None) (Sts.to_list sts) with
+                     | None -> failwith ("No transition available for " ^ (Pkpair.to_string p))
+                     | Some s -> s in
+        acc state' rem' in
+  acc a.start pairs
 
-let rep (a: t) (fields: Field.S.t) = failwith "TODO: implement Nka.rep"
+let rep (a: t) (fields: Field.S.t) : Trace.t =
+  let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t = 
+    match spps with
+    | [] -> partial
+    | spp::rem -> 
+        let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
+        backout pk' rem (pk'::partial) in
 
-let xor (a1: t) (a2: t) = failwith "TODO: implement xor"
+  let rec r (q: (state * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t) =
+    let state, sp, spps = try List.hd q
+                          with _ -> failwith "Queue unexpectedly emptied" in
+
+    let ob = StateMap.find state a.obs in
+    let out = Spp.push sp ob in
+    if not (Sp.eq out Sp.drop) then
+      let pk = Spp.rep (Spp.seq_pair ob (Spp.of_sp out)) fields |> Pkpair.split |> snd in
+      backout pk spps []
+    else 
+      let next = StateMap.find state a.trans |> Sts.to_list in
+      let unseen p = Sp.diff p (StateMap.find state visited) in
+      let refine spp = Spp.seq_pair (Spp.of_sp sp) spp in
+      let q' = List.map (fun (s, spp) -> s, unseen (Spp.push sp spp), (refine spp)::spps) next
+               |> List.filter (fun (_, sp, _) -> not (Sp.eq sp Sp.drop)) in
+      let v' = List.fold_left (fun a (s, sp, _) -> match StateMap.find_opt s a with
+                                                  | None -> StateMap.add s sp a
+                                                  | Some sp' -> StateMap.add s (Sp.union_pair sp sp') a) visited q' in
+      r (q@q') v'
+  in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
+
+let xor (a1: t) (a2: t) = Nk.xor a1.start a2.start |> autom
 
 let bisim (a1: t) (a2: t) : bool =
   (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string

@@ -243,5 +243,28 @@ let rec to_exp_inner = function
       in
       Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
 
+let rep (spref : t) (fields : Field.S.t) : Pk.t =
+  let fillin = Field.S.fold (fun f a -> match Field.M.find_opt f a with
+                                        | None -> Field.M.add f Value.choose a
+                                        | Some _ -> a) fields in
+  let rec r (sp: t) (partial: Pk.t) =
+      match !sp with
+      | Skip -> fillin partial
+      | Drop -> failwith "Cannot take representative of Sp.Drop!"
+      | Union (f, vm, d, _) ->
+          if not (eq d drop) then
+            r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
+          else
+            let v, sp' = List.find (fun (v, p) -> not (eq p drop)) (Value.M.bindings vm) in
+            r sp' (Field.M.add f v partial) in
+  r spref Field.M.empty
+
+let rec of_pk (pk: Pk.t) =
+  if Field.M.is_empty pk then
+    skip
+  else
+    let f,v = Field.M.min_binding pk in
+    mk (f, Value.M.singleton v (of_pk (Field.M.remove f pk)), drop)
+
 let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string
