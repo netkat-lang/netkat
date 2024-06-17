@@ -116,6 +116,8 @@ let mk (f, fms, ms, d) =
       fms
   in
   (* let ms' = Value.M.filter (fun _ sppi -> not (sppi == drop)) ms in *)
+  (* Value.M.iter (fun v spp -> Printf.printf "%s " (Value.to_string v)) ms; *)
+  (* Printf.printf "\n"; *)
   let (fms'', ms') = Value.M.fold (fun v spp (b,m) ->
     match !spp, Value.M.mem v b with
     | Drop, false -> (Value.M.add v Value.M.empty b, Value.M.remove v m)
@@ -128,7 +130,7 @@ let mk (f, fms, ms, d) =
           if Value.M.mem vi ms' || d == drop then ms' else Value.M.add vi d ms'
         in
         not (Value.M.equal ( == ) mi drop_branch))
-      fms'
+      fms''
   in
   if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
   else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d)))
