@@ -23,7 +23,6 @@ type t = {
   obs: Spp.t StateMap.t;
 }
 
-
 let to_string (a: t) =
   let ebinding_to_string ((e,p): Nk.t * Spp.t) =
     (Nk.to_string e) ^ "↦(" ^ (Spp.to_string p) ^ ")" in
@@ -101,16 +100,10 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
 let xor (a1: t) (a2: t) = Nk.xor a1.start a2.start |> autom
 
 let bisim (a1: t) (a2: t) : bool =
-  (* let () = Printf.printf "bisim let's goooooo\na1:\n%s\na2:\n%s\n" (to_string
-     a1) (to_string a2) in *)
   let rec bq q visited = 
     match q with
     | [] -> true
-    | (pk,s1,s2)::rem -> let () = () in
-                         (* let () = Printf.printf "comparing %s ; %s (for
-                            pk=%s)\n%!" (Nk.to_string s1) (Nk.to_string s2)
-                            (Sp.to_string pk) in *)
-                         if Nk.eq s1 s2 || Sp.eq pk Sp.drop ||
+    | (pk,s1,s2)::rem -> if Nk.eq s1 s2 || Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
                            bq rem visited
@@ -127,9 +120,7 @@ let bisim (a1: t) (a2: t) : bool =
                            let tr2 = StateMap.find s2 a2.trans |> Sts.to_list in
                            let next = List.fold_left (fun a (ei, sppi)->
                               (List.map (fun (ej, sppj) ->
-                                (* let () = Printf.printf "pushing %s through %s...\n" (Sp.to_string pk) (Spp.intersect_pair sppi sppj |> Spp.to_string) in *)
                                 let pk' = Spp.push rem (Spp.intersect_pair sppi sppj) in
-                                (* let () = Printf.printf "got %s...\n" (Sp.to_string pk') in *)
                                 (pk', ei, ej)) tr2)@a) [] tr1 in
                            let all1 = List.map (fun (_,spp) -> spp) tr1 |> Spp.union in
                            let all2  = List.map (fun (_,spp) -> spp) tr2 |> Spp.union in

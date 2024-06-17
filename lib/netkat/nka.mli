@@ -19,7 +19,7 @@ val rep : t -> Field.S.t -> Trace.t
 (** Compute the symmetric difference automaton *)
 val xor : t -> t -> t
 
-(** Decide whether the two Netkat automaton are bisimilar. Note that because
+(** Decide whether the two Netkat automaton are bisimilar. Because
     the representation forces that the automata are deterministic, this is
     equivalent to deciding language equivalence. *)
 val bisim : t -> t -> bool

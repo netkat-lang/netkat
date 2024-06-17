@@ -115,8 +115,13 @@ let mk (f, fms, ms, d) =
           m)
       fms
   in
-  let ms' = Value.M.filter (fun _ sppi -> not (sppi == drop)) ms in
-  let fms'' =
+  (* let ms' = Value.M.filter (fun _ sppi -> not (sppi == drop)) ms in *)
+  let (fms'', ms') = Value.M.fold (fun v spp (b,m) ->
+    match !spp, Value.M.mem v b with
+    | Drop, false -> (Value.M.add v Value.M.empty b, Value.M.remove v m)
+    | Drop, true -> (b, Value.M.remove v m)
+    | _, _ -> (b, m)) ms (fms',ms) in
+  let fms''' =
     Value.M.filter
       (fun vi mi ->
         let drop_branch =
@@ -125,8 +130,8 @@ let mk (f, fms, ms, d) =
         not (Value.M.equal ( == ) mi drop_branch))
       fms'
   in
-  if Value.M.is_empty fms'' && Value.M.is_empty ms' then d
-  else fetch (Union (f, fms'', ms', d, init_hash (f, fms'', ms', d)))
+  if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
+  else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d)))
 
 let rec to_exp sppref =
   let spp = !sppref in

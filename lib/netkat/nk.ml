@@ -19,7 +19,11 @@ let drop = Drop
 let dup = Dup
 let filter b f v = Filter (b,f,v)
 let modif f v = Mod (f,v)
-let diff t1 t2 = Diff (t1,t2)
+let diff t1 t2 = if t1 = t2 then Drop else
+  match t1,t2 with
+  | Drop, _ -> Drop
+  | _, Drop -> t1
+  | _,_ -> Diff (t1,t2)
 
 let rec compare (t1:t) (t2:t) =
   match t1,t2 with
