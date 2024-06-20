@@ -5,31 +5,37 @@ Transitions A function 𝛿 : 𝑄 × 𝑄 → SPP.
 Output A function 𝜖 : 𝑄 → SPP
 *)
 
-type state = Nk.t
-
-module StatePair = struct
-  type t = Nk.t * Nk.t
-  let compare (a,b) (c,d) = if Nk.eq a c then Nk.compare b d else Nk.compare a c 
+module State = struct
+  type t = Nk.t
+  let compare = Nk.compare
+  let eq t1 t2 = compare t1 t2 = 0
+  let to_string = Nk.to_string
+  let drop = Nk.drop
 end
 
-module StateSet = Set.Make(Nk)
+module StatePair = struct
+  type t = State.t * State.t
+  let compare (a,b) (c,d) = if State.eq a c then State.compare b d else State.compare a c 
+end
+
+module StateSet = Set.Make(State)
 module PairMap = Map.Make(StatePair)
-module StateMap = Map.Make(Nk)
+module StateMap = Map.Make(State)
 
 type t = {
   states: StateSet.t;
-  start: state;
+  start: State.t;
   trans: Sts.t StateMap.t;
   obs: Spp.t StateMap.t;
 }
 
 let to_string (a: t) =
-  let ebinding_to_string ((e,p): Nk.t * Spp.t) =
+  let ebinding_to_string ((e,p): State.t * Spp.t) =
     (Nk.to_string e) ^ "↦(" ^ (Spp.to_string p) ^ ")" in
   "States: " ^ (StateSet.elements a.states |> List.map Nk.to_string |> String.concat ", ") ^
-  "\nStart: " ^ (Nk.to_string a.start) ^
+  "\nStart: " ^ (State.to_string a.start) ^
   "\nTrans:\n  " ^ (StateMap.bindings a.trans
-  |> List.map (fun (e,sts) -> "  " ^ (Nk.to_string e) ^ "↦" ^ Sts.to_string sts
+  |> List.map (fun (e,sts) -> "  " ^ (State.to_string e) ^ "↦" ^ Sts.to_string sts
   ) |> String.concat "  \n  ") ^
   "\nObs:\n  " ^ (StateMap.bindings a.obs |> List.map ebinding_to_string  |>
   String.concat "  \n  ") ^ "\n\n"
@@ -52,7 +58,7 @@ let autom (e: Nk.t) : t =
                    let tr' = StateMap.add e0 sts tr in
                    let q' = Sts.to_list sts |> List.map (fun (e,_) -> e) in
                    loop (q'@rem) vis tr' ob' in
-    loop [e; Nk.drop] StateSet.empty StateMap.empty StateMap.empty
+    loop [e; State.drop] StateSet.empty StateMap.empty StateMap.empty
 
 let accept (a: t) (trace: Trace.t) : bool =
   let pairs = Trace.pairs trace in
@@ -76,7 +82,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
         let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
         backout pk' rem (pk'::partial) in
 
-  let rec r (q: (state * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t) =
+  let rec r (q: (State.t * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t) =
     let state, sp, spps = try List.hd q
                           with _ -> failwith "Queue unexpectedly emptied" in
 
@@ -97,13 +103,13 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       r (q@q') v'
   in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
 
-let xor (a1: t) (a2: t) = Nk.xor a1.start a2.start |> autom
+let xor (a1: t) (a2: t) = Nk.xor a1.start a2.start |> autom (* TODO product construction? *)
 
 let bisim (a1: t) (a2: t) : bool =
   let rec bq q visited = 
     match q with
     | [] -> true
-    | (pk,s1,s2)::rem -> if Nk.eq s1 s2 || Sp.eq pk Sp.drop ||
+    | (pk,s1,s2)::rem -> if State.eq s1 s2 || Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
                            bq rem visited
@@ -125,9 +131,9 @@ let bisim (a1: t) (a2: t) : bool =
                            let all1 = List.map (fun (_,spp) -> spp) tr1 |> Spp.union in
                            let all2  = List.map (fun (_,spp) -> spp) tr2 |> Spp.union in
                            let rem1 = List.map (fun (ei,sppi) ->
-                               Spp.((push rem (diff sppi all2), ei, Nk.drop))) tr1 in
+                               Spp.((push rem (diff sppi all2), ei, State.drop))) tr1 in
                            let rem2 = List.map (fun (ei,sppi) ->
-                               Spp.((push rem (diff sppi all1), Nk.drop, ei))) tr2 in
+                               Spp.((push rem (diff sppi all1), State.drop, ei))) tr2 in
                            let next' = next @ rem1 @ rem2 in
 
                            (* Update the visited set to include everything in
@@ -152,9 +158,9 @@ let forward (e: Nk.t) : Sp.t =
     | (e, pkref) :: rem -> 
       let pk = !pkref in 
       match (e, pk) with 
-      | (Nk.Drop, _)
       | (_, Sp.Drop) -> loop rem visited
       | (e, pk) ->
+          if State.eq e State.drop then loop rem visited else
           let p = Sp.diff pkref (get visited e) in
           let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
           let next = Deriv.d e
@@ -164,7 +170,7 @@ let forward (e: Nk.t) : Sp.t =
 
   in loop [(e, Sp.skip)] StateMap.empty
 
-let backward (e: Nk.t) : Sp.t =
+let backward (e: State.t) : Sp.t =
   let a = autom e in
 
   let todo_init = 
@@ -176,15 +182,15 @@ let backward (e: Nk.t) : Sp.t =
                   | None -> Sp.drop
                   | Some sp -> sp in
 
-  let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t StateMap.t) =
+  let rec loop (todo: (State.t * Sp.t) list) (visited: Sp.t StateMap.t) =
     match todo with
     | [] -> get visited a.start
     | (e, pkref) :: rem -> 
       let pk = !pkref in 
       match (e, pk) with 
-    | (Nk.Drop, _)
     | (_, Sp.Drop) -> loop rem visited
     | (e,pk) ->
+        if State.eq e State.drop then loop rem visited else
         let p = Sp.diff pkref (get visited e) in
         let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
         let next = StateSet.elements a.states 
