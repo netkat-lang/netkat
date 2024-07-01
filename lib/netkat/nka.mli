@@ -1,6 +1,17 @@
 (** Netkat Automaton *)
 
+(* Not needed yet:
+module State : sig
+  type t
+  val compare : t -> t -> int
+  val eq : t -> t -> bool
+  val to_string : t -> string
+  val drop : t
+end
+*)
+
 type t
+
 
 (** Produce a string representation of the automaton for output. *)
 val to_string : t -> string
