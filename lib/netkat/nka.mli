@@ -1,17 +1,22 @@
 (** Netkat Automaton *)
 
-(* Not needed yet:
 module State : sig
-  type t
+  type t = int
   val compare : t -> t -> int
   val eq : t -> t -> bool
   val to_string : t -> string
   val drop : t
 end
-*)
 
-type t
+module StateMap : Map.S with type key = State.t
+module StateSet : Set.S with type elt = State.t
 
+type t = {
+  states: StateSet.t;
+  start: State.t;
+  trans: Spp.t StateMap.t StateMap.t;
+  obs: Spp.t StateMap.t;
+}
 
 (** Produce a string representation of the automaton for output. *)
 val to_string : t -> string

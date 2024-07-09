@@ -219,8 +219,8 @@ let forward (e: Nk.t) : Sp.t =
           let p = Sp.diff pkref (get visited e) in
           let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
           let next = Deriv.d e
-                    |> Sts.to_list
-                    |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
+                     |> Sts.to_list
+                     |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
           loop (next@rem) v'
 
   in loop [(e, Sp.skip)] NkMap.empty
