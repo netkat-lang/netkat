@@ -57,7 +57,7 @@ let autom (e: Nk.t) : t =
     match q with
     | [] -> {
       states = visited;
-      start = 1;
+      start = NkMap.find e num;
       trans = tr;
       obs = ob;
     }
@@ -112,8 +112,6 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
     let state, sp, spps,qrem = match q with
                                | [] -> failwith "Queue unexpectedly emptied"
                                | (a,b,c)::d -> a,b,c,d in
-    let () = Printf.printf "state %d\n%!" state in
-    let () = Printf.printf "sp    %s\n%!" (Sp.to_string sp) in
     let ob = StateMap.find state a.obs in
     let out = Spp.push sp ob in
     if not (Sp.eq out Sp.drop) then
@@ -166,7 +164,7 @@ let bisim (a1: t) (a2: t) : bool =
   let rec bq q visited = 
     match q with
     | [] -> true
-    | (pk,s1,s2)::rem -> if State.eq s1 s2 || Sp.eq pk Sp.drop ||
+    | (pk,s1,s2)::rem -> if Sp.eq pk Sp.drop ||
                             (PairMap.mem (s1,s2) visited) && 
                             (Sp.le pk (PairMap.find (s1,s2) visited)) then
                            bq rem visited
@@ -176,7 +174,7 @@ let bisim (a1: t) (a2: t) : bool =
                                       | Some a -> a in
                            let rem = Sp.diff pk prev in
                          if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s1 a1.obs))
-                                        (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s2 a2.obs))) then
+                                       (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s2 a2.obs))) then
                            false
                          else
                            let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
