@@ -6,6 +6,7 @@ type t =
   | Print of Nkexp.t
   | Let of string * Nkexp.t
   | VLet of string * Pk.value
+  | Rep of Nkexp.t
   (* | For of string * value * value * t *) (* TODO *)
 
 (** Pretty print the netkat expression. *)

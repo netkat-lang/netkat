@@ -4,7 +4,7 @@
 %token LPAR RPAR EOF
 %token IMPORT CHECK PRINT EQUIV NEQUIV
 %token PLUS DIFF AND DOT STAR NEG XOR
-%token FWD BWD EXISTS FORALL
+%token FWD BWD EXISTS FORALL REP
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token <string> VAR
@@ -43,6 +43,7 @@ nkpl_cmd:
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
   | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
+  | REP; e=nk_exp { Nkcmd.Rep e }
   ;
 
 nk_exp:

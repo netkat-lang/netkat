@@ -22,6 +22,7 @@ let rec token buf =
   | "backward" -> BWD
   | "exists" -> EXISTS
   | "forall" -> FORALL
+  | "rep" -> REP
   | '(' -> LPAR
   | ')' -> RPAR
   | '|'

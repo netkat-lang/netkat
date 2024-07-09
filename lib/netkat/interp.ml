@@ -46,4 +46,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
   | Print e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Nk.to_string); env
   | Let (s, e) -> Env.bind_exp env s (Nkexp.eval env e)
   | VLet (s, v) -> Env.bind_val env s v
+  | Rep e -> let a = (Nkexp.eval env e) |> Nka.autom in
+             let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> Printf.printf "%s\n%!" in
+             env
 

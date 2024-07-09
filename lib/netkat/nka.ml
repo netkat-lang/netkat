@@ -61,10 +61,10 @@ let autom (e: Nk.t) : t =
       trans = tr;
       obs = ob;
     }
-    | e0::rem -> if NkMap.mem e0 num then
+    | e0::rem -> let e0n, num' = add e0 num in
+                 if StateSet.mem e0n visited then
                    loop rem visited num tr ob
                  else
-                   let e0n, num' = add e0 num in
                    let vis = StateSet.add e0n visited in
                    let sts = Deriv.d e0 in
                    let ob' = StateMap.add e0n (Deriv.e e0) ob in
@@ -93,6 +93,13 @@ let accept (a: t) (trace: Trace.t) : bool =
         acc state' rem' in
   acc a.start pairs
 
+  (** [rep a fields] computes a trace in the trace language of [a], using the
+      packet fields in [fields]. The strategy is to peform a BFS, keeping a list
+      of the SPPs taken as transitions along each path. When an output is reached,
+      we ``backout'' by pulling the packet back through the SPPs. Note that the SPPs
+      recorded also encode the sequence of symbolic packets which are actually
+      observed along the path forward; this is necessary to ensure a misstep is
+      not taken when backing out. *)
 let rep (a: t) (fields: Field.S.t) : Trace.t =
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t = 
     match spps with
@@ -102,24 +109,29 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
         backout pk' rem (pk'::partial) in
 
   let rec r (q: (State.t * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t) =
-    let state, sp, spps = try List.hd q
-                          with _ -> failwith "Queue unexpectedly emptied" in
-
+    let state, sp, spps,qrem = match q with
+                               | [] -> failwith "Queue unexpectedly emptied"
+                               | (a,b,c)::d -> a,b,c,d in
+    let () = Printf.printf "state %d\n%!" state in
+    let () = Printf.printf "sp    %s\n%!" (Sp.to_string sp) in
     let ob = StateMap.find state a.obs in
     let out = Spp.push sp ob in
     if not (Sp.eq out Sp.drop) then
-      let pk = Spp.rep (Spp.seq_pair ob (Spp.of_sp out)) fields |> Pkpair.split |> snd in
-      backout pk spps []
+      let refined = Spp.seq_pair (Spp.of_sp sp) ob in
+      let pk = Sp.rep out fields in
+      backout pk (refined::spps) [pk]
     else 
+      let unseen s p = match StateMap.find_opt s visited with
+                       | None -> p
+                       | Some p' -> Sp.diff p p' in
       let next = StateMap.find state a.trans |> StateMap.bindings in
-      let unseen p = Sp.diff p (StateMap.find state visited) in
       let refine spp = Spp.seq_pair (Spp.of_sp sp) spp in
-      let q' = List.map (fun (s, spp) -> s, unseen (Spp.push sp spp), (refine spp)::spps) next
+      let q' = List.map (fun (s, spp) -> s, unseen s (Spp.push sp spp), (refine spp)::spps) next
                |> List.filter (fun (_, sp, _) -> not (Sp.eq sp Sp.drop)) in
       let v' = List.fold_left (fun a (s, sp, _) -> match StateMap.find_opt s a with
-                                                  | None -> StateMap.add s sp a
-                                                  | Some sp' -> StateMap.add s (Sp.union_pair sp sp') a) visited q' in
-      r (q@q') v'
+                                                   | None -> StateMap.add s sp a
+                                                   | Some sp' -> StateMap.add s (Sp.union_pair sp sp') a) visited q' in
+      r (qrem@q') v'
   in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
 
 (* states, start, trans, obs *)
@@ -216,7 +228,7 @@ let forward (e: Nk.t) : Sp.t =
   in loop [(e, Sp.skip)] NkMap.empty
 
 let backward (e: Nk.t) : Sp.t = failwith "TODO: reimplement backward"
-  (* Old implementation (assumes State = Nk)
+  (* Old implementation (assumed State = Nk)
   let a = autom e in
 
   let todo_init = 

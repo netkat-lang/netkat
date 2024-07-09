@@ -6,6 +6,7 @@ type t =
   | Print of Nkexp.t
   | Let of string * Nkexp.t
   | VLet of string * Pk.value
+  | Rep of Nkexp.t
 
 (** Pretty print the netkat expression. *)
 let to_string t =
@@ -15,3 +16,4 @@ let to_string t =
   | Print e -> "print " ^ (Nkexp.to_string e)
   | Let (s, e) -> "let " ^ s ^ " = " ^ (Nkexp.to_string e)
   | VLet (s, v) -> "let " ^ s ^ " = " ^ (Value.to_string v)
+  | Rep e -> "rep " ^ (Nkexp.to_string e)

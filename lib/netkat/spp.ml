@@ -213,7 +213,7 @@ let rec to_sp_bwd (sppref : t) : Sp.t =
             | Some _ -> m)
           Value.M.empty (Value.M.bindings ms)
       in
-      Sp.mk (f, Value.right_join Sp.drop ms1 ms2, to_sp_bwd d)
+      Sp.mk (f, Value.map_op_pair Sp.drop Sp.union_pair ms1 ms2, Sp.union_pair y (to_sp_bwd d))
 
 let filter b f v =
   if b then
