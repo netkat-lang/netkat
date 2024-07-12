@@ -53,6 +53,6 @@ val resid : t -> t -> t option
 
 (** Form a list of words from a list of strings. Each string in the list corresponds to a
     single alphabet symbol, except that the character 'X' is a wildcard.
-    That is, for example, for the alphabet \{0, 1\}, [ws_of_strings alphabet
-    [["0"; "X"]] converts to the words [[0;0]] and [[0;1]]. *)
+    That is, for example, for the alphabet \{0, 1\}, [ws_of_strings alphabet,
+    [["0"; "X"]]] converts to the words [[0;0]] and [[0;1]]. *)
 val words_of_strings : Alphabet.t -> string list -> t list

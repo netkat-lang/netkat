@@ -20,10 +20,11 @@ let rec pairs (t: t) : Pkpair.t list =
 
 let to_string t = List.map Pk.to_string t |> String.concat ";"
 
-
 let rec suffixes t =
   match t with
-  | [] -> S.singleton []
+  | []
+  | [_] -> failwith "Invariant violated: traces must have at least two packets."
+  | pk::pk'::[] -> S.singleton [pk;pk']
   | pk::rem -> S.add t (suffixes rem)
       
 let prefixes t = S.map List.rev (suffixes (List.rev t))
