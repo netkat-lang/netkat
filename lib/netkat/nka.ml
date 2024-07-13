@@ -173,8 +173,14 @@ let bisim (a1: t) (a2: t) : bool =
                                       | None -> Sp.drop
                                       | Some a -> a in
                            let rem = Sp.diff pk prev in
-                         if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s1 a1.obs))
-                                       (Spp.seq_pair (Spp.of_sp rem) (StateMap.find s2 a2.obs))) then
+                           let s1obs = StateMap.find s1 a1.obs in
+                           let s2obs = StateMap.find s2 a2.obs in
+                         if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem) s1obs)
+                                        (Spp.seq_pair (Spp.of_sp rem) s2obs)) then
+                           (*
+                           let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem) s1 s2 in
+                           let () = Printf.printf "obs1:%s obs2:%s\n%!" (Spp.to_string s1obs) (Spp.to_string s2obs) in
+                           *)
                            false
                          else
                            let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
@@ -190,7 +196,11 @@ let bisim (a1: t) (a2: t) : bool =
                            let rem2 = List.map (fun (ei,sppi) ->
                                Spp.((push rem (diff sppi all1), State.drop, ei))) tr2 in
                            let next' = next @ rem1 @ rem2 in
-
+                           (*
+                           let () = Printf.printf "from %d,%d\n" s1 s2 in
+                           let () = List.iter (fun (pk,t1,t2) -> Printf.printf "%s %d %d\n"
+                              (Sp.to_string pk) t1 t2) next' in
+                           *)
                            (* Update the visited set to include everything in
                               this packet (plus everything there already for this pair of states. *)
                            let vpk = Sp.union_pair prev rem in
