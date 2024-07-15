@@ -136,6 +136,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
 let xor (a1: t) (a2: t) =
   let num: int PairMap.t = StateSet.fold (fun s1 m1 ->
                               StateSet.fold (fun s2 m2 -> 
+                                (* Printf.printf "adding %d %d\n" s1 s2; *)
                                 PairMap.add (s1,s2) (PairMap.cardinal m2) m2
                               ) a2.states m1
                            ) a1.states PairMap.empty in
@@ -146,10 +147,11 @@ let xor (a1: t) (a2: t) =
                 StateMap.fold (fun s2s tr2 m2 ->
                   let m = StateMap.fold (fun s1t spp1 m3 ->
                     StateMap.fold (fun s2t spp2 m4 ->
+                      (* Printf.printf "getting %d %d\n" s1t s2t; *)
                       let spp = Spp.intersect_pair spp1 spp2 in
                       StateMap.add (get s1t s2t) spp m4
-                    ) tr1 m3
-                  ) tr2 StateMap.empty  in
+                    ) tr2 m3
+                  ) tr1 StateMap.empty  in
                   StateMap.add (get s1s s2s) m m2
                 ) a2.trans m1)
               a1.trans StateMap.empty in
