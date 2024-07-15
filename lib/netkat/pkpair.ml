@@ -12,6 +12,8 @@ let mk (t1: Pk.t) (t2: Pk.t) : t =
                   Field.M.add f (v1,v2) pp in
   Field.S.fold mkf (Field.keys t1) Field.M.empty
 
+
+let getf_opt (t: t) (f: field) = Field.M.find_opt f t
 let addf = Field.M.add
 let empty = Field.M.empty
 
