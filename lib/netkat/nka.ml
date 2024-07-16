@@ -132,7 +132,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       r (qrem@q') v'
   in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
 
-(* states, start, trans, obs *)
+(* This idea was fundamentally flawed...
 let xor (a1: t) (a2: t) =
   let num: int PairMap.t = StateSet.fold (fun s1 m1 ->
                               StateSet.fold (fun s2 m2 -> 
@@ -161,7 +161,11 @@ let xor (a1: t) (a2: t) =
               ) a2.obs m1
             ) a1.obs StateMap.empty in
   { states = states ; start = start ; trans = trans ; obs = obs }
+*)
 
+(* Return true if the two automata are bisimilar and false otherwise. Note that
+   because the automata are determnisitc by construction it is the case that
+   they are bisimilar if and only if they are language equivalent.*)
 let bisim (a1: t) (a2: t) : bool =
   let rec bq q visited = 
     match q with
@@ -209,6 +213,76 @@ let bisim (a1: t) (a2: t) : bool =
                            let visited' = PairMap.add (s1,s2) vpk visited in
                            bq next' visited'
   in bq [(Sp.skip, a1.start, a2.start)] PairMap.empty
+
+(* Compute a traced in the symmetric difference between two automata. Return
+   None if they are bisimilar. *)
+let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
+  let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t option = 
+    match spps with
+    | [] -> Some partial
+    | spp::rem -> 
+        let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
+        backout pk' rem (pk'::partial) in
+  let rec bq (q: (Sp.t * Spp.t list * int * int) list) visited = 
+    match q with
+    | [] -> None
+    | (pk, spps, s1, s2)::rem ->
+                         if Sp.eq pk Sp.drop ||
+                            (PairMap.mem (s1,s2) visited) && 
+                            (Sp.le pk (PairMap.find (s1,s2) visited)) then
+                           bq rem visited
+                         else
+                           let prev = match PairMap.find_opt (s1,s2) visited with
+                                      | None -> Sp.drop
+                                      | Some a -> a in
+                           let rem = Sp.diff pk prev in
+                           let s1obs = StateMap.find s1 a1.obs in
+                           let s2obs = StateMap.find s2 a2.obs in
+                         if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem) s1obs)
+                                        (Spp.seq_pair (Spp.of_sp rem) s2obs)) then
+                           (*
+                           let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem) s1 s2 in
+                           let () = Printf.printf "obs1:%s obs2:%s\n%!" (Spp.to_string s1obs) (Spp.to_string s2obs) in
+                           *)
+                           let xorobs = Spp.xor s1obs s2obs in
+                           let out = Spp.push rem xorobs in
+                           let last_spp = Spp.seq_pair (Spp.of_sp rem) xorobs in
+                           let out_rep = Sp.rep out fields in
+                           backout out_rep (last_spp::spps) [out_rep]
+                         else
+                           let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
+                           let tr2 = StateMap.find s2 a2.trans |> StateMap.bindings in
+                           let next = List.fold_left (fun a (ei, sppi)->
+                              (List.map (fun (ej, sppj) ->
+                                let cap = Spp.intersect_pair sppi sppj in
+                                let pk' = Spp.push rem cap in
+                                let spp = Spp.seq_pair (Spp.of_sp rem) cap in
+                                (pk', spp::spps, ei, ej)) tr2)@a) [] tr1 in
+                           let all1 = List.map (fun (_,spp) -> spp) tr1 |> Spp.union in
+                           let all2  = List.map (fun (_,spp) -> spp) tr2 |> Spp.union in
+                           let rem1 = List.map (fun (ei,sppi) ->
+                               let diff = Spp.diff sppi all2 in
+                               let pk' = Spp.push rem diff in
+                               let spp = Spp.seq_pair (Spp.of_sp rem) diff in
+                               (pk', spp::spps, ei, State.drop)) tr1 in
+                           let rem2 = List.map (fun (ei,sppi) ->
+                               let diff = Spp.diff sppi all1 in
+                               let pk' = Spp.push rem diff in
+                               let spp = Spp.seq_pair (Spp.of_sp rem) diff in
+                               (pk', spp::spps, State.drop, ei)) tr2 in
+                           let next' = next @ rem1 @ rem2 in
+                           (*
+                           let () = Printf.printf "from %d,%d\n" s1 s2 in
+                           let () = List.iter (fun (pk,t1,t2) -> Printf.printf "%s %d %d\n"
+                              (Sp.to_string pk) t1 t2) next' in
+                           *)
+                           (* Update the visited set to include everything in
+                              this packet (plus everything there already for this pair of states. *)
+                           let vpk = Sp.union_pair prev rem in
+                           let visited' = PairMap.add (s1,s2) vpk visited in
+                           bq next' visited'
+  in bq [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
+
 
 let forward (e: Nk.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing

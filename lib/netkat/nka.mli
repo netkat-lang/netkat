@@ -32,8 +32,9 @@ val accept : t -> Trace.t -> bool
     if the automaton is equivalent to Drop. *)
 val rep : t -> Field.S.t -> Trace.t
 
-(** Compute the symmetric difference automaton *)
-val xor : t -> t -> t
+(** Compute a trace in the symmetric difference of the trace sets for the two
+    automata. If the automata are language equivalent, return None. *)
+val xor_rep : t -> t -> Field.S.t -> Trace.t option
 
 (** Decide whether the two Netkat automaton are bisimilar. Because
     the representation forces that the automata are deterministic, this is
