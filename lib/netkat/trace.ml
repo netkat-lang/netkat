@@ -18,7 +18,10 @@ let rec pairs (t: t) : Pkpair.t list =
   | p1::p2::[] -> [Pkpair.mk p1 p2]
   | p1::p2::t -> (Pkpair.mk p1 p2)::(pairs (p2::t))
 
-let to_string t = List.map Pk.to_string t |> String.concat ";"
+let to_string t =
+  match t with
+  | [] -> "ε"
+  | _ -> List.map Pk.to_string t |> String.concat ";"
 
 let rec suffixes t =
   match t with
