@@ -87,10 +87,9 @@ let accept (a: t) (trace: Trace.t) : bool =
     | [p] -> Spp.mem (StateMap.find state a.obs) p
     | p::rem' ->
         let sm = StateMap.find state a.trans in
-        let state' = match List.find_map (fun (s,spp) -> if Spp.mem spp p then Some s else None) (StateMap.bindings sm) with
-                     | None -> failwith ("No transition available for " ^ (Pkpair.to_string p))
-                     | Some s -> s in
-        acc state' rem' in
+        match List.find_map (fun (s,spp) -> if Spp.mem spp p then Some s else None) (StateMap.bindings sm) with
+        | None -> false
+        | Some s -> acc s rem' in
   acc a.start pairs
 
   (** [rep a fields] computes a trace in the trace language of [a], using the
