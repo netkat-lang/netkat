@@ -152,7 +152,7 @@ let rec rand (fs : field list) (vs : value list) (add_prob : float) : t =
   let rand_choice l =
     let len = List.length l in
     if len = 0 then failwith "Need non-zero number of elements!";
-    let index = Random.int_in_range ~min:0 ~max:(len - 1) in
+    let index = Random.int len in
     List.nth l index in
   let get_drop () = drop in
   let get_skip () = skip in
