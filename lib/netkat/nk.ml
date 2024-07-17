@@ -148,6 +148,37 @@ let rec neg (e: t) = match e with
   | Diff (e1,e2) -> failwith "Negation undefined for diff"
   | Intersect es -> List.map neg es |> intersect
 
+let rec rand (fs : field list) (vs : value list) (add_prob : float) : t =
+  let rand_choice l =
+    let len = List.length l in
+    if len = 0 then failwith "Need non-zero number of elements!";
+    let index = Random.int_in_range ~min:0 ~max:(len - 1) in
+    List.nth l index in
+  let get_drop () = drop in
+  let get_skip () = skip in
+  let get_dup () = dup in
+  let get_kv () =
+    let f = rand_choice fs in
+    let v = rand_choice vs in
+    (f, v) in
+  let get_filter () =
+    let (f, v) = get_kv () in
+    filter (Random.bool ()) f v in
+  let get_modif () =
+    let (f, v) = get_kv () in
+    modif f v in
+  let star_pair e1 _ = star e1 in
+  let atoms = [get_drop; get_skip; get_dup; get_filter; get_modif] in
+  let bin = [union_pair; intersect_pair; seq_pair; diff; xor; star_pair] in
+  let rec loop base =
+    if Random.float 1.0 > add_prob
+    then base
+    else
+      let rand_el = rand fs vs add_prob in
+      let rand_op = rand_choice bin in
+      loop (rand_op base rand_el) in
+  loop (rand_choice atoms ())
+
 (* --- Pretty print --- *)
 
 let to_string (nk: t) : string =
