@@ -5,6 +5,7 @@ module S : Set.S with type elt = t
 module M : Map.S with type key = t
 
 val empty : t
+val compare : t -> t -> int
 val pairs : t -> Pkpair.t list
 val to_string : t -> string
 val prefixes : t -> S.t

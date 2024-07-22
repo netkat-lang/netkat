@@ -2,9 +2,11 @@
 (* A trace is a list of packets with length >= 2 *)
 type t = Pk.t list
 
+let compare = List.compare Pk.compare
+
 module Comp = struct
   type t = Pk.t list
-  let compare = List.compare Pk.compare
+  let compare = compare
 end
 module S = Set.Make(Comp)
 module M = Map.Make(Comp)
