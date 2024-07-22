@@ -56,8 +56,12 @@ nk_exp:
 
 nk_sum:
   | r1=nk_conj; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }
-  | r1=nk_conj; DIFF; r2=nk_sum { Nkexp.diff r1 r2 }
-  | r1=nk_conj; XOR; r2=nk_sum { Nkexp.xor r1 r2 }
+  | r=nk_diff { r }
+  ;
+
+nk_diff:
+  | r1=nk_conj; DIFF; r2=nk_diff { Nkexp.diff r1 r2 }
+  | r1=nk_conj; XOR; r2=nk_diff { Nkexp.xor r1 r2 }
   | r=nk_conj { r }
   ;
 
