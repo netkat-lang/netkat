@@ -4,6 +4,8 @@ type t = Pk.t list
 
 let compare = List.compare Pk.compare
 
+let eq t1 t2 = compare t1 t2 = 0
+
 module Comp = struct
   type t = Pk.t list
   let compare = compare
@@ -29,7 +31,24 @@ let rec suffixes t =
   match t with
   | []
   | [_] -> failwith "Invariant violated: traces must have at least two packets."
-  | pk::pk'::[] -> S.singleton [pk;pk']
-  | pk::rem -> S.add t (suffixes rem)
+  | pk::pk'::[] -> [[pk;pk']]
+  | pk::rem -> t::(suffixes rem)
       
-let prefixes t = S.map List.rev (suffixes (List.rev t))
+let prefixes t = List.map List.rev (suffixes (List.rev t)) |> List.rev
+
+(** Compute suffixes all the way down to 1-packet traces *)
+let rec suffixes1 t =
+  match t with
+  | []
+  | [_] -> failwith "Invariant violated: traces must have at least two packets."
+  | pk::pk'::[] -> [[pk']; [pk;pk']]
+  | pk::rem -> t::(suffixes1 rem)
+
+let prefixes1 t = List.map List.rev (suffixes1 (List.rev t)) |> List.rev
+
+let hd = List.hd
+let tl = List.tl
+let lt t = List.rev t |> List.tl |> List.rev
+let dh t = List.rev t |> List.hd
+
+let length = List.length

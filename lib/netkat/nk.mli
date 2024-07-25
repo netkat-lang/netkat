@@ -69,11 +69,12 @@ val xor : t -> t -> t
     that this fails for expression which are not SPs *)
 val neg : t -> t
 
-(** [rand fields values add_prob] constructs a random netkat expression over
-    the give [fields] and [values]. The unit interval parameter [add_prob]
-    controls the complexity of the expression by determining the probabilty of
-    the "depth" of the expression tree growing by 1 level.*)
-val rand : field list -> value list -> float -> t
+(** [rand fields values k] constructs a random netkat expression over
+    the give [fields] and [values]. The unit interval parameter [k]
+    controls the complexity of the expression by determining how many
+    AST levels to extend the the "depth" of the expression tree growing by 1
+    level.*)
+val rand : field list -> value list -> int -> t
 
 (** Pretty print the netkat expression. *)
 val to_string : t -> string

@@ -6,6 +6,7 @@ type value = Value.t
 type t = value Field.M.t
 
 let compare = Field.M.compare Value.compare
+let eq t1 t2 = compare t1 t2 = 0
 
 let to_string p =
   let bdgs = Field.M.bindings p
