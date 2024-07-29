@@ -223,7 +223,15 @@ let bisim (a1: t) (a2: t) : bool =
 let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t option = 
     match spps with
-    | [] -> Some partial
+    | [] ->
+        (* (*Debugging:*)
+        if accept a1 partial = accept a2 partial then
+          let () = Printf.printf "------a1------\n%s\n------a2------\n%s\n" (to_string a1) (to_string a2) in
+          let () = Printf.printf "nonex: %s %s\n" (Trace.to_string partial) (string_of_bool @@ accept a1 partial) in
+          failwith "Impossible: Trace identified not actually in symetric difference"
+        else
+          *)
+          Some partial
     | spp::rem -> 
         let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
         backout pk' rem (pk'::partial) in
@@ -245,11 +253,14 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                          if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)
                                         (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) then
                            (*
+                           let () = Printf.printf "witness-difference:\n" in
                            let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem_pk) s1 s2 in
                            let () = Printf.printf "obs1:%s obs2:%s\n%!" (Spp.to_string s1obs) (Spp.to_string s2obs) in
                            *)
                            let xorobs = Spp.xor s1obs s2obs in
+                           (* let () = Printf.printf "xorobs:%s\n%!" (Spp.to_string xorobs) in *)
                            let out = Spp.push rem_pk xorobs in
+                           (* let () = Printf.printf "out:%s\n%!" (Sp.to_string out) in *)
                            let last_spp = Spp.seq_pair (Spp.of_sp rem_pk) xorobs in
                            let out_rep = Sp.rep out fields in
                            backout out_rep (last_spp::spps) [out_rep]

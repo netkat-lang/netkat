@@ -18,7 +18,7 @@ let empty = []
 let rec pairs (t: t) : Pkpair.t list =
   match t with
   | []
-  | [_] -> failwith "Invariant violated: traces must have at least two packets."
+  | [_] -> failwith "Invariant violated: regular traces must have at least two packets."
   | p1::p2::[] -> [Pkpair.mk p1 p2]
   | p1::p2::t -> (Pkpair.mk p1 p2)::(pairs (p2::t))
 
@@ -30,7 +30,7 @@ let to_string t =
 let rec suffixes t =
   match t with
   | []
-  | [_] -> failwith "Invariant violated: traces must have at least two packets."
+  | [_] -> failwith "Invariant violated: regular traces must have at least two packets."
   | pk::pk'::[] -> [[pk;pk']]
   | pk::rem -> t::(suffixes rem)
       
@@ -39,8 +39,8 @@ let prefixes t = List.map List.rev (suffixes (List.rev t)) |> List.rev
 (** Compute suffixes all the way down to 1-packet traces *)
 let rec suffixes1 t =
   match t with
-  | []
-  | [_] -> failwith "Invariant violated: traces must have at least two packets."
+  | [] -> failwith "Invariant violation: 1-traces must have at least one packet."
+  | [pk] -> [[pk]]
   | pk::pk'::[] -> [[pk']; [pk;pk']]
   | pk::rem -> t::(suffixes1 rem)
 

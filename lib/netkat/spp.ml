@@ -691,7 +691,13 @@ let mem (sppref : t) (pp : Pkpair.t) : bool =
         if Field.compare f f' < 0 then
           failwith
             ("(b) Packet is missing field [" ^ Field.get_or_fail_fid f ^ "]!%!")
-        else if Field.compare f f' > 0 then memrec sppref bdgs'
+        else if Field.compare f f' > 0 then
+          (* If f' does not appear in the SPP, we still have to check that its
+             value does not change. *)
+          if v0 = v1 then
+            memrec sppref bdgs'
+          else
+            false
         else
           match Value.M.find_opt v0 b with
           | Some bm -> (
