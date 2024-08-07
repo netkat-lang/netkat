@@ -2,6 +2,9 @@ open Pk
 
 type t
 
+val compare : t -> t -> int
+val eq : t -> t -> bool
+
 val split : t -> Pk.t * Pk.t
 val mk : Pk.t -> Pk.t -> t
 val addf : field -> value * value -> t -> t

@@ -7,7 +7,8 @@ module M : Map.S with type key = t
 val empty : t
 val compare : t -> t -> int
 val eq : t -> t -> bool
-val pairs : t -> Pkpair.t list
+val pairs : t -> PrTrace.t
+val of_pairs : PrTrace.t -> t
 (* val pairs_and_pres : t -> (Pkpair.t * t) list *)
 val to_string : t -> string
 val prefixes : t -> t list

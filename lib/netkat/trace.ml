@@ -15,12 +15,26 @@ module M = Map.Make(Comp)
 
 let empty = []
 
-let rec pairs (t: t) : Pkpair.t list =
+let rec pairs (t: t) : PrTrace.t =
   match t with
   | []
   | [_] -> failwith "Invariant violated: regular traces must have at least two packets."
   | p1::p2::[] -> [Pkpair.mk p1 p2]
   | p1::p2::t -> (Pkpair.mk p1 p2)::(pairs (p2::t))
+
+let of_pairs (pairs: PrTrace.t) : t =
+  let rec match_pk pk lst partial =
+    match lst with
+    | [] -> List.rev (pk::partial)
+    | pr::rem ->
+        let pk',pk'' = Pkpair.split pr in
+        if not (Pk.eq pk pk') then
+          failwith "PrTrace has mismatched pairs"
+        else match_pk pk'' rem (pk::partial) in
+  match pairs with
+  | [] -> []
+  | pr::rem -> let pk,pk' = Pkpair.split pr in
+               match_pk pk' rem [pk]
 
 let to_string t =
   match t with
