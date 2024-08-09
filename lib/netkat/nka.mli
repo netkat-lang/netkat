@@ -47,3 +47,11 @@ val forward : Nk.t -> Sp.t
 (** Run the backward algorithm to compute the set of input packets that have
     output. *)
 val backward : Nk.t -> Sp.t
+
+(** Compute the size of an automaton in the form [n, m] where [n] is the number
+    of automaton states, and [m] is the sum of the sizes of the transition and
+    observation function SPPs. *)
+val size : t -> int * int
+
+(** Return the smaller of two automata, with respect to [size] *)
+val min : t -> t -> t

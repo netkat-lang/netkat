@@ -356,3 +356,22 @@ let backward (e: Nk.t) : Sp.t = failwith "TODO: reimplement backward"
         loop (next@rem) v'
   in loop todo_init StateMap.empty
   *)
+
+let size (t: t) : int * int = 
+  let n = StateSet.cardinal t.states in
+  let sum m = StateMap.fold (fun _ e -> (+) (Spp.size e)) m 0 in
+  let obs = sum t.obs in
+  let trans = StateMap.fold (fun _ m -> (+) (sum m)) t.trans 0 in
+  n, obs + trans
+
+let min (a1: t) (a2: t) =
+  let n, m = size a1 in
+  let n', m' = size a2 in
+  if n < n' then
+    a1
+  else if n' < n then
+    a2
+  else if m < m' then
+    a1
+  else
+    a2
