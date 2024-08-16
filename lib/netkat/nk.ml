@@ -179,6 +179,36 @@ let rec rand (fs : field list) (vs : value list) (n : int) : t =
       loop (rand_op base rand_el) (k-1) in
   loop (rand_choice atoms ()) n
 
+let rec rand_dupless (fs : field list) (vs : value list) (n : int) : t =
+    let rand_choice l =
+      let len = List.length l in
+      if len = 0 then failwith "Need non-zero number of elements!";
+      let index = Random.int len in
+      List.nth l index in
+    let get_drop () = drop in
+    let get_skip () = skip in
+    let get_kv () =
+      let f = rand_choice fs in
+      let v = rand_choice vs in
+      (f, v) in
+    let get_filter () =
+      let (f, v) = get_kv () in
+      filter (Random.bool ()) f v in
+    let get_modif () =
+      let (f, v) = get_kv () in
+      modif f v in
+    let star_pair e1 _ = star e1 in
+    let atoms = [get_drop; get_skip; get_filter; get_modif] in
+    let bin = [union_pair; intersect_pair; seq_pair; (*diff; xor;*) star_pair] in
+    let rec loop base k =
+      if k = 0
+      then base
+      else
+        let rand_el = rand_dupless fs vs (k-1) in
+        let rand_op = rand_choice bin in
+        loop (rand_op base rand_el) (k-1) in
+    loop (rand_choice atoms ()) n
+
 (* --- Pretty print --- *)
 
 let to_string (nk: t) : string =

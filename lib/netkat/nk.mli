@@ -76,5 +76,7 @@ val neg : t -> t
     level.*)
 val rand : field list -> value list -> int -> t
 
+val rand_dupless : field list -> value list -> int -> t
+
 (** Pretty print the netkat expression. *)
 val to_string : t -> string
