@@ -105,24 +105,19 @@ let dummy f d =
 (** [mk (f, fms, ms, d)] performs canonicalization to guarantee that only
     semantically equivalent SPPs have the same representation. *)
 let mk (f, fms, ms, d) =
-  (*Union (f, fms, ms, d)*)
-  (* First remove filter/mod branches that are exactly [Drop] *)
-  let fms' =
+  let (fms', ms') = Value.M.fold (fun v spp (b,m) ->
+    match !spp, Value.M.mem v b with
+    | Drop, false -> (Value.M.add v (Value.M.add v d ms) b, Value.M.remove v m)
+    | Drop, true -> (b, Value.M.remove v m)
+    | _, _ -> (b, m)) ms (fms,ms) in
+  (* Finally remove filter/mod branches that are exactly [Drop] *)
+  let fms'' =
     Value.M.map
       (fun m ->
         Value.M.filter_map
           (fun _ spp -> match !spp with Drop -> None | _ -> Some spp)
           m)
-      fms
-  in
-  (* let ms' = Value.M.filter (fun _ sppi -> not (sppi == drop)) ms in *)
-  (* Value.M.iter (fun v spp -> Printf.printf "%s " (Value.to_string v)) ms; *)
-  (* Printf.printf "\n"; *)
-  let (fms'', ms') = Value.M.fold (fun v spp (b,m) ->
-    match !spp, Value.M.mem v b with
-    | Drop, false -> (Value.M.add v Value.M.empty b, Value.M.remove v m)
-    | Drop, true -> (b, Value.M.remove v m)
-    | _, _ -> (b, m)) ms (fms',ms) in
+      fms' in
   let fms''' =
     Value.M.filter
       (fun vi mi ->
@@ -130,8 +125,7 @@ let mk (f, fms, ms, d) =
           if Value.M.mem vi ms' || d == drop then ms' else Value.M.add vi d ms'
         in
         not (Value.M.equal ( == ) mi drop_branch))
-      fms''
-  in
+      fms'' in
   if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
   else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d)))
 
