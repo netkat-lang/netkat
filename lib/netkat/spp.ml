@@ -107,7 +107,7 @@ let dummy f d =
 let mk (f, fms, ms, d) =
   let (fms', ms') = Value.M.fold (fun v spp (b,m) ->
     match !spp, Value.M.mem v b with
-    | Drop, false -> (Value.M.add v (Value.M.add v d ms) b, Value.M.remove v m)
+    | Drop, false -> (Value.M.add v ms (*(Value.M.add v d ms)*) b, Value.M.remove v m)
     | Drop, true -> (b, Value.M.remove v m)
     | _, _ -> (b, m)) ms (fms,ms) in
   (* Finally remove filter/mod branches that are exactly [Drop] *)
