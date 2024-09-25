@@ -766,20 +766,14 @@ let rec size sppref =
         match !sppref with
         | Skip | Drop -> 0
         | Union (_, b, m, d, _) ->
-            let children m =
-              Value.M.fold (fun _ v acc -> Spp_set.add v acc) m Spp_set.empty
-            in
-            let b_children =
-              Value.M.fold
-                (fun _ v acc -> Spp_set.union acc (children v))
-                b Spp_set.empty
-            in
-            let all_children =
-              Spp_set.union (children m) b_children |> Spp_set.add d
-            in
-            Value.M.cardinal b + Value.M.cardinal m
-            + Value.M.fold (fun _ v acc -> acc + Value.M.cardinal v) b 0
-            + Spp_set.fold (fun x acc -> acc + size x) all_children 0
+          let map_size m = 
+            Value.M.cardinal m + 
+            Value.M.fold (fun _ sppref' acc' -> acc' + size sppref') m 0
+          in 
+          Value.M.cardinal b + 
+          Value.M.fold (fun _ m' acc' -> acc' + map_size m') b 0
+          + map_size m 
+          + size d 
       in
       Size_memo_tbl.add size_main sppref res;
       res
