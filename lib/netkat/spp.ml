@@ -536,7 +536,6 @@ let diff =
 
 let xor spp1 spp2 = union_pair (diff spp1 spp2) (diff spp2 spp1)
 
-(* TODO Optimize this somehow? *)
 let star =
   let star_ref self spp =
     let spp' = union [ skip; spp; seq_pair spp spp ] in
@@ -777,3 +776,22 @@ let rec size sppref =
       in
       Size_memo_tbl.add size_main sppref res;
       res
+
+let hdr = "\\begin{tikzpicture}[node distance=1cm,\nevery state/.append style={minimum size=13pt}]\n\tikzstyle{mut}=[style={state, diamond, minimum size=8pt}]\n\tikzstyle{bot}=[style={state, rectangle, minimum size=10pt}]\n"
+let ftr = "\\end{tikzpicture}\n"
+
+let tikz sppref =
+  let q i = "(q" ^ string_of_int i ^ ")" in
+  let node i s = "\\node [state] " ^ q i ^ " {" ^ s ^ "};\n" in
+  let rec tikz_r i = function
+    | Skip -> node i "$\\top$"
+    | Drop -> node i "$\\bot$"
+    | Union (f, b, m, d, _) ->
+        let _ = node i (Field.get_or_fail_fid f) in
+        (*
+        let _ = Value.M.fold _ in
+        let _ = Value.M.fold _ in
+        *)
+        failwith "TODO"
+  in
+  hdr ^ tikz_r 0 !sppref ^ ftr

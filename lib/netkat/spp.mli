@@ -41,3 +41,5 @@ val mem : t -> Pkpair.t -> bool
 val rep : t -> Field.S.t -> Pkpair.t
 
 val size : t -> int 
+
+val tikz : t -> string
