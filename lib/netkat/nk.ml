@@ -199,7 +199,7 @@ let rec rand_dupless (fs : field list) (vs : value list) (n : int) : t =
       modif f v in
     let star_pair e1 _ = star e1 in
     let atoms = [get_drop; get_skip; get_filter; get_modif] in
-    let bin = [union_pair; intersect_pair; seq_pair; (*diff; xor;*) star_pair] in
+    let bin = [union_pair; (*intersect_pair;*) seq_pair; (*diff; xor;*) star_pair] in
     let rec loop base k =
       if k = 0
       then base
