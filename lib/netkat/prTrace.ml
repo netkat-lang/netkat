@@ -38,3 +38,21 @@ let unsnoc (t:t) : (t * Pkpair.t) option =
   | [] -> None
   | pp::rem -> Some (List.rev rem, pp)
   
+(* Return the list of (pk,pre,suf) tuples resulting from splitting this trace at
+   each position. Note prefixes have min length 0, suffixes have min length 1.
+   The prefixes are either empty or end in pk, and the suffixes all start with pk. *)
+let splits (t: t) : ((Pk.t * t * t) list) =
+  let rec splits_r pre suf partial =
+    match suf with
+    | [] -> failwith "Unreachable! Suffixes have at least 1 pair."
+    | [pp] ->
+        let a,_ = Pkpair.split pp in
+        (a,pre,suf)::partial
+    | pp::rem ->
+        let a,_ = Pkpair.split pp in
+        let pre' = match pre@[pp] with
+                   | None -> failwith "Impossible packet mismatch"
+                   | Some res -> res in
+        splits_r pre' rem ((a,pre,suf)::partial)
+  in 
+  splits_r [] t []
