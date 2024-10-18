@@ -14,6 +14,7 @@ let rec token buf =
   | "import" -> IMPORT
   | "check" -> CHECK
   | "print" -> PRINT
+  | "tikz" -> TIKZ
   | "drop"
   | "emp" -> DROP
   | "eps"

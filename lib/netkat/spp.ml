@@ -765,33 +765,42 @@ let rec size sppref =
         match !sppref with
         | Skip | Drop -> 0
         | Union (_, b, m, d, _) ->
-          let map_size m = 
-            Value.M.cardinal m + 
+          let map_size m =
+            Value.M.cardinal m +
             Value.M.fold (fun _ sppref' acc' -> acc' + size sppref') m 0
-          in 
-          Value.M.cardinal b + 
+          in
+          Value.M.cardinal b +
           Value.M.fold (fun _ m' acc' -> acc' + map_size m') b 0
-          + map_size m 
-          + size d 
+          + map_size m
+          + size d
       in
       Size_memo_tbl.add size_main sppref res;
       res
 
-let hdr = "\\begin{tikzpicture}[node distance=1cm,\nevery state/.append style={minimum size=13pt}]\n\tikzstyle{mut}=[style={state, diamond, minimum size=8pt}]\n\tikzstyle{bot}=[style={state, rectangle, minimum size=10pt}]\n"
+let hdr = "\\begin{tikzpicture}[node distance=1cm,\nevery state/.append style={minimum size=13pt}]\ntikzstyle{mut}=[style={state, diamond, minimum size=8pt}]\ntikzstyle{bot}=[style={state, rectangle, minimum size=10pt}]\n"
 let ftr = "\\end{tikzpicture}\n"
 
 let tikz sppref =
   let q i = "(q" ^ string_of_int i ^ ")" in
   let node i s = "\\node [state] " ^ q i ^ " {" ^ s ^ "};\n" in
-  let rec tikz_r i = function
-    | Skip -> node i "$\\top$"
-    | Drop -> node i "$\\bot$"
+  let asn i = "\\node [mut] " ^ q i ^ "{};\n" in
+  let edge i j = "\\draw " ^ q i ^ " edge " ^ q j ^ ";\n" in
+  let rec asn_r i m = Value.M.fold (fun v m' (s,j) ->
+          let si,j' = tikz_r j !m' in
+          let se = edge i j in
+          (s ^ si ^ se), j'
+          ) m (asn i,i+1)
+  and tikz_r i = function
+    | Skip -> node i "$\\top$", i+1
+    | Drop -> node i "$\\bot$", i+1
     | Union (f, b, m, d, _) ->
-        let _ = node i (Field.get_or_fail_fid f) in
-        (*
-        let _ = Value.M.fold _ in
-        let _ = Value.M.fold _ in
-        *)
-        failwith "TODO"
+        let root = node i (Field.get_or_fail_fid f) in
+        let bs, i' = Value.M.fold (fun v b' (s,j) ->
+            let mi,j' = asn_r j b' in
+            let me = edge i j in
+            (s ^ mi ^ me),j'+1) b ("",i) in
+        let ms,i'' = asn_r i' m in
+        let ds,i''' = tikz_r i'' !d in
+        (root ^ bs ^ ms ^ ds), i'''+1
   in
-  hdr ^ tikz_r 0 !sppref ^ ftr
+  hdr ^ (fst @@ tikz_r 0 !sppref) ^ ftr

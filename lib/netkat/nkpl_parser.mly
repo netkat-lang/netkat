@@ -2,7 +2,7 @@
 %}
 
 %token LPAR RPAR EOF
-%token IMPORT CHECK PRINT EQUIV NEQUIV
+%token IMPORT CHECK PRINT TIKZ EQUIV NEQUIV
 %token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD EXISTS FORALL REP
 %token NTST TST MOD
@@ -41,6 +41,7 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
+  | TIKZ; e=nk_exp { Nkcmd.Tikz e }
   | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
   | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
   | REP; e=nk_exp { Nkcmd.Rep e }

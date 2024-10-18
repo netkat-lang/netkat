@@ -4,6 +4,7 @@ type t =
   | Import of string
   | Check of bool * Nkexp.t * Nkexp.t
   | Print of Nkexp.t
+  | Tikz of Nkexp.t
   | Let of string * Nkexp.t
   | VLet of string * Pk.value
   | Rep of Nkexp.t
@@ -14,6 +15,7 @@ let to_string t =
   | Import s -> "import \"" ^ s ^ "\""
   | Check (b, e1, e2) -> "check " ^ (Nkexp.to_string e1) ^ (if b then "≡" else "≢") ^ (Nkexp.to_string e2)
   | Print e -> "print " ^ (Nkexp.to_string e)
+  | Tikz e -> "tikz " ^ (Nkexp.to_string e)
   | Let (s, e) -> "let " ^ s ^ " = " ^ (Nkexp.to_string e)
   | VLet (s, v) -> "let " ^ s ^ " = " ^ (Value.to_string v)
   | Rep e -> "rep " ^ (Nkexp.to_string e)

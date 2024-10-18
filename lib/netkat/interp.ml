@@ -44,6 +44,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                               exit 1
                             end; env
   | Print e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Nk.to_string); env
+  | Tikz e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Deriv.e |> Spp.tikz); env
   | Let (s, e) -> Env.bind_exp env s (Nkexp.eval env e)
   | VLet (s, v) -> Env.bind_val env s v
   | Rep e -> let a = (Nkexp.eval env e) |> Nka.autom in
