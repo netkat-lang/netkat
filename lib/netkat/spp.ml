@@ -777,30 +777,46 @@ let rec size sppref =
       Size_memo_tbl.add size_main sppref res;
       res
 
-let hdr = "\\begin{tikzpicture}[node distance=1cm,\nevery state/.append style={minimum size=13pt}]\ntikzstyle{mut}=[style={state, diamond, minimum size=8pt}]\ntikzstyle{bot}=[style={state, rectangle, minimum size=10pt}]\n"
+let hdr = "\\begin{tikzpicture}[node distance=1cm,\nevery state/.append style={minimum size=13pt}]\n\\tikzstyle{mut}=[style={state, diamond, minimum size=8pt}]\n\\tikzstyle{bot}=[style={state, rectangle, minimum size=10pt}]\n"
 let ftr = "\\end{tikzpicture}\n"
 
+type rel = Root | Child | Sibling
+let loc q = function
+  | Root -> ""
+  | Child -> "below of =" ^ q
+  | Sibling -> "right of =" ^ q
+
 let tikz sppref =
-  let q i = "(q" ^ string_of_int i ^ ")" in
-  let node i s = "\\node [state] " ^ q i ^ " {" ^ s ^ "};\n" in
-  let asn i = "\\node [mut] " ^ q i ^ "{};\n" in
-  let edge i j = "\\draw " ^ q i ^ " edge " ^ q j ^ ";\n" in
-  let rec asn_r i m = Value.M.fold (fun v m' (s,j) ->
-          let si,j' = tikz_r j !m' in
-          let se = edge i j in
+  let q i = "q" ^ string_of_int i ^ "" in
+  let ground r i s =
+    "\\node [bot, " ^ loc (q (i-1)) r ^ "] (" ^ q i ^ ") {" ^ s ^ "};\n" in
+  let node r i s =
+    "\\node [state, " ^ loc (q (i-1)) r ^ "] (" ^ q i ^ ") {" ^ s ^ "};\n" in
+  let asn r i =
+    "\\node [mut, " ^ loc (q (i-1)) r ^ "] (" ^ q i ^ "){};\n" in
+  let edge solid i j =
+    let s = if solid then "" else "[dashed]" in
+    "\\draw (" ^ q i ^ ") edge (" ^ q j ^ ") " ^ s ^ ";\n" in
+  let rec asn_r r i m = Value.M.fold (fun v m' (s,j) ->
+          let r' = if j = i+1 then Child else Sibling in
+          let si,j' = tikz_r r' j !m' in
+          let se = edge true i j in
           (s ^ si ^ se), j'
-          ) m (asn i,i+1)
-  and tikz_r i = function
-    | Skip -> node i "$\\top$", i+1
-    | Drop -> node i "$\\bot$", i+1
+          ) m (asn Child i,i+1)
+  and tikz_r r i = function
+    | Skip -> ground r i "$\\top$", i+1
+    | Drop -> ground r i "$\\bot$", i+1
     | Union (f, b, m, d, _) ->
-        let root = node i (Field.get_or_fail_fid f) in
+        let root = node r i (Field.get_or_fail_fid f) in
         let bs, i' = Value.M.fold (fun v b' (s,j) ->
-            let mi,j' = asn_r j b' in
-            let me = edge i j in
-            (s ^ mi ^ me),j'+1) b ("",i) in
-        let ms,i'' = asn_r i' m in
-        let ds,i''' = tikz_r i'' !d in
-        (root ^ bs ^ ms ^ ds), i'''+1
+            let r' = if s = "" then Child else Sibling in
+            let mi,j' = asn_r r' j b' in
+            let me = edge true i j in
+            (s ^ mi ^ me),j') b ("",i+1) in
+        let ms,i'' = asn_r Sibling i' m in
+        let mse = edge false i i' in
+        let ds,i''' = tikz_r Sibling i'' !d in
+        let dse = edge false i' i'' in
+        (root ^ bs ^ ms ^ ds ^ mse ^ dse), i'''+1
   in
-  hdr ^ (fst @@ tikz_r 0 !sppref) ^ ftr
+  hdr ^ (fst @@ tikz_r Root 0 !sppref) ^ ftr
