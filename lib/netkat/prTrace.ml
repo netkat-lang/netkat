@@ -40,7 +40,8 @@ let unsnoc (t:t) : (t * Pkpair.t) option =
   
 (* Return the list of (pk,pre,suf) tuples resulting from splitting this trace at
    each position. Note prefixes have min length 0, suffixes have min length 1.
-   The prefixes are either empty or end in pk, and the suffixes all start with pk. *)
+   The prefixes are either empty or end in pk, and the suffixes all start with pk.
+   The triples are in ascending order for the prefixes. *)
 let splits (t: t) : ((Pk.t * t * t) list) =
   let rec splits_r pre suf partial =
     match suf with
@@ -55,4 +56,4 @@ let splits (t: t) : ((Pk.t * t * t) list) =
                    | Some res -> res in
         splits_r pre' rem ((a,pre,suf)::partial)
   in 
-  splits_r [] t []
+  splits_r [] t [] |> List.rev
