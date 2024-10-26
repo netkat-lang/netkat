@@ -820,3 +820,38 @@ let tikz sppref =
         (root ^ bs ^ ms ^ ds ^ mse ^ dse), i'''+1
   in
   hdr ^ (fst @@ tikz_r Root 0 !sppref) ^ ftr
+
+  let gv sppref = 
+    let q i = "n" ^ string_of_int i ^ "" in 
+    let sedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5]\n" in 
+    let dedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5]\n" in 
+    let base s i = q i ^ " [label=\"" ^ s ^ "\", shape=box, width=0.3, height=0.3, fixedsize=true]\n" in 
+    let top = base "⊤" in 
+    let bot = base "⊥" in 
+    let fnode i f = q i ^ " [label=\"" ^ Field.get_or_fail_fid f ^ "\", shape=circle, width=0.3, fixedsize=true, style=filled, fillcolor=\"#09c8a5\"]\n" in 
+    let anode i = q i ^ " [label=\"\", shape=diamond, width=0.15, height=0.15, style=filled, fillcolor=\"#f8c88a\"]\n" in 
+    let rank lst = "{rank=same; " ^ (lst |> List.map q |> String.concat ";") ^ "}\n" in 
+    let rec asn_r edge i m =  
+        Value.M.fold (fun v sppref (s, i', l2) -> 
+            let s', i'' = gv_r (i'+1) !sppref in 
+            (s ^ s' ^ edge (Value.to_string v) i i', i'', i' :: l2)) 
+          m (anode i, i + 1, []) 
+    and 
+    gv_r i = function 
+      | Skip -> top i, i + 1
+      | Drop -> bot i, i + 1 
+      | Union (f, b, m, d, _) -> 
+        let root = fnode i f in 
+        let bs, i', l1, l2 = Value.M.fold (fun v b' (s, i', l1', l2') -> 
+            let s', i'', l2'' = asn_r sedge i' b' in 
+            (s ^ s' ^ sedge (Value.to_string v) i i', i'', i' :: l1', l2' @ l2''))
+          b ("", i + 1, [], []) in 
+        let ms, i'', l2' = asn_r dedge i' m in 
+        let mse = dedge "" i i' in 
+        let ds, i''' = gv_r i'' !d in 
+        let dse = dedge "" i' i'' in 
+        let rank1 = rank (i' :: l1) in 
+        let rank2 = rank (l2 @ l2' @ [i'']) in
+        (root ^ bs ^ ms ^ mse ^ dse  ^ rank1 ^ rank2), i''' + 1
+    in 
+    "digraph G {\n" ^ (fst @@ gv_r 0 !sppref) ^ "}"
