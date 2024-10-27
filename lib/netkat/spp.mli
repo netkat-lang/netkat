@@ -43,3 +43,5 @@ val rep : t -> Field.S.t -> Pkpair.t
 val size : t -> int 
 
 val tikz : t -> string
+
+val gv : t -> string 

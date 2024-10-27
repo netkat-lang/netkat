@@ -824,7 +824,7 @@ let tikz sppref =
   let gv sppref = 
     let q i = "n" ^ string_of_int i ^ "" in 
     let sedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5]\n" in 
-    let dedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5]\n" in 
+    let dedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5, style=dashed]\n" in 
     let base s i = q i ^ " [label=\"" ^ s ^ "\", shape=box, width=0.3, height=0.3, fixedsize=true]\n" in 
     let top = base "⊤" in 
     let bot = base "⊥" in 
@@ -833,7 +833,7 @@ let tikz sppref =
     let rank lst = "{rank=same; " ^ (lst |> List.map q |> String.concat ";") ^ "}\n" in 
     let rec asn_r edge i m =  
         Value.M.fold (fun v sppref (s, i', l2) -> 
-            let s', i'' = gv_r (i'+1) !sppref in 
+            let s', i'' = gv_r i' !sppref in 
             (s ^ s' ^ edge (Value.to_string v) i i', i'', i' :: l2)) 
           m (anode i, i + 1, []) 
     and 
@@ -852,6 +852,6 @@ let tikz sppref =
         let dse = dedge "" i' i'' in 
         let rank1 = rank (i' :: l1) in 
         let rank2 = rank (l2 @ l2' @ [i'']) in
-        (root ^ bs ^ ms ^ mse ^ dse  ^ rank1 ^ rank2), i''' + 1
+        (root ^ bs ^ ms ^ ds ^ mse ^ dse  ^ rank1 ^ rank2), i''' + 1
     in 
     "digraph G {\n" ^ (fst @@ gv_r 0 !sppref) ^ "}"
