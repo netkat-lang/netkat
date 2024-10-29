@@ -824,7 +824,7 @@ let tikz sppref =
   let gv sppref = 
     let q i = "n" ^ string_of_int i ^ "" in 
     let sedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5]\n" in 
-    let dedge l i j = q i ^ " -> " ^ q j ^ " [label=\" " ^ l ^ " \", fontsize=12, arrowsize=0.5, style=dashed]\n" in 
+    let dedge i j = q i ^ " -> " ^ q j ^ " [fontsize=12, arrowsize=0.5, style=dashed]\n" in 
     let base s i = q i ^ " [label=\"" ^ s ^ "\", shape=box, width=0.3, height=0.3, fixedsize=true]\n" in 
     let top = base "⊤" in 
     let bot = base "⊥" in 
@@ -846,10 +846,10 @@ let tikz sppref =
             let s', i'', l2'' = asn_r sedge i' b' in 
             (s ^ s' ^ sedge (Value.to_string v) i i', i'', i' :: l1', l2' @ l2''))
           b ("", i + 1, [], []) in 
-        let ms, i'', l2' = asn_r dedge i' m in 
-        let mse = dedge "" i i' in 
+        let ms, i'', l2' = asn_r sedge i' m in 
+        let mse = dedge i i' in 
         let ds, i''' = gv_r i'' !d in 
-        let dse = dedge "" i' i'' in 
+        let dse = dedge i' i'' in 
         let rank1 = rank (i' :: l1) in 
         let rank2 = rank (l2 @ l2' @ [i'']) in
         (root ^ bs ^ ms ^ ds ^ mse ^ dse  ^ rank1 ^ rank2), i''' + 1
