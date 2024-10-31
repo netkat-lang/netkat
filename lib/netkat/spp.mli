@@ -45,3 +45,5 @@ val size : t -> int
 val tikz : t -> string
 
 val gv : t -> string 
+
+val dump: unit -> unit 

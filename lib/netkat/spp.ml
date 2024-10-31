@@ -855,3 +855,11 @@ let tikz sppref =
         (root ^ bs ^ ms ^ ds ^ mse ^ dse  ^ rank1 ^ rank2), i''' + 1
     in 
     "digraph G {\n" ^ (fst @@ gv_r 0 !sppref) ^ "}"
+
+let dump () = 
+  SPPHashtbl.clear pool; 
+  Hashtbl.iter (fun k tbl -> Memo_op.Memo1_tbl.clear tbl) Memo_op.main1; 
+  Hashtbl.iter (fun k tbl -> Memo_op.Memo2_tbl.clear tbl) Memo_op.main2_com ; 
+  Hashtbl.iter (fun k tbl -> Memo_op.Memo2_tbl.clear tbl) Memo_op.main2_uncom; 
+  Push_memo_tbl.clear push_main; 
+  Size_memo_tbl.clear size_main; 
