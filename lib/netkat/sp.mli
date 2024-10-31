@@ -41,3 +41,5 @@ val rep : t -> Field.S.t -> Pk.t
 (*---------- Output ------------------ *)
 val to_exp : t -> Nk.t
 val to_string : t -> string
+
+val dump: unit -> unit 

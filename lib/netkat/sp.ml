@@ -99,7 +99,6 @@ module Memo_op = struct
 
   let init_size = 64
   let main1 = Hashtbl.create init_size
-  let main2_uncom = Hashtbl.create init_size
   let main2_com = Hashtbl.create init_size
 
   let add_op_1 opcode table =
@@ -268,3 +267,8 @@ let rec of_pk (pk: Pk.t) =
 
 let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string
+
+let dump () = 
+  SPHashtbl.clear pool; 
+  Hashtbl.iter (fun k tbl -> Memo_op.Memo1_tbl.clear tbl) Memo_op.main1; 
+  Hashtbl.iter (fun k tbl -> Memo_op.Memo2_tbl.clear tbl) Memo_op.main2_com; 
