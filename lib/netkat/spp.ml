@@ -856,6 +856,30 @@ let tikz sppref =
     in 
     "digraph G {\n" ^ (fst @@ gv_r 0 !sppref) ^ "}"
 
+let rec values_for (spp: t) (f: Field.t) : Value.S.t =
+  let dom m =
+    Value.M.bindings m |> List.map fst |> Value.S.of_list in
+  let children m =
+    Value.M.bindings m |> List.map snd in
+  match !spp with
+  | Skip
+  | Drop -> Value.S.empty
+  | Union (fi, b, m, d, _) ->
+      if f < fi then
+        Value.S.empty
+      else if f = fi then
+        let b_keys = Value.M.fold (fun _ b' s -> Value.S.union s (dom b')) b Value.S.empty
+                     |> Value.S.union (dom b) in
+        let m_keys = dom m in
+        Value.S.union b_keys m_keys
+      else
+        let b_children = Value.M.fold (fun _ b' a -> (children b')@a) b [] in
+        let m_children = children m in
+        let children = d::(b_children@m_children) in
+        List.fold_left (fun s child -> Value.S.union s (values_for child f)) Value.S.empty children
+
+
+
 let dump () = 
   SPPHashtbl.clear pool; 
   Hashtbl.iter (fun k tbl -> Memo_op.Memo1_tbl.clear tbl) Memo_op.main1; 

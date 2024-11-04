@@ -46,4 +46,8 @@ val tikz : t -> string
 
 val gv : t -> string 
 
+(** [values_for spp f] returns a set of all the values mentioned (i.e., tested
+    or assigned) in [spp] for field [f] *)
+val values_for : t -> field -> Value.S.t
+
 val dump: unit -> unit 
