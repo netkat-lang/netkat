@@ -18,6 +18,8 @@ val seq_exp : t -> Nk.t -> t
 
 val diff : t -> t -> t
 
+val xor : t -> t -> t
+
 val to_exp : t -> Nk.t
 val to_string : t -> string
 

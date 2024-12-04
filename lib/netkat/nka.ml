@@ -323,7 +323,6 @@ let forward (e: Nk.t) : Sp.t =
                      |> Sts.to_list
                      |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
           loop (next@rem) v'
-
   in loop [(e, Sp.skip)] NkMap.empty
 
 let backward (e: Nk.t) : Sp.t = failwith "TODO: reimplement backward"

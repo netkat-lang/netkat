@@ -13,6 +13,7 @@ type t =
   | Star of t
   | Intersect of t list
   | Diff of t * t
+  | Xor of t * t
 
 let skip = Skip
 let drop = Drop
@@ -59,6 +60,9 @@ let rec compare (t1:t) (t2:t) =
   | Diff _, _ -> -1
   | _, Diff _ -> 1
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
+  | Intersect _, _ -> -1
+  | _, Intersect _ -> 1
+  | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
 
 (* Syntactic equivalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
@@ -146,6 +150,7 @@ let rec neg (e: t) = match e with
   | Union es -> List.map neg es |> seq
   | Star e -> Star (neg e)
   | Diff (e1,e2) -> failwith "Negation undefined for diff"
+  | Xor (e1,e2) -> failwith "Negation undefined for xor"
   | Intersect es -> List.map neg es |> intersect
 
 let rec rand (fs : field list) (vs : value list) (n : int) : t =
@@ -229,6 +234,7 @@ let to_string (nk: t) : string =
     | Star e0 -> (to_string_parent (prec e) e0) ^ "*"
     | Intersect e0 -> String.concat "&" (List.map (to_string_parent (prec e)) e0)
     | Diff (e0,e1) -> (to_string_parent (prec e) e0) ^ "-" ^ (to_string_parent (prec e) e1)
+    | Xor (e0,e1) -> (to_string_parent (prec e) e0) ^ "⊕" ^ (to_string_parent (prec e) e1)
     | Dup -> "dup"
     | Filter (b,f,v) -> (Field.get_or_fail_fid f) ^ (if b then "=" else "≠") ^ (Value.to_string v)
     | Mod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ (Value.to_string v)

@@ -1,0 +1,2 @@
+check dup⋅@b=3 ∪ @a=3⋅dup
+    ≡ @b=3⋅dup ∪ dup⋅@a=3

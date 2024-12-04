@@ -13,6 +13,7 @@ let rec e = function
   | Nk.Star exp -> e exp |> Spp.star
   | Nk.Intersect es -> List.map e es |> Spp.intersect
   | Nk.Diff (e1,e2) -> Spp.diff (e e1) (e e2)
+  | Nk.Xor (e1,e2) -> Spp.xor (e e1) (e e2)
 
 let rec d = function
   | Nk.Drop
@@ -31,3 +32,4 @@ let rec d = function
                                (Sts.seq_exp (d exp) (Nk.star exp))
   | Nk.Intersect es -> List.map d es |> Sts.intersect
   | Nk.Diff (e1,e2) -> Sts.diff (d e1) (d e2)
+  | Nk.Xor (e1,e2) -> Sts.xor (d e1) (d e2)

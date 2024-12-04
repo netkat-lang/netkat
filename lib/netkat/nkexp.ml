@@ -15,6 +15,7 @@ type t =
   | Star of t
   | Intersect of t list
   | Diff of t * t
+  | Xor of t * t
   | Neg of t
   | Fwd of t
   | Bwd of t
@@ -80,11 +81,9 @@ let rec compare (t1:t) (t2:t) =
   | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
   | Diff _, _ -> -1
   | _, Diff _ -> 1
-  (*
   | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
   | Xor _, _ -> -1
   | _, Xor _ -> 1
-  *)
   | Fwd s1, Fwd s2 -> compare s1 s2
   | Fwd _, _ -> -1
   | _, Fwd _ -> 1
@@ -166,8 +165,8 @@ let intersect_pair (r1:t) (r2:t) : t =
   | _, _ -> if eq r1 r2 then r1 else intersect [r1;r2]
 
 
-let xor (r1:t) (r2:t) : t =
-  union_pair (diff r1 r2) (diff r2 r1)
+let xor (r1:t) (r2:t) : t = Xor (r1,r2)
+  
 
 let to_string (e: t) : string =
   (* TODO: we likely need more precedences here... *)
@@ -179,7 +178,7 @@ let to_string (e: t) : string =
     | Exists _ -> 0
     | Union _ -> 1
     | Diff _
-    (* | Xor _ *)
+    | Xor _
     | Intersect _ -> 2
     | Seq _ -> 3
     | _ -> 4 in
@@ -199,7 +198,7 @@ let to_string (e: t) : string =
     | VMod (f,v) -> (Field.get_or_fail_fid f) ^ "\u{2190}" ^ v
     | Neg e0 -> "¬" ^ (to_string_parent (prec e) e0)
     | Var x -> x
-    (* | Xor (t1,t2) -> (to_string_parent (prec e) t1) ^ " ⊕ " ^ (to_string_parent (prec e) t2) *)
+    | Xor (t1,t2) -> (to_string_parent (prec e) t1) ^ " ⊕ " ^ (to_string_parent (prec e) t2)
     | Diff (t1,t2) ->  (to_string_parent (prec e) t1) ^ " - " ^ (to_string_parent (prec e) t2)
     | Fwd e -> "forward " ^ (to_string_parent (prec e) e)
     | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
@@ -225,7 +224,7 @@ let rec eval (env: Env.t) (e: t) : Nk.t =
     | Mod (f,v) -> Nk.modif f v
     | VMod (f,var) -> Nk.modif f (Env.lookup_val env var)
     | Var x -> Env.lookup_exp env x
-    (* | Xor (t1,t2) -> Nk.xor (eval env t1) (eval env t2) *)
+    | Xor (t1,t2) -> Nk.xor (eval env t1) (eval env t2)
     | Diff (t1,t2) -> Nk.diff (eval env t1) (eval env t2)
     | Neg e -> Nk.neg (eval env e)
     | Fwd e -> Nka.forward (eval env e) |> Sp.to_exp
