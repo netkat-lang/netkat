@@ -56,13 +56,13 @@ let rec compare (t1:t) (t2:t) =
   | Star s1, Star s2 -> compare s1 s2
   | Star _, _ -> -1
   | _, Star _ -> 1
-  | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
+  | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t2 t4 else compare t1 t3
   | Diff _, _ -> -1
   | _, Diff _ -> 1
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
   | Intersect _, _ -> -1
   | _, Intersect _ -> 1
-  | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
+  | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t2 t4 else compare t1 t3
 
 (* Syntactic equivalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
