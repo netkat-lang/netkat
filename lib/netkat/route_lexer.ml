@@ -1,13 +1,13 @@
 open Route_parser
 
-
 let digit = [%sedlex.regexp? '0' .. '9']
 let number = [%sedlex.regexp? digit, Opt digit, Opt digit]
 let quad = [%sedlex.regexp? number, '.', number, '.', number, '.', number]
 
 let cap = [%sedlex.regexp? 'A' .. 'Z']
-let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
-let alphanum = [%sedlex.regexp? digit | letter | '_' ]
+let lower = [%sedlex.regexp? 'a' .. 'z']
+let alphanum = [%sedlex.regexp? digit | cap | lower | '_' ]
+let ifname = [%sedlex.regexp? cap, Star alphanum, Opt ('/', Star (digit | '.'))]
 (* let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_'] *)
 (* let fn = [%sedlex.regexp? Star ch] *)
 
@@ -19,7 +19,15 @@ let lexer_fail buf msg =
 let rec token buf =
   match%sedlex buf with
   | "Prefix" | "Next Hop" | "Interface" (* ignore column headers *)
-  | Plus (Chars " \t") -> token buf     (* ignore whitespace *)
+  | ifname                              (* ignore interface names *)
+  | Plus (Chars " \t\n") -> token buf     (* ignore whitespace *)
+  | Plus lower -> begin
+                  match Sedlexing.Latin1.lexeme buf with
+                  | "receive" -> RCV
+                  | "attached" -> ATTCH
+                  | "drop" -> DROP
+                  | s ->  lexer_fail buf ("Unrecognized action (" ^ s ^ ")")
+                  end
   | quad, '/', number -> begin
                          match Sedlexing.Latin1.lexeme buf |> String.split_on_char '/' with
                          | q::n::[] ->
@@ -39,11 +47,6 @@ let rec token buf =
             | q1::q2::q3::q4::[] -> QUAD (q1,q2,q3,q4)
             | _ -> lexer_fail buf "Impossible lex"
             end
-  (*
-  | "drop" -> DROP
-  | "receive" -> RCV
-  | "attached" -> ATTCH
-  | cap, Star alphanum -> KEYW
-  *)
+  (* | "\n" -> EOL *)
   | eof -> EOF
   | _ -> lexer_fail buf "Unrecognized character"

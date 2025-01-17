@@ -1,10 +1,10 @@
 %{
-
 %}
 
 %token <Route.prefix> PREFIX
 %token <Route.ip> QUAD
-%token EOF
+%token RCV ATTCH DROP
+%token (*EOL*) EOF
 
 (*
 %token DROP
@@ -15,20 +15,32 @@
 
 %start <Route.t list> route_file
 
+(* %start <Route.action list> actions *)
+(* %start <Route.action list> more_actions *)
+
 %%
 
 route_file:
-  | rs=routes; EOF { rs }
+  | (*skip column headers*) rs=routes; EOF { rs }
   ;
 
 routes:
-  | r=route; rs=routes { r::rs }
+  | p=PREFIX; acts=actions; rs=routes { (p,acts)::rs }
   | { [] }
   ;
 
-route:
-  | p=PREFIX; hop=QUAD { (p, hop) }
-  | p=QUAD; hop=QUAD { ((p,32), hop) } (* Fully specified IPs are /32 prefixes *)
+actions:
+  | hop=QUAD; acts=actions { Route.Hop(hop)::acts }
+  | DROP; acts=actions { Route.Drop::acts }
+  | RCV; acts=actions { Route.Rcv::acts }
+  | ATTCH; acts=actions { Route.Attch::acts }
+  | { [] }
+
+(*
+more_actions:
+  | EOL; acts=actions { acts }
+  | { [] }
   ;
+  *)
 
 %%
