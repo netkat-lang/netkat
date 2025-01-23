@@ -6,11 +6,13 @@ let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
 let alphanum = [%sedlex.regexp? digit | letter | '_' ]
 let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_' | '-']
 let fn = [%sedlex.regexp? Star ch]
+let whsp = [%sedlex.regexp? ' ' | '\t' | '\n' | '?']
+let comment = [%sedlex.regexp? "--", Star (Compl (Chars "\n")), '\n']
 
 let rec token buf =
   match%sedlex buf with
-  | "--", Star (Compl (Chars "\n")), '\n' (* line comment *)
-  | Plus (Chars " \t\n?") -> token buf    (* ignore whitespace *)
+  | comment (* line comment *)
+  | whsp -> token buf    (* ignore whitespace *)
   | "import" -> IMPORT
   | "check" -> CHECK
   | "print" -> PRINT

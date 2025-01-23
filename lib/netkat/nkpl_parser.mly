@@ -28,7 +28,7 @@ single_cmd:
   ;
 
 single_exp:
-  | r=nk_sum; EOF {r }
+  | r=nk_sum; EOF { r }
   ;
 
 nkpl_cmd_list:
