@@ -26,7 +26,7 @@ and interp_file (fn: string) : Env.t =
 and interp (bn: string) (env: Env.t) (c: t) =
   match c with
   | Import s -> interp_file_with_env env (bn ^ s)
-  | Check (b, e1, e2) -> let start = Caml_unix.gettimeofday () in
+  | Check (b, e1, e2) -> let start = Unix.gettimeofday () in
                          let e1' = Nkexp.eval env e1 in
                          let e2' = Nkexp.eval env e2 in
                          let a1 = Nka.autom e1' in
@@ -35,7 +35,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
                          let sgn = if b then "≡" else "≢" in
                          let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
-                         let stop = Caml_unix.gettimeofday () in
+                         let stop = Unix.gettimeofday () in
 
                          let res' = Nka.bisim a1 a2 in
                          let res'' = Sp.eq (Nka.forward (Nk.xor e1' e2')) Sp.drop in
