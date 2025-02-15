@@ -29,4 +29,6 @@ depends: [
   "nice_parser"
   "sedlex" {>= "3.2"}
   "menhir" {build & >= "20190626"}
+  "landmarks" {>= "1.5"}
+  "landmarks-ppx" {>= "1.5"}
 ]
