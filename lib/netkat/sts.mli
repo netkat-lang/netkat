@@ -1,3 +1,5 @@
+(** Symbolic Transition System (STS) *)
+
 type t
 
 val trans : Nk.t -> t -> Spp.t

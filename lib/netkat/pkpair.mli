@@ -1,3 +1,5 @@
+(** Representation of a pair of individual (i.e., concrete) packets in NetKAT. *)
+
 open Pk
 
 type t

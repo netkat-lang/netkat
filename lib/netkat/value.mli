@@ -1,3 +1,5 @@
+(** Operations involving packet values. *)
+
 type t
 
 val compare : t -> t -> int

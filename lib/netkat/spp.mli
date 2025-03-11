@@ -1,4 +1,4 @@
-(** SPP *)
+(** Symbolic Packet Program (SPP) *)
 
 open Pk
 

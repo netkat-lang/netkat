@@ -1,4 +1,4 @@
-(** SP *)
+(** Symbolic Packet (SP) *)
 
 type sp =
   | Skip 

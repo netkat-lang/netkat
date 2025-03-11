@@ -1,8 +1,6 @@
 (** Representation of a Netkat program *)
 open Pk
 
-(* Not sure yet whether to expose the constructors or hide (to force smart
-constructors). For now it is exposed so that Deriv can match on the variants.*)
 type t = 
   | Drop
   | Skip

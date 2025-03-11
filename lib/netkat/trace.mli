@@ -1,3 +1,4 @@
+(** Representation of a trace of packets in NetKAT. *)
 
 type t = Pk.t list
 
@@ -9,7 +10,6 @@ val compare : t -> t -> int
 val eq : t -> t -> bool
 val pairs : t -> PrTrace.t
 val of_pairs : PrTrace.t -> t
-(* val pairs_and_pres : t -> (Pkpair.t * t) list *)
 val to_string : t -> string
 val prefixes : t -> t list
 val suffixes : t -> t list

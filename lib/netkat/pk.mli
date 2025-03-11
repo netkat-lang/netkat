@@ -1,18 +1,7 @@
-(** For packet related operations *)
+(** Representation of individual (i.e., concrete) packets in NetKAT. *)
 
 type field = Field.t
 type value = Value.t
-
-
-
-(* Move these to field/value mli's
-
-(** Convert int to value. *)
-
-*)
-
-
-(* Operations for concrete packets *)
 
 type t = value Field.M.t
 
