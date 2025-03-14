@@ -1,4 +1,4 @@
-(menhir (modules nkpl_parser route_parser) (flags --explain --inspection --table --dump))
+(menhir (modules nkpl_parser) (flags --explain --inspection --table --dump))
 
 (env
   (dev
