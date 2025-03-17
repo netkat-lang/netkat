@@ -1,4 +1,5 @@
-(** Representation of a Netkat program *)
+(** AST for NKPL program *)
+
 open Pk
 
 type t
@@ -10,19 +11,43 @@ val compare : t -> t -> int
 val eq : t -> t -> bool
 
 (*---------------------- Smart constructors: ---------------------- *)
+(** Node in AST for NetKAT negation. *)
 val neg : t -> t
+
+(** Node in AST for invoking the forward algorithm*)
 val fwd : t -> t
+
+(** Node in AST for invoking the backward algorithm*)
 val bwd : t -> t
+
+(** Node in AST for existential quantifiers *)
 val exists : field -> t -> t
+
+(** Node in AST for universal quantifiers *)
 val forall : field -> t -> t
 
+(** Node in AST for NetKAT skip. *)
 val skip : t
+
+(** Node in AST for NetKAT drop. *)
 val drop : t
+
+(** Node in AST for NetKAT dup. *)
 val dup : t
+
+(** Node in AST for a variable. *)
 val var : string -> t
+
+(** Node in AST for NetKAT filters *)
 val filter : bool -> field -> value -> t
+
+(** Node in AST for NetKAT modifications. *)
 val modif : field -> value -> t
+
+(** Node in AST for NetKAT modifications with variables in place for constants.*)
 val vfilter : bool -> field -> string -> t
+
+(** Node in AST for NetKAT modifications with variables in place for constants. *)
 val vmodif : field -> string -> t
 
 (** Construct a netkat expression which is the concatenation of a list of

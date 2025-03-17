@@ -1,7 +1,14 @@
+(** Representation for a packet trace (i.e. list of packets) used in transitions in NetKAT automata*)
+
 type t = Pkpair.t list
+
+(** comparator for packet traces. *)
 let compare = List.compare Pkpair.compare
+
+(** equivalence relation for packet traces. *)
 let eq t1 t2 = compare t1 t2 = 0
 
+(** [concat t1 t2] is the concatenation of the packet traces [t1] and [t2] if the last packet of [t1] is the first packet of [t2], and is [None] if otherwise. *)
 let concat t1 t2 : t option =
   match (List.rev t1), t2 with
   | [], _ -> Some t2
@@ -38,7 +45,7 @@ let unsnoc (t:t) : (t * Pkpair.t) option =
   | [] -> None
   | pp::rem -> Some (List.rev rem, pp)
   
-(* Return the list of (pk,pre,suf) tuples resulting from splitting this trace at
+(** Return the list of (pk,pre,suf) tuples resulting from splitting this trace at
    each position. Note prefixes have min length 0, suffixes have min length 1.
    The prefixes are either empty or end in pk, and the suffixes all start with pk.
    The triples are in ascending order for the prefixes. *)

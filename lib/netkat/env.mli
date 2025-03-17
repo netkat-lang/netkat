@@ -4,6 +4,7 @@ open Pk
 
 type t
 
+(** empty environment with no bindings*)
 val empty : t
 
 (** [bind_exp env name exp] adds [exp] to [env] bound to the name [name].*)

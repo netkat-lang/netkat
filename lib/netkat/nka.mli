@@ -1,16 +1,27 @@
-(** Netkat Automaton *)
+(** Representation of a NetKAT automaton.
 
+A NetKAT automaton consists of: 
+
+{ul
+  {- States: A set of states 𝑄}
+  {- Initial state: A state 𝑞0 ∈ 𝑄.}
+  {- Transitions: A function 𝛿 : 𝑄 × 𝑄 → SPP.}
+  {- Output: A function 𝜖 : 𝑄 → SPP}}
+*)
+
+(** Representation of a state in a NetKAT automaton. *)
 module State : sig
-  type t = int
-  val compare : t -> t -> int
-  val eq : t -> t -> bool
-  val to_string : t -> string
-  val drop : t
-end
-
+    type t = int
+    val compare : t -> t -> int
+    val eq : t -> t -> bool
+    val to_string : t -> string
+    val drop : t
+  end
+  
 module StateMap : Map.S with type key = State.t
 module StateSet : Set.S with type elt = State.t
 
+(** The representation of a NetKAT automaton as described above. *)
 type t = {
   states: StateSet.t;
   start: State.t;

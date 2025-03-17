@@ -3,10 +3,13 @@ as they are discovered. *)
 
 type t
 
+(** comparator for field values. *)
 val compare : t -> t -> int
 
 module M : Map.S with type key = t
 module S : Set.S with type elt = t
+
+(** set of keys in a map of field values. *)
 val keys : 'a M.t -> S.t
 
 (** [get_fields] returns a set of all the field names which have been created. *)

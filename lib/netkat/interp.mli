@@ -1,3 +1,5 @@
+(** The module for interpreting nkpl commands from strings. *)
+
 (** Interpret / execute the nkpl command *)
 val interp : string -> Env.t -> Nkcmd.t -> Env.t
 

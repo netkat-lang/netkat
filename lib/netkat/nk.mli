@@ -1,4 +1,5 @@
-(** Representation of a Netkat program *)
+(** Representation of a Netkat expression. *)
+
 open Pk
 
 type t = 
@@ -22,10 +23,19 @@ val eq : t -> t -> bool
 
 
 (*---------------------- Smart constructors: ---------------------- *)
+(** The NetKAT expression [⊤]. *)
 val skip : t
+
+(** The NetKAT expression [⊥]. *)
 val drop : t
+
+(** The NetKAT expression [dup]*)
 val dup : t
+
+(** [filter b f v] is the NetKAT expression [f=v] if [b] is true and is the SPP [f≠v] if otherwise*)
 val filter : bool -> field -> value -> t
+
+(** [modif f v] is the NetKAT expression [f←v]. *)
 val modif : field -> value -> t
 
 (** Construct a netkat expression which is the concatenation of a list of
@@ -75,6 +85,7 @@ val neg : t -> t
     level.*)
 val rand : field list -> value list -> int -> t
 
+(** [rand_dupless fields values k] is like  [rand fields values k] but the constructed expression does not contain any [dup]. *)
 val rand_dupless : field list -> value list -> int -> t
 
 (** Pretty print the netkat expression. *)
