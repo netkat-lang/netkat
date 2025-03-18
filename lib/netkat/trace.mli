@@ -11,7 +11,7 @@ val empty : t
 (** Comparator for packet traces. *)
 val compare : t -> t -> int
 
-(** Equivalence relation for packet traces*)
+(** Equivalence relation for packet traces. *)
 val eq : t -> t -> bool
 
 (** pairs [tr] converts a [Trace]-typed packet trace to a [PrTrace]-typed packet trace. [tr] must have at least two packets. *)
@@ -29,10 +29,10 @@ val prefixes : t -> t list
 (** [suffixes tr] is the set of suffix traces of the trace [tr] that has at least two packets. [tr] must have size >= 2. *)
 val suffixes : t -> t list
 
-(** [suffixes tr] is the set of prefix traces of the trace [tr] that has at least one packets. [tr] must have size  >= 1. *)
+(** [suffixes tr] is the set of prefix traces of the trace [tr] that has at least one packet. [tr] must have size  >= 1. *)
 val prefixes1 : t -> t list
 
-(** [suffixes tr] is the set of suffix traces of the trace [tr] that has at least one packets. [tr] must have size  >= 1. *)
+(** [suffixes tr] is the set of suffix traces of the trace [tr] that has at least one packet. [tr] must have size  >= 1. *)
 val suffixes1 : t -> t list
 
 (** The first packet of a trace. *)
@@ -44,7 +44,7 @@ val tl : t -> t
 (** The last packet of a trace. *)
 val dh : t -> Pk.t
 
-(** The trace with the last packet removed.*)
+(** The trace with the last packet removed. *)
 val lt : t -> t
 
 (** The length of a packet trace. *)

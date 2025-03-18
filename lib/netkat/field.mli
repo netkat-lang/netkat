@@ -15,8 +15,8 @@ val keys : 'a M.t -> S.t
 (** [get_fields] returns a set of all the field names which have been created. *)
 val get_fields : unit -> S.t
 
-(** Lookup (or, generate a new) field for a given name. *)
+(** Looks up (or, generates a new) field for a given name. *)
 val get_or_assign_fid : string -> t
 
-(** Lookup a field by name, but if there is not one, fail instead of generating one. *)
+(** Looks up a field by name, but if there is not one, fails instead of generating one. *)
 val get_or_fail_fid : t -> string

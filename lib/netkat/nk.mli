@@ -2,7 +2,7 @@
 
 open Pk
 
-type t = 
+type t =
   | Drop
   | Skip
   | Dup
@@ -15,10 +15,10 @@ type t =
   | Diff of t * t
   | Xor of t * t
 
-(** Provides a comparison using the standard interface to [compare] *)
+(** Provides a comparison using the standard interface to [compare]. *)
 val compare : t -> t -> int
 
-(** [eq r] decides if the two regexs are *syntactically* equal *)
+(** [eq r] decides if the two regexs are *syntactically* equal. *)
 val eq : t -> t -> bool
 
 
@@ -29,64 +29,64 @@ val skip : t
 (** The NetKAT expression [⊥]. *)
 val drop : t
 
-(** The NetKAT expression [dup]*)
+(** The NetKAT expression [dup]. *)
 val dup : t
 
-(** [filter b f v] is the NetKAT expression [f=v] if [b] is true and is the SPP [f≠v] if otherwise*)
+(** [filter b f v] is the NetKAT expression [f=v] if [b] is [true] and is the SPP [f≠v] if otherwise. *)
 val filter : bool -> field -> value -> t
 
 (** [modif f v] is the NetKAT expression [f←v]. *)
 val modif : field -> value -> t
 
-(** Construct a netkat expression which is the concatenation of a list of
+(** Constructs a netkat expression which is the concatenation of a list of
     netkat expressions. *)
 val seq : t list -> t
 
-(** Construct a netkat expression which is the concatentation of the two
+(** Constructs a netkat expression which is the concatentation of the two
     given netkat expressions. *)
 val seq_pair : t -> t -> t
 
-(** Construct a netkat expression which is the union of a list of
+(** Constructs a netkat expression which is the union of a list of
     netkat expressions. *)
 val union : t list -> t
 
-(** Construct a netkat expression which is the union of the two
+(** Constructs a netkat expression which is the union of the two
     given netkat expressions. *)
 val union_pair : t -> t -> t
 
-(** Construct a netkat expression which is the intersection of a list of
+(** Constructs a netkat expression which is the intersection of a list of
     netkat expressions. *)
 val intersect : t list -> t
 
-(** Construct a netkat expression which is the intersection of the two
+(** Constructs a netkat expression which is the intersection of the two
     given netkat expressions. *)
 val intersect_pair : t -> t -> t
 
-(** Construct a netkat expression which is the Kleene star of the given
+(** Constructs a netkat expression which is the Kleene star of the given
     netkat expression. *)
 val star : t -> t
 
-(** Construct a netkat expression which is the difference (as sets) of first
+(** Constructs a netkat expression which is the difference (as sets) of first
     netkat expression and the second one. *)
 val diff : t -> t -> t
 
-(** Construct a netkat expression which is the symmetric difference (as sets)
-    of two netkat expressions *)
+(** Constructs a netkat expression which is the symmetric difference (as sets)
+    of two netkat expressions. *)
 val xor : t -> t -> t
 
-(** Construct a netkat expression which is the negation of this expression. Note
-    that this fails for expression which are not SPs *)
+(** Constructs a netkat expression which is the negation of this expression. Note
+    that this fails for expression which are not SPs. *)
 val neg : t -> t
 
 (** [rand fields values k] constructs a random netkat expression over
     the give [fields] and [values]. The unit interval parameter [k]
     controls the complexity of the expression by determining how many
     AST levels to extend the the "depth" of the expression tree growing by 1
-    level.*)
+    level. *)
 val rand : field list -> value list -> int -> t
 
-(** [rand_dupless fields values k] is like  [rand fields values k] but the constructed expression does not contain any [dup]. *)
+(** [rand_dupless fields values k] is like [rand fields values k] but the constructed expression does not contain any [dup]. *)
 val rand_dupless : field list -> value list -> int -> t
 
-(** Pretty print the netkat expression. *)
+(** Pretty prints the netkat expression. *)
 val to_string : t -> string

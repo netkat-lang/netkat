@@ -10,7 +10,7 @@ type t
     with string representations "0", "1", ... *)
 val intalph : int -> t
 
-(** [size alpha] returns the size of [alpha] *)
+(** [size alpha] returns the size of [alpha]. *)
 val size : t -> int
 
 (** [of_string_array a] constructs an alphabet with symbols corresponding to the
@@ -36,33 +36,33 @@ val fold :  ('a->symbol->'a) -> 'a -> t -> 'a
 val map : (symbol->'a) -> t -> 'a list
 
 
-(** Serialize to S-Expression. *)
+(** Serializes to S-Expression. *)
 val sym_of_sexp : Core.Sexp.t -> symbol
 
-(** Deserialize from S-Expression. *)
+(** Deserializes from S-Expression. *)
 val sexp_of_sym : symbol -> Core.Sexp.t
 
-(** Serialize symbol to JSON. *)
+(** Serializes symbol to JSON. *)
 val sym_of_json : Yojson.Basic.t -> symbol
 
-(** Deserialize symbol from JSON. *)
+(** Deserializes symbol from JSON. *)
 val sym_to_json : symbol -> Yojson.Basic.t
 
-(** Serialize alphabet to JSON. *)
+(** Serializes alphabet to JSON. *)
 val of_json : Yojson.Basic.t -> t
 
-(** Deserialize alphabet from JSON. *)
+(** Deserializes alphabet from JSON. *)
 val to_json : t -> Yojson.Basic.t
 
-(** Convert a symbol to its string representation. *)
+(** Converts a symbol to its string representation. *)
 val sym_to_string : t -> symbol -> string
 
-(** Convert an alphabet to its string representation. *)
+(** Converts an alphabet to its string representation. *)
 val to_string : t -> string
 
-(** Convert (injectively) a symbol to an integer. *)
+(** Converts (injectively) a symbol to an integer. *)
 val sym_to_int : symbol -> int
 
-(** Convert an integer to a symbol. It is an error to convert an integer greater
+(** Converts an integer to a symbol. It is an error to convert an integer greater
     than or equal to the size of the alphabet. *)
 val sym_of_int : int -> symbol

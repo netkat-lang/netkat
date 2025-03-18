@@ -10,5 +10,5 @@ type t =
   | Rep of Nkexp.t
   (* | For of string * value * value * t *) (* TODO *)
 
-(** Pretty print the netkat expression. *)
+(** Pretty prints the netkat expression. *)
 val to_string : t -> string

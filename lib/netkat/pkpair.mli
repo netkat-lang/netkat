@@ -4,10 +4,10 @@ open Pk
 
 type t
 
-(** comparator for packet pairs *)
+(** comparator for packet pairs. *)
 val compare : t -> t -> int
 
-(** equivalence relation for packet pairs*)
+(** equivalence relation for packet pairs. *)
 val eq : t -> t -> bool
 
 (** [split p] is [pk1, pk2] if [p] contains the two packets [pk1, pk2]. *)
@@ -28,5 +28,5 @@ val empty : t
 (** A string representation of pair of packets. *)
 val to_string : t -> string
 
-(** [to_list p] is a list of tuples of form [(f, (vf1, vf2))] where [vf1] is the value of the field [f] in the first packet and [vf2] the second.*)
+(** [to_list p] is a list of tuples of form [(f, (vf1, vf2))] where [vf1] is the value of the field [f] in the first packet and [vf2] the second. *)
 val to_list : t -> (field*(value*value)) list

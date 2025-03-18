@@ -27,7 +27,7 @@ module S : Set.S with type elt = t
 {ul
   {- [m[k] = f d m2[k]] if [k] does not exist in [m1], }
   {- [m[k] = f m1[k] d] if [k] does not exist in [m2],}
-  {- [m[k] = f m1[k] m2[k]] if otherwise.}}*)
+  {- [m[k] = f m1[k] m2[k]] if otherwise.}} *)
 val map_op_pair : 'a -> ('a -> 'a -> 'a) -> 'a M.t -> 'a M.t -> 'a M.t
 
 (** [map_op d f ms] iteratively performs [map_op_pair d f mi mj] on the list of maps [ms]. *)

@@ -7,7 +7,7 @@ type symbol = Alphabet.symbol
 (** Use the Alphabet word type. *)
 type word = Word.t
 
-(** Transitions are labeled by a symbol or epsilon *)
+(** Transitions are labeled by a symbol or epsilon. *)
 type nsymbol = Char of symbol | Eps
 
 module type State = sig
@@ -19,7 +19,7 @@ module type State = sig
 end
 
 module type N = sig
- 
+
   type state
 
   module StateSet : Set.S with type elt = state
@@ -35,7 +35,7 @@ module type N = sig
 
   type t
 
-  (* Construct an NFA given an alphabet, set of start states, set of final
+  (* Constructs an NFA given an alphabet, set of start states, set of final
      states, and a list of transitions. The set of all states is the collection of those
      referenced by the start and final sets and the list of transitions. *)
   val mk_nfa : Alphabet.t -> state list -> state list -> (state*nsymbol*state) list -> t
@@ -43,25 +43,25 @@ module type N = sig
   val get_start : t -> StateSet.t
   val contains_final : t -> StateSet.t -> bool
 
-  (* Run the NFA on a word and return [true] if the word is accepted and
-     [false] otherwise *)
+  (* Runs the NFA on a word and returns [true] if the word is accepted and
+     [false] otherwise. *)
   val accept : t -> word -> bool
 
-  (* Given an NFA, a set of states, and a symbol, return the set of states that would
+  (* Given an NFA, a set of states, and a symbol, returns the set of states that would
      be obtained by performing ``one step'', i.e. reading the given symbol. *)
   val next : t -> StateSet.t -> symbol -> StateSet.t
 
-  (** Return the transitions of the NFA as a list of [state, symbol, state] triples. *)
+  (** Returns the transitions of the NFA as a list of [state, symbol, state] triples. *)
   val trans_list : t -> (state * nsymbol * state) list
 
-  (** Construct an NFA which recognizes the reverse of the language of the given NFA, i.e. the
+  (** Constructs an NFA which recognizes the reverse of the language of the given NFA, i.e. the
       set of words which are the reverse of a word accepted by the input NFA. *)
   val reverse : t -> t
 
-  (** Write a string representation of the NFA to stdout. *)
+  (** Writes a string representation of the NFA to stdout. *)
   val print : t -> unit
 
-  (** Convert the NFA to a Regular Expression. *)
+  (** Converts the NFA to a Regular Expression. *)
   val to_rx : t -> Rx.t
 
   (* Up-to techniques folllowing Bonchi/Pous POPL '15 *)
@@ -69,10 +69,10 @@ module type N = sig
   val context : upto
   val congruence : upto
 
-  (** Perform bisimulation on two states. Return a bisimulation relation if one exists, 
+  (** Performs bisimulation on two states. Returns a bisimulation relation if one exists,
       or None otherwise. *)
   val bisim : upto -> t -> StateSet.t -> StateSet.t -> StateRel.t option
 end
 
-module Make: 
+module Make:
   functor (S : State) -> N with type state = S.t
