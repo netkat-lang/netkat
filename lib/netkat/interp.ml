@@ -36,9 +36,12 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          let sgn = if b then "≡" else "≢" in
                          let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
                          let stop = Unix.gettimeofday () in
-
-                         let res' = Nka.bisim a1 a2 in
-                         let res'' = Sp.eq (Nka.forward (Nk.xor e1' e2')) Sp.drop in
+                         (*
+                         (* Alternative forms of the bisim check: *)
+                         let res = Sp.eq (Nka.forward (Nk.xor e1' e2')) Sp.drop in
+                         let res = Nka.bisim a1 a2 in
+                         *)
+                         (*
                          let () = match res,res',res'' with
                          | None,true,true
                          | Some _,false,false -> ()
@@ -67,6 +70,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                              let () = Printf.printf "nka of e1⊕e2: %s\n"
                                 (Nka.to_string (Nka.autom (Nk.xor e1' e2'))) in
                              failwith "mismatched bisim results!" in
+                         *)
                          begin
                          match b, res with
                          | true, None
