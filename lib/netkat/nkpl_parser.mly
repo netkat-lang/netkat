@@ -2,7 +2,7 @@
 %}
 
 %token LPAR RPAR EOF
-%token IMPORT CHECK PRINT TIKZ EQUIV NEQUIV
+%token IMPORT CHECK PRINT TIKZ EQUIV NEQUIV FOR DO IN DOTDOT
 %token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD EXISTS FORALL REP
 %token NTST TST MOD
@@ -45,6 +45,7 @@ nkpl_cmd:
   | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
   | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
   | REP; e=nk_exp { Nkcmd.Rep e }
+  | FOR; var=VAR; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
   ;
 
 nk_exp:

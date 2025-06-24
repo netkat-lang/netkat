@@ -26,6 +26,10 @@ let rec token buf =
   | "exists" -> EXISTS
   | "forall" -> FORALL
   | "rep" -> REP
+  | "for" -> FOR
+  | "do" -> DO
+  | ".." -> DOTDOT
+  | "in" -> IN
   | '(' -> LPAR
   | ')' -> RPAR
   | '|'
@@ -48,29 +52,31 @@ let rec token buf =
 
   (* Unicode symbols for compatibility with 5stars *)
   | math -> begin match Sedlexing.Utf8.lexeme buf with
-            | "\u{2295}" -> XOR   (* ⊕ *)
-            | "\u{2227}"          (* ∧ *)
-            | "\u{2229}" -> AND   (* ∩ *)
-            | "\u{00AC}" -> NEG   (* ¬ *)
-            | "\u{22c5}" -> DOT   (* ⋅ *)
-            | "\u{03b4}" -> DUP   (* δ *)
-            | "\u{03b5}" -> SKIP  (* ε *)
-            | "\u{2205}" -> DROP  (* ∅ *)
-            | "\u{222a}"          (* ∪ *)
-            | "\u{2228}" -> PLUS  (* ∨ *)
-            | "\u{2190}" -> MOD   (* ← *)
-            | "\u{22c6}" -> STAR  (* ⋆ *)
-            | "\u{2261}" -> EQUIV (* ≡ *)
+            | "\u{2295}" -> XOR    (* ⊕ *)
+            | "\u{2227}"           (* ∧ *)
+            | "\u{2229}" -> AND    (* ∩ *)
+            | "\u{00AC}" -> NEG    (* ¬ *)
+            | "\u{22c5}" -> DOT    (* ⋅ *)
+            | "\u{03b4}" -> DUP    (* δ *)
+            | "\u{03b5}" -> SKIP   (* ε *)
+            | "\u{2205}" -> DROP   (* ∅ *)
+            | "\u{222a}"           (* ∪ *)
+            | "\u{2228}" -> PLUS   (* ∨ *)
+            | "\u{2190}" -> MOD    (* ← *)
+            | "\u{22c6}" -> STAR   (* ⋆ *)
+            | "\u{2261}" -> EQUIV  (* ≡ *)
             | "\u{2262}" -> NEQUIV (* ≢ *)
-            | "\u{2260}" -> NTST  (* ≠ *)
+            | "\u{2260}" -> NTST   (* ≠ *)
+            | "\u{2208}" -> IN     (* ∈ *)
             | _ -> failwith "unknown math symbol"
             end
+  (*
   | lowercase -> begin match Sedlexing.Utf8.lexeme buf with
-                 | "\u{03b4}" -> DUP   (* δ *)
                  | "\u{03b5}" -> SKIP  (* ε *)
-                 | _ -> failwith "unexpected lowercase"
+                 | unk ->
+                     failwith ("unexpected lowercase: " ^ (Sedlexing.Utf8.lexeme buf))
                  end
-          
+                 *)
   | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
   | '@', Plus alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
   | '"', fn, '"' -> 

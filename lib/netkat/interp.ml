@@ -95,7 +95,13 @@ and interp (bn: string) (env: Env.t) (c: t) =
   | Tikz e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Deriv.e |> Spp.tikz); env
   | Let (s, e) -> Env.bind_exp env s (Nkexp.eval env e)
   | VLet (s, v) -> Env.bind_val env s v
-  | Rep e -> let a = (Nkexp.eval env e) |> Nka.autom in
-             let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> Printf.printf "%s\n%!" in
-             env
-
+  | Rep e ->
+      let a = (Nkexp.eval env e) |> Nka.autom in
+      let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> Printf.printf "%s\n%!" in
+      env
+  | For (v, i_0, i_n, cmd) ->
+      let indexes = List.init (i_n - i_0 + 1) (fun i -> i_0 + i) in
+      List.fold_left (fun env i -> 
+        let env' = Env.bind_val env v (Value.of_int i) in
+        interp bn env' cmd
+      ) env indexes

@@ -22,7 +22,7 @@ type t =
   | Exists of field * t
   | Forall of field * t
   | Var of string
-  (* | Lam of  *)
+  (* | Lambda of string * t *)
   (* | App of  *)
   (* | Range of *) (* TODO *)
 
@@ -100,6 +100,11 @@ let rec compare (t1:t) (t2:t) =
   | Neg _, _ -> -1
   | _, Neg _ -> 1
   | Var s1, Var s2 -> String.compare s1 s2
+  (*
+  | Var _, _ -> -1
+  | _, Var _ -> 1
+  *)
+  (*| Lambda (s1,e1), Lambda (s2,e2) -> if String.compare s1 s2 <> 0 then String.compare s1 s2 else compare e1 e2 *)
 
 (* Syntactic eqalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
@@ -204,6 +209,7 @@ let to_string (e: t) : string =
     | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
     | Forall (f,e) -> "forall " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
+    (* | Lambda (s, e) -> Printf.sprintf "λ %s ⇒ %s" s (to_string_parent (prec e) e) *)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
@@ -236,3 +242,4 @@ let rec eval (env: Env.t) (e: t) : Nk.t =
                       | _ -> failwith ("TODO: " ^ __LOC__)
                       end
     | Exists (f,e) -> failwith ("TODO: " ^ __LOC__)
+    (* | Lambda (s,e) -> failwith ("TODO: " ^ __LOC__) *)

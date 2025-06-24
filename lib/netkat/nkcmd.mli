@@ -6,9 +6,9 @@ type t =
   | Print of Nkexp.t
   | Tikz of Nkexp.t
   | Let of string * Nkexp.t
-  | VLet of string * Pk.value
+  | VLet of string * Value.t
   | Rep of Nkexp.t
-  (* | For of string * value * value * t *) (* TODO *)
+  | For of string * int * int * t
 
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
