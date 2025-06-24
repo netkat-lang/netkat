@@ -70,14 +70,17 @@ let rec token buf =
             | "\u{2208}" -> IN     (* ∈ *)
             | _ -> failwith "unknown math symbol"
             end
-  (*
-  | lowercase -> begin match Sedlexing.Utf8.lexeme buf with
-                 | "\u{03b5}" -> SKIP  (* ε *)
-                 | unk ->
-                     failwith ("unexpected lowercase: " ^ (Sedlexing.Utf8.lexeme buf))
-                 end
-                 *)
   | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
+  | lowercase ->
+      begin match Sedlexing.Utf8.lexeme buf with
+      | "\u{03b5}" -> SKIP  (* ε *)
+      | "\u{03b4}" -> DUP    (* δ *)
+      | _ ->
+         let first,last = Sedlexing.lexing_positions buf in
+         let () = Printf.printf "unrecognized character line %d, col %d\n%!"
+                        first.pos_lnum (first.pos_cnum - first.pos_bol) in
+         exit 1
+      end
   | '@', Plus alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
   | '"', fn, '"' -> 
       let s = Sedlexing.Latin1.lexeme buf in
