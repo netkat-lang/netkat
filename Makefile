@@ -12,7 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-NAME=nerode
+NAME=netkat
 
 .PHONY: all build clean test
 

@@ -1,4 +1,4 @@
 (executables
-  (public_names nk nkrepl)
-  (names nk nkrepl)
-  (libraries core nerode nerode.netkat))
+  (public_names netkat netkat-repl)
+  (names netkat netkat_repl)
+  (libraries core netkat netkat.netkat))

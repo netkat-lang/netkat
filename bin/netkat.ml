@@ -1,4 +1,4 @@
-open Nerode_netkat
+open Netkat_netkat
 open Stdlib
 
 let () =

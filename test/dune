@@ -1,4 +1,4 @@
 (tests
   (names test)
-  (libraries nerode alcotest)
+  (libraries netkat alcotest)
   (action (run %{test} -e)))

@@ -1,5 +1,5 @@
 (library
- (name nerode)
- (public_name nerode)
+ (name netkat)
+ (public_name netkat)
  (wrapped true)
- (libraries nerode.netkat))
+ (libraries netkat.netkat))

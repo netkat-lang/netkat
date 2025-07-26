@@ -5,12 +5,12 @@
     (flags (:standard -warn-error -A))))
 
 (library
-  (name nerode_netkat)
-  (public_name nerode.netkat)
+  (name netkat_netkat)
+  (public_name netkat.netkat)
   (instrumentation (backend landmarks))
   (preprocess (pps landmarks-ppx sedlex.ppx))
   (libraries landmarks unix yojson menhirLib sedlex))
 
 (documentation
-  (package nerode)
+  (package netkat)
   (mld_files :standard))

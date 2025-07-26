@@ -5,4 +5,14 @@ opam install alcotest
 
 # Usage
 
-dune exec nk nkpl/b.nkpl
+NetKAT REPL:
+
+```
+dune exec netkat-repl
+```
+
+NetKAT command-line:
+
+```
+dune exec netkat nkpl/b.nkpl
+```
