@@ -1,15 +1,15 @@
 opam-version: "2.0"
 version: "0.0.1"
-synopsis: "Nerode: A library for manipulating Finite Automata and Regular Expressions"
+synopsis: "NetKAT: A library for manipulating Finite Automata and Regular Expressions"
 maintainer: "jnfoster@cs.cornell.edu"
 authors: ["Mark Moeller <moeller@cs.cornell.edu>"
           "Nate Foster <jnfoster@cs.cornell.edu>"
           "Alexandra Silva <alexandra.silva@cornell.edu>"
           "Alaia Solko-Breslin <alaia@seas.upenn.edu>"
           "Caleb Koch <ckoch@stanford.edu>"]
-homepage: "https://github.com/cornell-pl/nerode-public"
-dev-repo: "git+https://github.com/cornell-pl/nerode-public"
-bug-reports: "https://github.com/cornell-pl/nerode-public"
+homepage: "https://github.com/cornell-pl/netkat"
+dev-repo: "git+https://github.com/cornell-pl/netkat"
+bug-reports: "https://github.com/cornell-pl/netkat"
 license: "Apache-2.0"
 build: [
   ["dune" "subst"] {pinned}

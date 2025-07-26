@@ -2,4 +2,4 @@
  (name nerode)
  (public_name nerode)
  (wrapped true)
- (libraries nerode.regular nerode.netkat))
+ (libraries nerode.netkat))
