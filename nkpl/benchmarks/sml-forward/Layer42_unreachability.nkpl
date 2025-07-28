@@ -1,3 +1,0 @@
-import "../../examples/topologyzoo/Layer42_topo.nkpl"
-import "../../examples/topologyzoo/Layer42_routing.nkpl"
-check (forward ((@sw=N5?⋅((main⋅(top⋅δ))⋆⋅@sw=10?))^( ∅))) ≡ ∅

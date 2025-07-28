@@ -1,4 +1,0 @@
-import "examples/nkpl/popl14.nkpl"
-
-main
-  tag≟1⋅s₂

@@ -13,6 +13,7 @@ let rec token buf =
   match%sedlex buf with
   | comment (* line comment *)
   | whsp -> token buf    (* ignore whitespace *)
+  | "rangesum" -> RANGESUM
   | "import" -> IMPORT
   | "check" -> CHECK
   | "print" -> PRINT
@@ -51,7 +52,8 @@ let rec token buf =
   | number -> NUM (int_of_string (Sedlexing.Latin1.lexeme buf))
 
   (* Unicode symbols for compatibility with 5stars *)
-  | math -> begin match Sedlexing.Utf8.lexeme buf with
+  | math -> let s = Sedlexing.Utf8.lexeme buf in
+            begin match s with
             | "\u{2295}" -> XOR    (* ⊕ *)
             | "\u{2227}"           (* ∧ *)
             | "\u{2229}" -> AND    (* ∩ *)
@@ -60,6 +62,8 @@ let rec token buf =
             | "\u{03b4}" -> DUP    (* δ *)
             | "\u{03b5}" -> SKIP   (* ε *)
             | "\u{2205}" -> DROP   (* ∅ *)
+            | "\u{22a4}" -> SKIP   (* ⊤ *)
+            | "\u{22a5}" -> DROP   (* ⊥ *)
             | "\u{222a}"           (* ∪ *)
             | "\u{2228}" -> PLUS   (* ∨ *)
             | "\u{2190}" -> MOD    (* ← *)
@@ -68,7 +72,11 @@ let rec token buf =
             | "\u{2262}" -> NEQUIV (* ≢ *)
             | "\u{2260}" -> NTST   (* ≠ *)
             | "\u{2208}" -> IN     (* ∈ *)
-            | _ -> failwith "unknown math symbol"
+            | _ ->
+                let first,last = Sedlexing.lexing_positions buf in
+                let () = Printf.printf "unknown math symbol: %s (line %d, col %d)\n%!"
+                             s first.pos_lnum (first.pos_cnum - first.pos_bol) in
+                exit 1
             end
   | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
   | lowercase ->

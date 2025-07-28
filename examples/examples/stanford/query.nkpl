@@ -1,0 +1,5 @@
+import "routing.nkpl"
+import "topology.nkpl"
+
+check @switch=boza?⋅(routing⋅topo⋅δ)⋆⋅@switch=bozb ≢ ∅
+-- check @switch=boza?⋅(routing⋅topo⋅δ)⋆⋅@switch=yozb ≢ ∅

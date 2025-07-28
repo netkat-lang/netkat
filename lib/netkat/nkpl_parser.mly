@@ -2,7 +2,7 @@
 %}
 
 %token LPAR RPAR EOF
-%token IMPORT CHECK PRINT TIKZ EQUIV NEQUIV FOR DO IN DOTDOT
+%token RANGESUM IMPORT CHECK PRINT TIKZ EQUIV NEQUIV FOR DO IN DOTDOT
 %token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD EXISTS FORALL REP
 %token NTST TST MOD
@@ -46,6 +46,7 @@ nkpl_cmd:
   | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
   | REP; e=nk_exp { Nkcmd.Rep e }
   | FOR; var=VAR; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
+  | e=nk_exp { Nkcmd.Print e (* TODO XXX *) }
   ;
 
 nk_exp:
@@ -79,16 +80,17 @@ nk_seq:
 
 nk_un:
   | r=nk_un; STAR { Nkexp.star r }
-  | r=nk_un; NEG { Nkexp.neg r }
   | r=nk_par { r }
   ;
 
 nk_par:
   | c=nk_at { c }
+  | NEG; p=nk_par { Nkexp.neg p }
   | LPAR; r=nk_exp; RPAR { r }
   ;
 
 nk_at:
+  | RANGESUM; f = IDENT; v1 = NUM; DOTDOT; v2 = NUM { Nkexp.drop (* TODO XXX *) }
   | f = IDENT; TST; v = NUM { Nkexp.filter true (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (Field.get_or_assign_fid f) (Value.of_int v) }

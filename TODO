@@ -1,0 +1,28 @@
+- Forall/Exists are not implemented (TODO line 244 in lib/netkat/nkexp.ml)
+- command-level expr not implemented (TODO line 29 in lib/netkat/nkpl_parser.ml)
+- rangesum not implemented (TODO line 93 in lib/netkat/nkpl_parser.ml)
+- The following do not parse:
+examples/examples/nkpl/2x2-fabric-slice.nkpl
+examples/examples/nkpl/altmethod.nkpl
+examples/examples/nkpl/demo.nkpl
+examples/examples/nkpl/e1.nkpl
+examples/examples/nkpl/e11.nkpl
+examples/examples/nkpl/e12.nkpl
+examples/examples/nkpl/e13.nkpl
+examples/examples/nkpl/e22.nkpl
+examples/examples/nkpl/just_set.nkpl
+examples/examples/nkpl/lambad.nkpl
+examples/examples/nkpl/lamgood.nkpl
+examples/examples/nkpl/paper-e1-noslice.nkpl
+examples/examples/nkpl/paper-e1.nkpl
+examples/examples/nkpl/paper-e2-noslice.nkpl
+examples/examples/nkpl/paper-e2.nkpl
+examples/examples/nkpl/paper-pre3.nkpl
+examples/examples/nkpl/paper-pre4.nkpl
+examples/examples/nkpl/paper-pre5.nkpl
+examples/examples/nkpl/popl14.nkpl
+examples/examples/nkpl/scratchpad.nkpl
+examples/examples/nkpl/slice.nkpl
+examples/examples/nkpl/test_and_set.nkpl
+examples/examples/nkpl/test1.nkpl
+examples/examples/nkpl/upf.nkpl

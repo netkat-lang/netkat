@@ -1,3 +1,0 @@
-import "../../examples/topologyzoo/Deltacom_topo.nkpl"
-import "../../examples/topologyzoo/Deltacom_routing.nkpl"
-check (forward ((@sw=N112?⋅((main⋅(top⋅δ))⋆⋅@sw=1000?))^(∅))) ≡ ∅

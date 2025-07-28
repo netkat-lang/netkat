@@ -1,3 +1,0 @@
-import "../../examples/topologyzoo/Layer42_topo.nkpl"
-import "../../examples/topologyzoo/Layer42_routing.nkpl"
-check (@sw=N5∧@dst=N0)?⋅((main⋅(top⋅δ))⋆⋅@sw=N0?) ≢ ∅

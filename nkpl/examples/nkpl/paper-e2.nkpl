@@ -1,4 +1,0 @@
-import "examples/nkpl/popl14.nkpl"
-
-main
-  (s₁⋅top⋅δ)⋆∪(s₂⋅top⋅δ)⋆

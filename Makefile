@@ -35,6 +35,9 @@ install: build
 test:
 	dune runtest
 
+parse:
+	bin/parse_all
+
 clean:
 	dune clean
 	rm -rf ./docs

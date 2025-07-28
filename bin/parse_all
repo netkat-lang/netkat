@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "" > parsed.txt
+for i in `find examples -name "*.nkpl" -print`; do dune exec netkat-parse $i &> /dev/null; echo $i $? >> parsed.txt; done

@@ -14,5 +14,5 @@ dune exec netkat-repl
 NetKAT command-line:
 
 ```
-dune exec netkat nkpl/b.nkpl
+dune exec netkat examples/b.nkpl
 ```

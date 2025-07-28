@@ -1,3 +1,0 @@
-import "../../examples/topologyzoo/Telcove_topo.nkpl"
-import "../../examples/topologyzoo/Telcove_routing.nkpl"
-check (@sw=N72∧@dst=N0)?⋅((main⋅(top⋅δ))⋆⋅@sw=N0?) ≢ ∅

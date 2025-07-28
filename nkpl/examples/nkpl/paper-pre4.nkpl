@@ -1,4 +1,0 @@
-import "examples/nkpl/popl14.nkpl"
-
-main
-  s₂⋅top⋅δ⋅in₁

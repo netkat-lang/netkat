@@ -1,21 +1,42 @@
 open Nkcmd
 
-let rec interp_file_with_env (env: Env.t) (fn: string) : Env.t =
+let rec parse_file_with_env (env: Env.t) (fn: string) : Nkcmd.t list =
   let f = In_channel.open_text fn in
   let lexbuf = Sedlexing.Utf8.from_channel f in
   let lexer  = Sedlexing.with_tokenizer Nkpl_lexer.token lexbuf in
   let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.nkpl_file in
-  let cmds = parser lexer in
+  (try
+    parser lexer
+  with
+    | Nkpl_parser.Error s ->
+      let (x,y) = Sedlexing.lexing_positions lexbuf in
+      Printf.printf "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+      exit 1)
+
+and parse_string (env: Env.t) (s: string) : Nkcmd.t option =
+  let lexbuf = Sedlexing.Utf8.from_string s in
+  let lexer  = Sedlexing.with_tokenizer Nkpl_lexer.token lexbuf in
+  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.single_cmd in
+  (try
+    parser lexer
+  with
+    | Nkpl_parser.Error s ->
+      let (x,y) = Sedlexing.lexing_positions lexbuf in
+      Printf.printf "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+      exit 1)
+
+and parse_file (fn: string) : Nkcmd.t list =
+  parse_file_with_env Env.empty fn
+
+let rec interp_file_with_env (env: Env.t) (fn: string) : Env.t =
+  let cmds = parse_file_with_env env fn in
   let bn = match String.rindex_opt fn '/' with
            | None -> ""
            | Some i -> String.sub fn 0 (i+1) in
   List.fold_left (interp bn) env cmds
 
 and interp_string (env: Env.t) (s: string) =
-  let lexbuf = Sedlexing.Utf8.from_string s in
-  let lexer  = Sedlexing.with_tokenizer Nkpl_lexer.token lexbuf in
-  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.single_cmd in
-  let c = parser lexer in
+  let c = parse_string env s in
   match c with
     | None -> env
     | Some cmd -> interp "" env cmd
