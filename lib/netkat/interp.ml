@@ -102,14 +102,12 @@ and interp (bn: string) (env: Env.t) (c: t) =
                             begin
                               Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                              Printf.printf "Counterexample trace:\n%s\n" (Trace.to_string cex);
-                              exit 1
+                              Printf.printf "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
                             end
                          | false, None ->
                             begin
                             Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
-                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                            exit 1
+                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
                             end
                           end; env
   | Print e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Nk.to_string); env
