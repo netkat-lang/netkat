@@ -23,3 +23,9 @@ NetKAT command-line:
 ```
 dune exec netkat examples/b.nkpl
 ```
+
+NetKAT TCP server:
+
+```
+dune exec netkat-listen
+```
