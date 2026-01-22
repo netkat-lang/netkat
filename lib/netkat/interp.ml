@@ -1,5 +1,17 @@
 open Nkcmd
 
+open Ego.Basic
+
+(* create an egraph *)
+let graph = EGraph.init ()
+(* add expressions *)
+let expr1 = EGraph.add_sexp graph [%s ((one << two) / three)]
+(* Convert to graphviz *)
+let g : Odot.graph = EGraph.to_dot graph
+let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c
+(* dot -Tpdf test.dot -o test.pdf *)
+
+
 let rec parse_file_with_env (env: Env.t) (fn: string) : Nkcmd.t list =
   let f = In_channel.open_text fn in
   let lexbuf = Sedlexing.Utf8.from_channel f in

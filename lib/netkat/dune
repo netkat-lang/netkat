@@ -2,14 +2,14 @@
 
 (env
   (dev
-    (flags (:standard -warn-error -A))))
+    (flags (:standard -warn-error -A -w -58))))
 
 (library
   (name netkat_netkat)
   (public_name netkat.netkat)
   (instrumentation (backend landmarks))
-  (preprocess (pps landmarks-ppx sedlex.ppx))
-  (libraries landmarks unix yojson menhirLib sedlex))
+  (preprocess (pps landmarks-ppx sedlex.ppx ppx_sexp))
+  (libraries landmarks unix yojson menhirLib sedlex ego))
 
 (documentation
   (package netkat)

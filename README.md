@@ -8,6 +8,7 @@ eval $(opam env)
 
 opam install -y dune
 opam install -y sedlex landmarks-ppx menhir yojson alcotest core async
+opam install -y ego
 ```
 
 # Usage
@@ -28,4 +29,5 @@ NetKAT TCP server:
 
 ```
 dune exec netkat-listen
+nc localhost 8080
 ```
