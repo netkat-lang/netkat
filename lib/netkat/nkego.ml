@@ -272,7 +272,29 @@ end
 module C = struct
   type t = float [@@deriving ord]
   let cost f : Ego.Id.t L.shape -> t = function
-    | _ -> 0.0
+    | Drop
+    | Skip
+    | Dup -> 0.0
+    | Var _ -> 0.0
+    | Const k -> float_of_int k
+    | Star(l)
+    | Neg(l)
+    | Fwd(l)
+    | Bwd(l) -> f l +. 0.0
+    | Xor(l,r)
+    | Diff(l,r)
+    | Exists(l,r)
+    | Forall(l,r)
+    | PosFilter(l,r)
+    | NegFilter(l,r)
+    | Mod(l,r)
+    | PosVFilter(l,r)
+    | NegVFilter(l,r)
+    | VMod(l,r) -> f l +. f r +. 0.0
+    | Union(l)
+    | Seq(l)
+    | Intersect(l) -> List.fold_left (fun a x -> a +. f x) 0.0 l
+  (* let cost f : Ego.Id.t L.shape -> t = (fun x -> -. (cost2 f x)) *)
 end
 
 (* stub analysis *)

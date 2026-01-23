@@ -1,19 +1,25 @@
 open Nkcmd
 
-open Ego.Basic
+open Ego.Generic
+open Nkego
 open Sexplib0
 
 (* create an egraph *)
 let graph = EGraph.init ()
 (* add expressions *)
-let expr1 = [%s ((a * 2) / 3)]
-let expr2 = Sexp.List [Sexp.Atom "/"; Sexp.List [Sexp.Atom "<<"; Sexp.Atom "a"; Sexp.Atom "1"]; Sexp.Atom "2"]
-let e1 = EGraph.add_sexp graph expr1
-let e2 = EGraph.add_sexp graph expr2
-let from = Query.of_sexp [%s ("?a" << 1)]
-let into = Query.of_sexp [%s ("?a" * 2)]
-let rule = Rule.make ~from ~into
-let _ = EGraph.run_until_saturation graph (match rule with Some(r) -> [r] | _ -> [])
+let expr1 = [%s (((a = 2)=2)=2)]
+let expr2 = expr1 (* Sexplib0.Sexp.List [Sexp.Atom "="; Sexp.Atom "f"; Sexp.Atom "1"] *)
+let e1 = EGraph.add_node graph (L.of_sexp expr1)
+let e2 = EGraph.add_node graph (L.of_sexp expr2)
+let from = Query.of_sexp L.op_of_string [%s ("?a" = 2)]
+let into = Query.of_sexp L.op_of_string [%s ("?a" = 1)]
+let rule1 = EGraph.Rule.make_constant ~from ~into
+let into = Query.of_sexp L.op_of_string [%s ("?a" = 3)]
+let rule2 = EGraph.Rule.make_constant ~from ~into
+let _ = EGraph.run_until_saturation graph [rule1;rule2]
+let r = Extractor.extract graph e1
+let result = L.to_sexp r
+let _ = Printf.printf "%s\n" (Sexp.to_string result)
 (* Convert to graphviz *)
 let g : Odot.graph = EGraph.to_dot graph
 let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c
