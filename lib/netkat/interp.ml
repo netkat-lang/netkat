@@ -1,11 +1,19 @@
 open Nkcmd
 
 open Ego.Basic
+open Sexplib0
 
 (* create an egraph *)
 let graph = EGraph.init ()
 (* add expressions *)
-let expr1 = EGraph.add_sexp graph [%s ((one << two) / three)]
+let expr1 = [%s ((a * 2) / 3)]
+let expr2 = Sexp.List [Sexp.Atom "/"; Sexp.List [Sexp.Atom "<<"; Sexp.Atom "a"; Sexp.Atom "1"]; Sexp.Atom "2"]
+let e1 = EGraph.add_sexp graph expr1
+let e2 = EGraph.add_sexp graph expr2
+let from = Query.of_sexp [%s ("?a" << 1)]
+let into = Query.of_sexp [%s ("?a" * 2)]
+let rule = Rule.make ~from ~into
+let _ = EGraph.run_until_saturation graph (match rule with Some(r) -> [r] | _ -> [])
 (* Convert to graphviz *)
 let g : Odot.graph = EGraph.to_dot graph
 let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c

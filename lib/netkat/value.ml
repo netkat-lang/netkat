@@ -14,6 +14,7 @@ let union_keys ms =
 
 let of_int = Fun.id
 let to_string = string_of_int
+let of_string = Fun.id (fun s -> int_of_string s)
 
 let compare = Int.compare
 
@@ -32,4 +33,4 @@ let left_join d (m1: 'a M.t) (m2: 'a M.t) = map_op_pair d (fun a b -> a) m1 m2
 let val_outside (vs: S.t) = S.fold (fun v a -> if v = a then (max a v) + 1 else a) vs 0
 let choose = 0
 
-
+let compare_value = compare

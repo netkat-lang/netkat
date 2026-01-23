@@ -11,6 +11,9 @@ val of_int : int -> t
 (** [to_string v] is the string representation of [v]. *)
 val to_string : t -> string
 
+(** [of_string s] is the field representation of [s]. *)
+val of_string : string -> t
+
 (** Map type for packet values. *)
 module M : sig
   include Map.S with type key = t
