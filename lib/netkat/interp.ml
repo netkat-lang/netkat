@@ -7,7 +7,8 @@ open Sexplib0
 (* create an egraph *)
 let graph = EGraph.init ()
 (* add expressions *)
-let expr1 = [%s (((a = 2)=2)=2)]
+(* let expr1 = [%s (a=2)] *)
+let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))
 let expr2 = expr1 (* Sexplib0.Sexp.List [Sexp.Atom "="; Sexp.Atom "f"; Sexp.Atom "1"] *)
 let e1 = EGraph.add_node graph (L.of_sexp expr1)
 let e2 = EGraph.add_node graph (L.of_sexp expr2)
@@ -20,6 +21,7 @@ let _ = EGraph.run_until_saturation graph [rule1;rule2]
 let r = Extractor.extract graph e1
 let result = L.to_sexp r
 let _ = Printf.printf "%s\n" (Sexp.to_string result)
+let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp result))
 (* Convert to graphviz *)
 let g : Odot.graph = EGraph.to_dot graph
 let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c

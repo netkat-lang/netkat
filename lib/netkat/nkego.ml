@@ -1,4 +1,3 @@
-open Pk
 open Ego.Generic
 
 let compare_value = Value.compare
@@ -90,6 +89,9 @@ module L = struct
     | List [Atom "="; l; r] -> Mk (PosFilter (of_sexp l, of_sexp r))
     | List [Atom "≠"; l; r] -> Mk (NegFilter (of_sexp l, of_sexp r))
     | List [Atom "\u{2190}"; l; r] -> Mk (Mod (of_sexp l, of_sexp r))
+    | List [Atom "v="; l; r] -> Mk (PosVFilter (of_sexp l, of_sexp r))
+    | List [Atom "v≠"; l; r] -> Mk (NegVFilter (of_sexp l, of_sexp r))
+    | List [Atom "v\u{2190}"; l; r] -> Mk (VMod (of_sexp l, of_sexp r))
 
     | List [Atom "-"; l; r] -> Mk (Diff (of_sexp l, of_sexp r))
     | List [Atom "⊕"; l; r] -> Mk (Xor (of_sexp l, of_sexp r))
@@ -328,4 +330,3 @@ end
 
 module EGraph = Make (L) (A) (MA)
 module Extractor = MakeExtractor (L) (C)
-

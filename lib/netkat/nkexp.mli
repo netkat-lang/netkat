@@ -91,3 +91,9 @@ val to_string : t -> string
 
 (** Evaluates a Nkexp to a fully formed Nk term. *)
 val eval : Env.t -> t -> Nk.t
+
+(** Make netkat expression from s-expression. *)
+val of_sexp : Sexplib0.Sexp.t -> t
+
+(** Make s-expression from netkat expression. *)
+val to_sexp : t -> Sexplib0.Sexp.t
