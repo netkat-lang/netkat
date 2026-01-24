@@ -250,19 +250,19 @@ let rec to_sexp e =
     | Skip -> Atom "skip"
     | Dup -> Atom "dup"
     | Var x -> Atom x
-    | Star e -> List [Atom "*"; to_sexp e]
+    | Star e -> List [Atom "star"; to_sexp e]
     | Fwd e -> List [Atom "forward"; to_sexp e]
     | Bwd e -> List [Atom "backward"; to_sexp e]
-    | Neg e -> List [Atom "¬"; to_sexp e]
-    | Seq el  -> List ((Atom "⋅")::(List.map to_sexp el))
-    | Union el -> List ((Atom "∪")::(List.map to_sexp el))
-    | Intersect el -> List ((Atom "&")::(List.map to_sexp el))
-    | Xor (e1,e2) -> List [Atom "⊕"; to_sexp e1; to_sexp e2]
-    | Diff (e1,e2)  -> List [Atom "-"; to_sexp e1; to_sexp e2]
-    | Filter (b,f,v) -> List [Atom (if b then "=" else "≠"); Atom (Field.get_or_fail_fid f); Atom (Value.to_string v)]
-    | VFilter (b,f,v)-> List [Atom (if b then "v=" else "v≠"); Atom (Field.get_or_fail_fid f); Atom v]
-    | Mod (f,v) -> List [Atom "\u{2190}"; Atom (Field.get_or_fail_fid f); Atom (Value.to_string v)]
-    | VMod (f,v) -> List [Atom "v\u{2190}"; Atom (Field.get_or_fail_fid f); Atom v]
+    | Neg e -> List [Atom "not"; to_sexp e]
+    | Seq el  -> List ((Atom "seq")::(List.map to_sexp el))
+    | Union el -> List ((Atom "union")::(List.map to_sexp el))
+    | Intersect el -> List ((Atom "intersection")::(List.map to_sexp el))
+    | Xor (e1,e2) -> List [Atom "xor"; to_sexp e1; to_sexp e2]
+    | Diff (e1,e2)  -> List [Atom "diff"; to_sexp e1; to_sexp e2]
+    | Filter (b,f,v) -> List [Atom (if b then "eq" else "neq"); Atom (Field.get_or_fail_fid f); Atom (Value.to_string v)]
+    | VFilter (b,f,v)-> List [Atom (if b then "veq" else "vneq"); Atom (Field.get_or_fail_fid f); Atom v]
+    | Mod (f,v) -> List [Atom "set"; Atom (Field.get_or_fail_fid f); Atom (Value.to_string v)]
+    | VMod (f,v) -> List [Atom "vset"; Atom (Field.get_or_fail_fid f); Atom v]
     | Forall (f,e) -> List [Atom "forall"; Atom (Field.get_or_fail_fid f); to_sexp e]
     | Exists (f,e) ->  List [Atom "exists"; Atom (Field.get_or_fail_fid f); to_sexp e]
 
@@ -282,18 +282,21 @@ function
       | None -> Var s
   )
 )
-| List ((Atom "*")::l::_) -> Star (of_sexp l)
-| List ((Atom "¬")::l::_) -> Neg (of_sexp l)
+| List ((Atom "star")::l::_) -> Star (of_sexp l)
+| List ((Atom "not")::l::_) -> Neg (of_sexp l)
 | List ((Atom "forward")::l::_) -> Fwd (of_sexp l)
 | List ((Atom "backward")::l::_) -> Bwd (of_sexp l)
-| List ((Atom "∪")::l) -> Union (List.map of_sexp l)
-| List ((Atom "⋅")::l) -> Seq (List.map of_sexp l)
-| List ((Atom "&")::l) -> Intersect (List.map of_sexp l)
-| List ((Atom "=")::f::v::_) -> Filter (true, Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
-| List ((Atom "≠")::f::v::_) -> Filter (false, Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
-| List ((Atom "\u{2190}")::f::v::_) -> Mod (Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
-| List ((Atom "-")::l::r::_) -> Diff (of_sexp l, of_sexp r)
-| List ((Atom "⊕")::l::r::_) -> Xor (of_sexp l, of_sexp r)
+| List ((Atom "union")::l) -> Union (List.map of_sexp l)
+| List ((Atom "seq")::l) -> Seq (List.map of_sexp l)
+| List ((Atom "intersection")::l) -> Intersect (List.map of_sexp l)
+| List ((Atom "eq")::f::v::_) -> Filter (true, Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
+| List ((Atom "neq")::f::v::_) -> Filter (false, Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
+| List ((Atom "veq")::f::v::_) -> VFilter (true, Field.get_or_assign_fid (to_string f), (to_string v))
+| List ((Atom "vneq")::f::v::_) -> VFilter (false, Field.get_or_assign_fid (to_string f), (to_string v))
+| List ((Atom "set")::f::v::_) -> Mod (Field.get_or_assign_fid (to_string f), Value.of_string (to_string v))
+| List ((Atom "vset")::f::v::_) -> VMod (Field.get_or_assign_fid (to_string f), (to_string v))
+| List ((Atom "diff")::l::r::_) -> Diff (of_sexp l, of_sexp r)
+| List ((Atom "xor")::l::r::_) -> Xor (of_sexp l, of_sexp r)
 | List ((Atom "exists")::f::r::_) -> Exists (Field.get_or_assign_fid (to_string f), of_sexp r)
 | List ((Atom "forall")::f::r::_) -> Forall (Field.get_or_assign_fid (to_string f), of_sexp r)
 | x -> failwith (Printf.sprintf "Nkexp.of_sexp: cannot convert s-expression: %s" (Sexplib0.Sexp.to_string x))

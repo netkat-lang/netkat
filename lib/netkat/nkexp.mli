@@ -2,7 +2,26 @@
 
 open Pk
 
-type t
+type t =
+  | Drop
+  | Skip
+  | Dup
+  | Filter of bool * field * value
+  | Mod of field * value
+  | VFilter of bool * field * string
+  | VMod of field * string
+  | Seq of t list
+  | Union of t list
+  | Star of t
+  | Intersect of t list
+  | Diff of t * t
+  | Xor of t * t
+  | Neg of t
+  | Fwd of t
+  | Bwd of t
+  | Exists of field * t
+  | Forall of field * t
+  | Var of string
 
 (** Provides a comparison using the standard interface to [compare]. *)
 val compare : t -> t -> int

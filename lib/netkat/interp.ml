@@ -1,6 +1,5 @@
 open Nkcmd
 
-open Ego.Generic
 open Nkego
 open Sexplib0
 
@@ -8,20 +7,34 @@ open Sexplib0
 let graph = EGraph.init ()
 (* add expressions *)
 (* let expr1 = [%s (a=2)] *)
-let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))
+let expr1 = [%s (seq (set a 123) (eq b a))]
+(*let expr1 = Nkexp.to_sexp (Nkexp.Seq([Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 2);Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 3)]))*)
+(*let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))*)
 let expr2 = expr1 (* Sexplib0.Sexp.List [Sexp.Atom "="; Sexp.Atom "f"; Sexp.Atom "1"] *)
 let e1 = EGraph.add_node graph (L.of_sexp expr1)
 let e2 = EGraph.add_node graph (L.of_sexp expr2)
-let from = Query.of_sexp L.op_of_string [%s ("?a" = 2)]
-let into = Query.of_sexp L.op_of_string [%s ("?a" = 1)]
-let rule1 = EGraph.Rule.make_constant ~from ~into
-let into = Query.of_sexp L.op_of_string [%s ("?a" = 3)]
-let rule2 = EGraph.Rule.make_constant ~from ~into
-let _ = EGraph.run_until_saturation graph [rule1;rule2]
+let rules = [
+  (* Kleene Algebra Axioms *)
+  make_rule [%s (union "?a" "?b")] [%s (union "?b" "?a")];
+  (* Additional Boolean Algebra Axioms *)
+  make_rule [%s (union "?a" skip)] [%s skip];
+  make_rule [%s (union "?a" (not "?a"))] [%s skip];
+  make_rule [%s (seq "?a" "?b")] [%s (seq "?b" "?a")];
+  make_rule [%s (seq "?a" (not "?a"))] [%s drop];
+  make_rule [%s (seq "?a" "?a")] [%s "?a"];
+  (* Packet Algebra Axioms *)
+  make_rule [%s (seq (set "?a" "?b") (eq "?a" "?b"))] [%s (set "?a" "?b")];
+  make_rule [%s (seq (eq "?a" "?b") (set "?a" "?b"))] [%s (eq "?a" "?b")];
+  make_rule [%s (seq (set "?a" "?b") (set "?a" "?c"))] [%s (set "?a" "?c")];
+  (* Tentative *)
+  make_rule [%s (seq (set "?a" "?b") (eq "?c" "?a"))] [%s (eq "?c" "?b")];
+]
+let _ = EGraph.run_until_saturation graph rules
 let r = Extractor.extract graph e1
 let result = L.to_sexp r
 let _ = Printf.printf "%s\n" (Sexp.to_string result)
 let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp result))
+let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp [%s (seq (set a 1) (set a 2))]))
 (* Convert to graphviz *)
 let g : Odot.graph = EGraph.to_dot graph
 let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c

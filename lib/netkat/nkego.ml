@@ -77,24 +77,24 @@ module L = struct
       | None -> Mk (Var s)
     ))
 
-    | List [Atom "*"; l] -> Mk (Star (of_sexp l))
-    | List [Atom "¬"; l] -> Mk (Neg (of_sexp l))
+    | List [Atom "star"; l] -> Mk (Star (of_sexp l))
+    | List [Atom "not"; l] -> Mk (Neg (of_sexp l))
     | List [Atom "forward"; l] -> Mk (Fwd (of_sexp l))
     | List [Atom "backward"; l] -> Mk (Bwd (of_sexp l))
 
-    | List ((Atom "∪")::l) -> Mk (Union (List.map of_sexp l))
-    | List ((Atom "⋅")::l) -> Mk (Seq (List.map of_sexp l))
-    | List ((Atom "&")::l) -> Mk (Intersect (List.map of_sexp l))
+    | List ((Atom "union")::l) -> Mk (Union (List.map of_sexp l))
+    | List ((Atom "seq")::l) -> Mk (Seq (List.map of_sexp l))
+    | List ((Atom "intersection")::l) -> Mk (Intersect (List.map of_sexp l))
 
-    | List [Atom "="; l; r] -> Mk (PosFilter (of_sexp l, of_sexp r))
-    | List [Atom "≠"; l; r] -> Mk (NegFilter (of_sexp l, of_sexp r))
-    | List [Atom "\u{2190}"; l; r] -> Mk (Mod (of_sexp l, of_sexp r))
-    | List [Atom "v="; l; r] -> Mk (PosVFilter (of_sexp l, of_sexp r))
-    | List [Atom "v≠"; l; r] -> Mk (NegVFilter (of_sexp l, of_sexp r))
-    | List [Atom "v\u{2190}"; l; r] -> Mk (VMod (of_sexp l, of_sexp r))
+    | List [Atom "eq"; l; r] -> Mk (PosFilter (of_sexp l, of_sexp r))
+    | List [Atom "neq"; l; r] -> Mk (NegFilter (of_sexp l, of_sexp r))
+    | List [Atom "set"; l; r] -> Mk (Mod (of_sexp l, of_sexp r))
+    | List [Atom "veq"; l; r] -> Mk (PosVFilter (of_sexp l, of_sexp r))
+    | List [Atom "vneq"; l; r] -> Mk (NegVFilter (of_sexp l, of_sexp r))
+    | List [Atom "vset"; l; r] -> Mk (VMod (of_sexp l, of_sexp r))
 
-    | List [Atom "-"; l; r] -> Mk (Diff (of_sexp l, of_sexp r))
-    | List [Atom "⊕"; l; r] -> Mk (Xor (of_sexp l, of_sexp r))
+    | List [Atom "diff"; l; r] -> Mk (Diff (of_sexp l, of_sexp r))
+    | List [Atom "xor"; l; r] -> Mk (Xor (of_sexp l, of_sexp r))
     | List [Atom "exists"; l; r] -> Mk (Exists (of_sexp l, of_sexp r))
     | List [Atom "forall"; l; r] -> Mk (Forall (of_sexp l, of_sexp r))
 
@@ -103,24 +103,24 @@ module L = struct
     | Mk (Skip) -> Sexplib0.Sexp.Atom "skip"
     | Mk (Dup) -> Sexplib0.Sexp.Atom "dup"
 
-    | Mk (Star (l)) -> List [Atom "*"; to_sexp l]
-    | Mk (Neg (l)) -> List [Atom "¬"; to_sexp l]
+    | Mk (Star (l)) -> List [Atom "star"; to_sexp l]
+    | Mk (Neg (l)) -> List [Atom "not"; to_sexp l]
     | Mk (Fwd (l)) -> List [Atom "forward"; to_sexp l]
     | Mk (Bwd (l)) -> List [Atom "backward"; to_sexp l]
 
-    | Mk (Union (l)) -> List ((Atom "∪")::(List.map to_sexp l))
-    | Mk (Seq (l)) -> List ((Atom "&")::(List.map to_sexp l))
-    | Mk (Intersect (l)) -> List ((Atom "⋅")::(List.map to_sexp l))
+    | Mk (Union (l)) -> List ((Atom "union")::(List.map to_sexp l))
+    | Mk (Seq (l)) -> List ((Atom "seq")::(List.map to_sexp l))
+    | Mk (Intersect (l)) -> List ((Atom "intersection")::(List.map to_sexp l))
 
-    | Mk (PosFilter (l, r)) -> List [Atom "="; to_sexp l; to_sexp r]
-    | Mk (NegFilter (l, r)) -> List [Atom "≠"; to_sexp l; to_sexp r]
-    | Mk (Mod (l, r)) -> List [Atom "\u{2190}"; to_sexp l; to_sexp r]
-    | Mk (PosVFilter (l, r)) -> List [Atom "v="; to_sexp l; to_sexp r]
-    | Mk (NegVFilter (l, r)) -> List [Atom "v≠"; to_sexp l; to_sexp r]
-    | Mk (VMod (l, r)) -> List [Atom "v\u{2190}"; to_sexp l; to_sexp r]
+    | Mk (PosFilter (l, r)) -> List [Atom "eq"; to_sexp l; to_sexp r]
+    | Mk (NegFilter (l, r)) -> List [Atom "neq"; to_sexp l; to_sexp r]
+    | Mk (Mod (l, r)) -> List [Atom "set"; to_sexp l; to_sexp r]
+    | Mk (PosVFilter (l, r)) -> List [Atom "veq"; to_sexp l; to_sexp r]
+    | Mk (NegVFilter (l, r)) -> List [Atom "vneq"; to_sexp l; to_sexp r]
+    | Mk (VMod (l, r)) -> List [Atom "vset"; to_sexp l; to_sexp r]
 
-    | Mk (Xor (l, r)) -> Sexplib0.Sexp.List [Atom "⊕"; to_sexp l; to_sexp r]
-    | Mk (Diff (l, r)) -> List [Atom "-"; to_sexp l; to_sexp r]
+    | Mk (Xor (l, r)) -> Sexplib0.Sexp.List [Atom "xor"; to_sexp l; to_sexp r]
+    | Mk (Diff (l, r)) -> List [Atom "diff"; to_sexp l; to_sexp r]
     | Mk (Exists (l, r)) -> List [Atom "exists"; to_sexp l; to_sexp r]      
     | Mk (Forall (l, r)) -> List [Atom "forall"; to_sexp l; to_sexp r]      
     | Mk (Var s) -> Atom s
@@ -159,24 +159,24 @@ module L = struct
     | "skip" -> SkipOp
     | "dup" -> DupOp
 
-    | "*" -> StarOp
-    | "¬" -> NegOp
+    | "star" -> StarOp
+    | "not" -> NegOp
     | "forward" -> FwdOp
     | "backward" -> BwdOp
 
-    | "∪" -> UnionOp
-    | "⋅" -> SeqOp
-    | "&" -> IntersectOp
+    | "union" -> UnionOp
+    | "seq" -> SeqOp
+    | "intersection" -> IntersectOp
 
-    | "=" -> FilterOp true
-    | "≠" -> FilterOp false
-    | "\u{2190}" -> ModOp
-    | "v=" -> VFilterOp true
-    | "v≠" -> VFilterOp false
-    | "v\u{2190}" -> VModOp
+    | "eq" -> FilterOp true
+    | "neq" -> FilterOp false
+    | "set" -> ModOp
+    | "veq" -> VFilterOp true
+    | "vneq" -> VFilterOp false
+    | "vset" -> VModOp
 
-    | "⊕" -> XorOp
-    | "-" -> DiffOp
+    | "xor" -> XorOp
+    | "diff" -> DiffOp
     | "exists" -> ExistsOp
     | "forall" -> ForallOp
     | s -> match int_of_string_opt s with
@@ -278,11 +278,11 @@ module C = struct
     | Skip
     | Dup -> 0.0
     | Var _ -> 0.0
-    | Const k -> float_of_int k
+    | Const k -> 0.0 (* float_of_int k *)
     | Star(l)
     | Neg(l)
     | Fwd(l)
-    | Bwd(l) -> f l +. 0.0
+    | Bwd(l) -> f l +. 1.0
     | Xor(l,r)
     | Diff(l,r)
     | Exists(l,r)
@@ -292,10 +292,10 @@ module C = struct
     | Mod(l,r)
     | PosVFilter(l,r)
     | NegVFilter(l,r)
-    | VMod(l,r) -> f l +. f r +. 0.0
+    | VMod(l,r) -> f l +. f r +. 1.0
     | Union(l)
     | Seq(l)
-    | Intersect(l) -> List.fold_left (fun a x -> a +. f x) 0.0 l
+    | Intersect(l) -> List.fold_left (fun a x -> a +. f x) 1.0 l
   (* let cost f : Ego.Id.t L.shape -> t = (fun x -> -. (cost2 f x)) *)
 end
 
@@ -330,3 +330,8 @@ end
 
 module EGraph = Make (L) (A) (MA)
 module Extractor = MakeExtractor (L) (C)
+
+let make_rule l r =
+  let from = Query.of_sexp L.op_of_string l in
+  let into = Query.of_sexp L.op_of_string r in
+  EGraph.Rule.make_constant ~from ~into
