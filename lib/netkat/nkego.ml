@@ -245,7 +245,7 @@ module L = struct
     | SkipOp, [] -> Skip
     | DupOp, [] -> Dup
 
-    | XorOp, [l] -> Star (l)
+    | StarOp, [l] -> Star (l)
     | NegOp, [l] -> Neg (l)
     | FwdOp, [l] -> Fwd (l)
     | BwdOp, [l] -> Bwd (l)
@@ -279,7 +279,7 @@ module C = struct
     | Dup -> 0.0
     | Var _ -> 0.0
     | Const k -> 0.0 (* float_of_int k *)
-    | Star(l)
+    | Star(l) -> f l *. 100.0
     | Neg(l)
     | Fwd(l)
     | Bwd(l) -> f l +. 1.0
@@ -335,3 +335,35 @@ let make_rule l r =
   let from = Query.of_sexp L.op_of_string l in
   let into = Query.of_sexp L.op_of_string r in
   EGraph.Rule.make_constant ~from ~into
+
+let make_rules ?(bidir = true) l r =
+  (make_rule l r)::(if bidir then [make_rule r l] else [])
+
+let make_cond_rule l r cond =
+  let from = Query.of_sexp L.op_of_string l in
+  let into = Query.of_sexp L.op_of_string r in
+  EGraph.Rule.make_conditional ~from ~into ~cond
+
+let make_cond_rules ?(bidir = true) l r cond =
+  (make_cond_rule l r cond)::(if bidir then [make_cond_rule r l cond] else [])
+
+let is_distinct v w =
+  fun graph _root_id env ->
+    let v = StringMap.find v env in
+    let w = StringMap.find w env in
+    (not @@ EGraph.class_equal (EGraph.freeze graph) v w)
+
+let is_predicate v =
+  fun graph _root_id env ->
+  let v = StringMap.find v env in
+  EGraph.iter_children (EGraph.freeze graph) v |>
+  Iter.exists (function
+    | L.Drop
+    | Skip
+    | PosFilter _
+    | NegFilter _
+    | PosVFilter _
+    | NegVFilter _ -> true
+    (* TODO XXX - predicates need to somehow be separate from policies *)
+    | _ -> false
+  )
