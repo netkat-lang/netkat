@@ -18,6 +18,7 @@ let graph = EGraph.init ()
 (* add expressions *)
 (*let expr1 = [%s (seq (eq a 2) (eq a 2))]*)
 (* let expr1 = [%s (seq (set a 1) (star drop))] *)
+(*let expr1 = [%s (seq (set a 123) (set b a))]*)
 let expr1 = [%s (seq (set a 1) (seq (star (union (seq (eq a 1) (set a 2)) (seq (eq a 2) (set a 3)))) (eq a 3)))]
 (*let expr1 = Nkexp.to_sexp (Nkexp.Seq([Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 2);Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 3)]))*)
 (*let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))*)
@@ -52,14 +53,15 @@ let rules =
   make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?a" "?c"))] [%s (set "?a" "?c")] @
   make_cond_rules ~bidir:false [%s (seq (eq "?a" "?b") (eq "?a" "?c"))] [%s drop] (Nkego.is_distinct "b" "c") @
   (* Tentative *)
-  (*make_rules ~bidir:false [%s (seq (set "?a" "?b") (eq "?c" "?a"))] [%s (eq "?c" "?b")] @*)
+  make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?c" "?a"))] [%s (set "?c" "?b")] @
   []
 let _ = EGraph.run_until_saturation ~fuel:(`Bounded 20) graph rules
 let r = Extractor.extract graph e1
 let result = L.to_sexp r
 let _ = Printf.printf "%s\n" (Sexp.to_string result)
-let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp result))
-let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp [%s (seq (set a 1) (set a 2))]))
+let _ = Printf.printf "input: %s\n" (Nkexp.to_string (Nkexp.of_sexp expr1))
+let _ = Printf.printf "output: %s\n" (Nkexp.to_string (Nkexp.of_sexp result))
+(*let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp [%s (seq (set a 1) (set a 2))]))*)
 (* Convert to graphviz *)
 let g : Odot.graph = EGraph.to_dot graph
 let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c

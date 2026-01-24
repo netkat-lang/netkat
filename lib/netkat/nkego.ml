@@ -11,23 +11,19 @@ module L = struct
   | Drop
   | Skip
   | Dup
-
   | Star of 'a
   | Neg of 'a
   | Fwd of 'a
   | Bwd of 'a
-
   | Union of 'a list
   | Seq of 'a list
   | Intersect of 'a list
-
   | PosFilter of 'a * 'a
   | NegFilter of 'a * 'a
   | Mod of 'a * 'a
   | PosVFilter of 'a * 'a
   | NegVFilter of 'a * 'a
   | VMod of 'a * 'a
-
   | Xor of 'a * 'a
   | Diff of 'a * 'a
   | Exists of 'a * 'a
@@ -40,21 +36,17 @@ module L = struct
     | DropOp
     | DupOp
     | SkipOp
-
     | StarOp
     | NegOp
     | FwdOp
     | BwdOp
-
     | UnionOp
     | SeqOp
     | IntersectOp
-
     | FilterOp of bool
     | ModOp
     | VFilterOp of bool
     | VModOp
-
     | XorOp
     | DiffOp
     | ExistsOp
@@ -81,18 +73,15 @@ module L = struct
     | List [Atom "not"; l] -> Mk (Neg (of_sexp l))
     | List [Atom "forward"; l] -> Mk (Fwd (of_sexp l))
     | List [Atom "backward"; l] -> Mk (Bwd (of_sexp l))
-
     | List ((Atom "union")::l) -> Mk (Union (List.map of_sexp l))
     | List ((Atom "seq")::l) -> Mk (Seq (List.map of_sexp l))
     | List ((Atom "intersection")::l) -> Mk (Intersect (List.map of_sexp l))
-
     | List [Atom "eq"; l; r] -> Mk (PosFilter (of_sexp l, of_sexp r))
     | List [Atom "neq"; l; r] -> Mk (NegFilter (of_sexp l, of_sexp r))
     | List [Atom "set"; l; r] -> Mk (Mod (of_sexp l, of_sexp r))
     | List [Atom "veq"; l; r] -> Mk (PosVFilter (of_sexp l, of_sexp r))
     | List [Atom "vneq"; l; r] -> Mk (NegVFilter (of_sexp l, of_sexp r))
     | List [Atom "vset"; l; r] -> Mk (VMod (of_sexp l, of_sexp r))
-
     | List [Atom "diff"; l; r] -> Mk (Diff (of_sexp l, of_sexp r))
     | List [Atom "xor"; l; r] -> Mk (Xor (of_sexp l, of_sexp r))
     | List [Atom "exists"; l; r] -> Mk (Exists (of_sexp l, of_sexp r))
@@ -102,23 +91,19 @@ module L = struct
     | Mk (Drop) -> Sexplib0.Sexp.Atom "drop"
     | Mk (Skip) -> Sexplib0.Sexp.Atom "skip"
     | Mk (Dup) -> Sexplib0.Sexp.Atom "dup"
-
     | Mk (Star (l)) -> List [Atom "star"; to_sexp l]
     | Mk (Neg (l)) -> List [Atom "not"; to_sexp l]
     | Mk (Fwd (l)) -> List [Atom "forward"; to_sexp l]
     | Mk (Bwd (l)) -> List [Atom "backward"; to_sexp l]
-
     | Mk (Union (l)) -> List ((Atom "union")::(List.map to_sexp l))
     | Mk (Seq (l)) -> List ((Atom "seq")::(List.map to_sexp l))
     | Mk (Intersect (l)) -> List ((Atom "intersection")::(List.map to_sexp l))
-
     | Mk (PosFilter (l, r)) -> List [Atom "eq"; to_sexp l; to_sexp r]
     | Mk (NegFilter (l, r)) -> List [Atom "neq"; to_sexp l; to_sexp r]
     | Mk (Mod (l, r)) -> List [Atom "set"; to_sexp l; to_sexp r]
     | Mk (PosVFilter (l, r)) -> List [Atom "veq"; to_sexp l; to_sexp r]
     | Mk (NegVFilter (l, r)) -> List [Atom "vneq"; to_sexp l; to_sexp r]
     | Mk (VMod (l, r)) -> List [Atom "vset"; to_sexp l; to_sexp r]
-
     | Mk (Xor (l, r)) -> Sexplib0.Sexp.List [Atom "xor"; to_sexp l; to_sexp r]
     | Mk (Diff (l, r)) -> List [Atom "diff"; to_sexp l; to_sexp r]
     | Mk (Exists (l, r)) -> List [Atom "exists"; to_sexp l; to_sexp r]      
@@ -130,23 +115,19 @@ module L = struct
     | Drop -> DropOp
     | Skip -> SkipOp
     | Dup -> DupOp
-
     | Star _ -> StarOp
     | Neg _ -> NegOp
     | Fwd _ -> FwdOp
     | Bwd _ -> BwdOp
-
     | Union _ -> UnionOp
     | Seq _ -> SeqOp
     | Intersect _ -> IntersectOp
-
     | PosFilter _ -> FilterOp true
     | NegFilter _ -> FilterOp false
     | Mod _ -> ModOp
     | PosVFilter _ -> VFilterOp true
     | NegVFilter _ -> VFilterOp false
     | VMod _ -> VModOp
-
     | Xor _ -> XorOp
     | Diff _ -> DiffOp
     | Exists _ -> ExistsOp
@@ -158,23 +139,19 @@ module L = struct
     | "drop" -> DropOp
     | "skip" -> SkipOp
     | "dup" -> DupOp
-
     | "star" -> StarOp
     | "not" -> NegOp
     | "forward" -> FwdOp
     | "backward" -> BwdOp
-
     | "union" -> UnionOp
     | "seq" -> SeqOp
     | "intersection" -> IntersectOp
-
     | "eq" -> FilterOp true
     | "neq" -> FilterOp false
     | "set" -> ModOp
     | "veq" -> VFilterOp true
     | "vneq" -> VFilterOp false
     | "vset" -> VModOp
-
     | "xor" -> XorOp
     | "diff" -> DiffOp
     | "exists" -> ExistsOp
@@ -187,23 +164,19 @@ module L = struct
     | Drop -> []
     | Skip -> []
     | Dup -> []
-
     | Star (l) -> [l]
     | Neg (l) -> [l]
     | Fwd (l) -> [l]
     | Bwd (l) -> [l]
-
     | Union (l) -> l
     | Seq (l) -> l
     | Intersect (l) -> l
-
     | PosFilter(l,r) -> [l;r]
     | NegFilter(l,r) -> [l;r]
     | Mod(l,r) -> [l;r]
     | PosVFilter(l,r) -> [l;r]
     | NegVFilter(l,r) -> [l;r]
     | VMod(l,r) -> [l;r]
-
     | Xor (l,r)
     | Diff (l,r)
     | Exists (l,r) -> [l;r]
@@ -215,23 +188,19 @@ module L = struct
     | Drop -> Drop
     | Skip -> Skip
     | Dup -> Dup
-
     | Star (l) -> Star (f l)
     | Neg (l) -> Neg (f l)
     | Fwd (l) -> Fwd (f l)
     | Bwd (l) -> Bwd (f l)
-
     | Union (l) -> Union (List.map f l)
     | Seq (l) -> Seq (List.map f l)
     | Intersect (l) -> Intersect (List.map f l)
-
     | PosFilter (l,r) -> PosFilter (f l,f r)
     | NegFilter (l,r) -> NegFilter (f l,f r)
     | Mod (l,r) -> Mod (f l,f r)
     | PosVFilter (l,r) -> PosVFilter (f l,f r)
     | NegVFilter (l,r) -> NegVFilter (f l,f r)
     | VMod (l,r) -> VMod (f l,f r)
-
     | Xor (l,r) -> Xor (f l, f r)
     | Diff (l,r) -> Diff (f l, f r)
     | Exists (l,r) -> Exists (f l, f r)
@@ -244,23 +213,19 @@ module L = struct
     | DropOp, [] -> Drop
     | SkipOp, [] -> Skip
     | DupOp, [] -> Dup
-
     | StarOp, [l] -> Star (l)
     | NegOp, [l] -> Neg (l)
     | FwdOp, [l] -> Fwd (l)
     | BwdOp, [l] -> Bwd (l)
-
     | UnionOp, l -> Union (l)
     | SeqOp, l -> Seq (l)
     | IntersectOp, l -> Intersect (l)
-
     | FilterOp true, [l;r] -> PosFilter (l,r)
     | FilterOp false, [l;r] -> NegFilter (l,r)
     | ModOp, [l;r] -> Mod (l,r)
     | VFilterOp true, [l;r] -> PosVFilter (l,r)
     | VFilterOp false, [l;r] -> NegVFilter (l,r)
     | VModOp, [l;r] -> VMod (l,r)
-
     | XorOp, [l;r] -> Xor (l,r)
     | DiffOp, [l;r] -> Diff (l,r)
     | ExistsOp, [l;r] -> Exists (l,r)
@@ -279,7 +244,7 @@ module C = struct
     | Dup -> 0.0
     | Var _ -> 0.0
     | Const k -> 0.0 (* float_of_int k *)
-    | Star(l) -> f l *. 100.0
+    | Star(l) -> f l +. 1.0
     | Neg(l)
     | Fwd(l)
     | Bwd(l) -> f l +. 1.0
@@ -364,6 +329,6 @@ let is_predicate v =
     | NegFilter _
     | PosVFilter _
     | NegVFilter _ -> true
-    (* TODO XXX - predicates need to somehow be separate from policies *)
+    (* TODO XXX - predicates need to somehow be separate from policies? *)
     | _ -> false
   )
