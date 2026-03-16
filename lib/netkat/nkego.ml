@@ -1,5 +1,7 @@
 open Ego.Generic
 
+open Sexplib0
+
 let compare_value = Value.compare
 let compare_field = Field.compare
 let pp_value fmt v = Format.pp_print_string fmt (Value.to_string v)
@@ -332,3 +334,70 @@ let is_predicate v =
     (* TODO XXX - predicates need to somehow be separate from policies? *)
     | _ -> false
   )
+
+let test () =
+    (*
+
+    f:=1;(f=1;f:=2 + f=2;f:=3)*;f=3
+    f:=1;(skip + (f=1;f:=2 + f=2;f:=3);(f=1;f:=2 + f=2;f:=3)* );f=3
+    (f:=1;skip + f:=1;(f=1;f:=2 + f=2;f:=3);(f=1;f:=2 + f=2;f:=3)* );f=3
+    (f:=1;skip + (f:=1;f=1;f:=2 + f=2;f:=3);(f=1;f:=2 + f=2;f:=3)* );f=3
+    (f:=1;skip + (f:=2 + f=2;f:=3);(f=1;f:=2 + f=2;f:=3)* );f=3
+
+    *)
+
+    (* create an egraph *)
+    let graph = EGraph.init () in
+    (* add expressions *)
+    (*let expr1 = [%s (seq (eq a 2) (eq a 2))]*)
+    (* let expr1 = [%s (seq (set a 1) (star drop))] *)
+    (*let expr1 = [%s (seq (set a 123) (set b a))]*)
+    let expr1 = [%s (seq (set a 1) (seq (star (union (seq (eq a 1) (set a 2)) (seq (eq a 2) (set a 3)))) (eq a 3)))] in
+    (*let expr1 = Nkexp.to_sexp (Nkexp.Seq([Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 2);Nkexp.Mod(Field.get_or_assign_fid "a",Value.of_int 3)]))*)
+    (*let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))*)
+    let expr2 = expr1 (* Sexplib0.Sexp.List [Sexp.Atom "="; Sexp.Atom "f"; Sexp.Atom "1"] *) in
+    let e1 = EGraph.add_node graph (L.of_sexp expr1) in
+    let e2 = EGraph.add_node graph (L.of_sexp expr2) in
+    let rules =
+      (* Kleene Algebra Axioms *)
+      make_rules ~bidir:true  [%s (union "?a" (union "?b" "?c"))] [%s (union (union "?a" "?b") "?c")] @
+      make_rules ~bidir:true  [%s (union "?a" "?b")] [%s (union "?b" "?a")] @
+      make_rules ~bidir:true  [%s (union "?a" drop)] [%s "?a"] @
+      make_rules ~bidir:true  [%s (union "?a" "?a")] [%s "?a"] @
+      make_rules ~bidir:true  [%s (seq "?a" (seq "?b" "?c"))] [%s (seq (seq "?a" "?b") "?c")] @
+      make_rules ~bidir:true  [%s (seq skip "?a")] [%s "?a"] @
+      make_rules ~bidir:true  [%s (seq "?a" skip)] [%s "?a"] @
+      make_rules ~bidir:true  [%s (seq "?a" (union "?b" "?c"))] [%s (union (seq "?a" "?b") (seq "?a" "?c"))] @
+      make_rules ~bidir:true  [%s (seq (union "?a" "?b") "?c")] [%s (union (seq "?a" "?c") (seq "?b" "?c"))] @
+      make_rules ~bidir:false [%s (seq drop "?a")] [%s drop] @
+      make_rules ~bidir:false [%s (seq "?a" drop)] [%s drop] @
+      make_rules ~bidir:true  [%s (union skip (seq "?a" (star "?a")))] [%s (star "?a")] @
+      make_rules ~bidir:true  [%s (union skip (seq (star "?a") "?a"))] [%s (star "?a")] @
+      (* Additional Boolean Algebra Axioms *)
+      (*make_rules ~bidir:false [%s (union "?a" skip)] [%s skip] @
+      make_rules ~bidir:false [%s (union "?a" (not "?a"))] [%s skip] @
+      make_rules ~bidir:false [%s (seq "?a" "?b")] [%s (seq "?b" "?a")] @
+      make_rules ~bidir:false [%s (seq "?a" (not "?a"))] [%s drop] @*)
+      make_cond_rules ~bidir:true [%s (seq "?a" "?a")] [%s "?a"] (is_predicate "a") @
+      (* Packet Algebra Axioms *)
+      make_rules ~bidir:true  [%s (seq dup (set "?a" "?b"))] [%s (seq (set "?a" "?b") dup)] @
+      make_rules ~bidir:true  [%s (seq (set "?a" "?b") (eq "?a" "?b"))] [%s (set "?a" "?b")] @
+      make_rules ~bidir:true  [%s (seq (eq "?a" "?b") (set "?a" "?b"))] [%s (eq "?a" "?b")] @
+      make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?a" "?c"))] [%s (set "?a" "?c")] @
+      make_cond_rules ~bidir:false [%s (seq (eq "?a" "?b") (eq "?a" "?c"))] [%s drop] (is_distinct "b" "c") @
+      (* Tentative *)
+      (* TODO XXX - not quite right *)
+      make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?c" "?a"))] [%s (set "?c" "?b")] @
+      [] in
+    let _ = EGraph.run_until_saturation ~fuel:(`Bounded 15) graph rules in
+    let r = Extractor.extract graph e1 in
+    let result = L.to_sexp r in
+    let _ = Printf.printf "%s\n" (Sexp.to_string result) in
+    let _ = Printf.printf "input: %s\n" (Nkexp.to_string (Nkexp.of_sexp expr1)) in
+    let _ = Printf.printf "output: %s\n" (Nkexp.to_string (Nkexp.of_sexp result)) in
+    (*let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp [%s (seq (set a 1) (set a 2))]))*)
+    (* Convert to graphviz *)
+    let g : Odot.graph = EGraph.to_dot graph in
+    let _ = let c = open_out "test.dot" in Printf.fprintf c "%s" (Odot.string_of_graph g); close_out c in
+    ()
+    (* dot -Tpdf test.dot -o test.pdf *)

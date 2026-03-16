@@ -31,3 +31,9 @@ NetKAT TCP server:
 dune exec netkat-listen
 nc localhost 8080
 ```
+
+NetKAT Egg test:
+
+```
+dune exec netkat-egg
+```

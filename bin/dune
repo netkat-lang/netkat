@@ -1,4 +1,4 @@
 (executables
-  (public_names netkat netkat-repl netkat-parse netkat-listen)
-  (names netkat netkat_repl netkat_parse netkat_listen)
+  (public_names netkat netkat-repl netkat-parse netkat-listen netkat-egg)
+  (names netkat netkat_repl netkat_parse netkat_listen netkat_egg)
   (libraries core async netkat netkat.netkat))
