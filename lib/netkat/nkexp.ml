@@ -244,6 +244,31 @@ let rec eval (env: Env.t) (e: t) : Nk.t =
     | Exists (f,e) -> failwith ("TODO: " ^ __LOC__)
     (* | Lambda (s,e) -> failwith ("TODO: " ^ __LOC__) *)
 
+let rec to_nested e =
+    match e with
+    | Drop  -> Drop
+    | Skip -> Skip
+    | Dup -> Dup
+    | Var x -> Var x
+    | Star e -> Star e
+    | Fwd e -> Fwd e
+    | Bwd e -> Bwd e
+    | Neg e -> Neg e
+    | Seq([e]) -> to_nested e
+    | Seq(e::l) -> Seq(e::[to_nested (Seq(l))])
+    | Union([e]) -> to_nested e
+    | Union(e::l) -> Union(e::[to_nested (Union(l))])
+    | Intersect([e]) -> to_nested e
+    | Intersect(e::l) -> Intersect(e::[to_nested (Intersect(l))])
+    | Xor (e1,e2) -> Xor(e1,e2)
+    | Diff (e1,e2)  -> Diff(e1,e2)
+    | Filter (b,f,v) -> Filter(b,f,v)
+    | VFilter (b,f,v)-> VFilter(b,f,v)
+    | Mod (f,v) -> Mod(f,v)
+    | VMod (f,v) -> VMod(f,v)
+    | Forall (f,e) -> Forall(f,e)
+    | Exists (f,e) -> Exists(f,e)
+
 let rec to_sexp e =
     match e with
     | Drop  -> Sexplib0.Sexp.Atom "drop"

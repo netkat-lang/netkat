@@ -111,6 +111,8 @@ val to_string : t -> string
 (** Evaluates a Nkexp to a fully formed Nk term. *)
 val eval : Env.t -> t -> Nk.t
 
+val to_nested : t -> t
+
 (** Make netkat expression from s-expression. *)
 val of_sexp : Sexplib0.Sexp.t -> t
 
