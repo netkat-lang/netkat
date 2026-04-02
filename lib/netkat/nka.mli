@@ -54,6 +54,7 @@ val bisim : t -> t -> bool
 
 (** Runs the forward algorithm to compute the set of output packets. *)
 val forward : Nk.t -> Sp.t
+val forward_init : Nk.t -> Sp.t -> Sp.t
 
 (** Runs the backward algorithm to compute the set of input packets that have
     output. *)

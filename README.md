@@ -37,3 +37,9 @@ NetKAT Egg test:
 ```
 dune exec netkat-egg
 ```
+
+Parse all examples:
+```
+make parse
+tail -f parsed.txt
+```

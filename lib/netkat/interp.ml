@@ -110,7 +110,20 @@ and interp (bn: string) (env: Env.t) (c: t) =
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
                             end
                           end; env
-  | Print e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Nk.to_string); env
+  | Print e ->
+    let e' = Nkexp.eval env e in
+    let init = Nkpl_parser_utils.exp_of_string "@x=123" in (
+      match init with
+      | Some(ex) ->
+        let ex2 = Nkexp.eval env ex in
+        let ei = Nka.forward ex2 in
+        let x = Nka.forward_init e' ei in
+        Printf.printf "print: %s\n%!" (Nkexp.eval env e |> Nk.to_string);
+        Printf.printf "forward: %s\n%!" (Sp.to_string x);
+        env
+      | None ->
+        env
+    )
   | Tikz e -> Printf.printf "%s\n%!" (Nkexp.eval env e |> Deriv.e |> Spp.tikz); env
   | Let (s, e) -> Env.bind_exp env s (Nkexp.eval env e)
   | VLet (s, v) -> Env.bind_val env s v

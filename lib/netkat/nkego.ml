@@ -388,20 +388,8 @@ let make_egraph e =
     ()
     (* dot -Tpdf test.dot -o test.pdf *)
 
-let parse_string (s: string) : Nkexp.t option =
-  let lexbuf = Sedlexing.Utf8.from_string s in
-  let lexer  = Sedlexing.with_tokenizer Nkpl_lexer.token lexbuf in
-  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.single_exp in
-  (try
-    Some(parser lexer)
-  with
-    | Nkpl_parser.Error s ->
-      let (x,y) = Sedlexing.lexing_positions lexbuf in
-      Printf.printf "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
-      None)
-
 let interp_string (s: string) =
-  let eo = parse_string s in
+  let eo = Nkpl_parser_utils.exp_of_string s in
   match eo with
   | None -> ()
   | Some(e1) ->

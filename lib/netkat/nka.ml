@@ -298,8 +298,7 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                            bq (next'@rem) visited'
   in bq [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
 
-
-let forward (e: Nk.t) : Sp.t =
+let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing
      from [visited] is equivalent to mapped to Drop *)
   let get m exp = match NkMap.find_opt exp m with
@@ -323,7 +322,9 @@ let forward (e: Nk.t) : Sp.t =
                      |> Sts.to_list
                      |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
           loop (next@rem) v'
-  in loop [(e, Sp.skip)] NkMap.empty
+  in loop [(e, init)] NkMap.empty
+
+let forward (e: Nk.t) : Sp.t = forward_init e Sp.skip
 
 let backward (e: Nk.t) : Sp.t = failwith "TODO: reimplement backward"
   (* Old implementation (assumed State = Nk)
