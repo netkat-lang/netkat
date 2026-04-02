@@ -59,6 +59,7 @@ val forward_init : Nk.t -> Sp.t -> Sp.t
 (** Runs the backward algorithm to compute the set of input packets that have
     output. *)
 val backward : Nk.t -> Sp.t
+val backward_final : Nk.t -> Sp.t -> Sp.t
 
 (** Computes the size of an automaton in the form [n, m] where [n] is the number
     of automaton states, and [m] is the sum of the sizes of the transition and

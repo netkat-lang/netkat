@@ -112,7 +112,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                           end; env
   | Print e ->
     let e' = Nkexp.eval env e in
-    let init = Nkpl_parser_utils.exp_of_string "@x=123" in (
+    let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
       match init with
       | Some(ex) ->
         let ex2 = Nkexp.eval env ex in
@@ -120,6 +120,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
         let x = Nka.forward_init e' ei in
         Printf.printf "print: %s\n%!" (Nkexp.eval env e |> Nk.to_string);
         Printf.printf "forward: %s\n%!" (Sp.to_string x);
+        Printf.printf "backward: %s\n%!" (Sp.to_string (Nka.backward_final e' ei));
         env
       | None ->
         env

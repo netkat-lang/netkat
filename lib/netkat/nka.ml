@@ -304,12 +304,80 @@ let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
   let get m exp = match NkMap.find_opt exp m with
                   | None -> Sp.drop
                   | Some sp -> sp in
+  let get_todo m exp = match NkMap.find_opt exp m with
+                       | None -> Sp.drop
+                       | Some sp -> sp in
 
-  let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t NkMap.t) =
+  let rec loop (todo: Nk.t list) (visited: Sp.t NkMap.t) (todo_map : Sp.t NkMap.t) =
     match todo with
     | [] -> NkMap.bindings visited |>
             List.map (fun (e, pk) -> Spp.push pk (Deriv.e e)) |>
             Sp.union
+    | e :: rem -> 
+      let pkref = get_todo todo_map e in
+      let pk = !pkref in 
+      match (e, pk) with 
+      | (_, Sp.Drop) -> loop rem visited todo_map
+      | (e, pk) ->
+          if Nk.eq e Nk.drop then loop rem visited todo_map else
+          let p = Sp.diff pkref (get visited e) in
+          let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
+          let next = Deriv.d e
+                     |> Sts.to_list in
+          let next_states = List.map (fun (e, _) -> e) next in
+          let next_todo_map = List.fold_left (fun m (e, spp) -> NkMap.add e (Spp.push p spp) m) todo_map next in
+          loop (next_states@rem) v' next_todo_map
+  in loop [e] NkMap.empty (NkMap.singleton e init)
+
+let forward (e: Nk.t) : Sp.t = forward_init e Sp.skip
+
+
+let backward_final (e: Nk.t) (final : Sp.t) : Sp.t =
+  let pull e = Spp.pull (Deriv.e e) final in
+  (* This definition of [get] has the effect that an exp missing
+     from [visited] is equivalent to mapped to Drop *)
+  let get m exp = match NkMap.find_opt exp m with
+                  | None -> Sp.drop
+                  | Some sp -> sp in
+  let get_todo m exp = match NkMap.find_opt exp m with
+                       | None -> pull exp
+                       | Some sp -> sp in
+
+  let rec loop (todo: Nk.t list) (visited: Sp.t NkMap.t) (todo_map : Sp.t NkMap.t) =
+    match todo with
+    | [] -> get visited e
+    | e :: rem -> 
+      let pkref = get_todo todo_map e in
+      let pk = !pkref in 
+      match (e, pk) with 
+      | (_, Sp.Drop) -> loop rem visited todo_map
+      | (e, pk) ->
+          if Nk.eq e Nk.drop then loop rem visited todo_map else
+          let p = Sp.diff pkref (get visited e) in
+          let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
+          let next = Deriv.d e
+                     |> Sts.to_list in
+          let next_states = List.map (fun (e, _) -> e) next in
+          let next_todo_map = List.fold_left (fun m (e, spp) -> NkMap.add e (Spp.pull spp p) m) todo_map next in
+          loop (next_states@rem) v' next_todo_map
+  in loop [e] NkMap.empty NkMap.empty
+
+let backward (e: Nk.t) : Sp.t = backward_final e Sp.skip
+
+(*let backward (e: Nk.t) : Sp.t =
+  let pull e = Spp.pull (Deriv.e e) Sp.skip in
+  (* This definition of [get] has the effect that an exp missing
+     from [visited] is equivalent to mapped to Drop *)
+  let get m exp = match NkMap.find_opt exp m with
+                  | None -> Sp.drop (*pull exp*)
+                  | Some sp -> sp in
+
+  let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t NkMap.t) =
+    match todo with
+    | [] -> (match NkMap.find_opt e visited with
+      | None -> ref Sp.Drop
+      | Some(sp) -> sp
+      )
     | (e, pkref) :: rem -> 
       let pk = !pkref in 
       match (e, pk) with 
@@ -320,13 +388,10 @@ let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
           let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
           let next = Deriv.d e
                      |> Sts.to_list
-                     |> List.map (fun (e', spp) -> (e', Spp.push p spp)) in
+                     |> List.map (fun (e', spp) -> (e', Spp.pull spp p)) in
           loop (next@rem) v'
-  in loop [(e, init)] NkMap.empty
+  in loop [(e, pull e)] NkMap.empty*)
 
-let forward (e: Nk.t) : Sp.t = forward_init e Sp.skip
-
-let backward (e: Nk.t) : Sp.t = failwith "TODO: reimplement backward"
   (* Old implementation (assumed State = Nk)
   let a = autom e in
 
