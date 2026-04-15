@@ -1,5 +1,5 @@
+val binding_mode : bool ref
 (** Operations involving packet values. *)
-
 type t
 
 (** Comparator for packet values. *)

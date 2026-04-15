@@ -54,8 +54,12 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          let a2 = Nka.autom e2' in
                          (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
                          (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
+                         Printf.printf "### XOR BEGIN\n";
                          let sgn = if b then "≡" else "≢" in
+                         (*Value.binding_mode := true;*)
                          let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
+                         (*Value.binding_mode := false;*)
+                         Printf.printf "### XOR END\n";
                          let stop = Unix.gettimeofday () in
                          (*
                          (* Alternative forms of the bisim check: *)

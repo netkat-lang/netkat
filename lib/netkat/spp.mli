@@ -33,6 +33,7 @@ val compare : t -> t -> int
 
 (** The equality relation of SPPs. *)
 val eq : t -> t -> bool
+val eq2 : t -> t -> bool -> bool
 
 (** [union_pair s1 s2] is the union of the SPPs [s1] and [s2]. *)
 val union_pair : t -> t -> t

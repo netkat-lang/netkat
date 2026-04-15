@@ -71,6 +71,29 @@ let fetch x =
 let skip = fetch Skip
 let drop = fetch Drop
 
+let rec to_exp_inner = function
+  | Skip -> Nk.skip
+  | Drop -> Nk.drop
+  | Union (f, vm, d, _) ->
+      let tsts =
+        Nk.union
+          (List.map
+             (fun (v, t') ->
+               let tst = Nk.filter true f v in
+               let next = to_exp_inner t' in
+               Nk.seq_pair tst next)
+             (Value.M.bindings !!vm))
+      in
+      let ntsts =
+        Nk.seq
+          (List.map (fun (v, _) -> Nk.filter false f v) (Value.M.bindings vm))
+      in
+      Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
+
+let to_exp sp = to_exp_inner !sp
+let to_string t = to_exp t |> Nk.to_string
+
+
 let mk (f, m, d) =
   let m' =
     List.fold_left
@@ -147,6 +170,7 @@ let () =
 let union_pair =
   let union_pair self t1ref t2ref =
     let t1, t2 = (!t1ref, !t2ref) in
+    (*let _ = Printf.printf "union_pair: %s <-> %s\n%!" (to_string t1ref) (to_string t2ref) in*)
     match (t1, t2) with
     | Skip, _ | _, Skip -> skip
     | Drop, _ -> t2ref
@@ -182,6 +206,7 @@ let le sp1ref sp2ref =
 let seq_pair =
   let seq_pair self t1ref t2ref =
     let t1, t2 = (!t1ref, !t2ref) in
+    (*let _ = Printf.printf "seq_pair: %s <-> %s\n%!" (to_string t1ref) (to_string t2ref) in*)
     match (t1, t2) with
     | Drop, _ | _, Drop -> drop
     | Skip, _ -> t2ref
@@ -223,30 +248,14 @@ let neg =
 let diff t1 t2 = intersect_pair t1 (neg t2)
 let xor t1 t2 = union_pair (diff t1 t2) (diff t2 t1)
 
-let rec to_exp_inner = function
-  | Skip -> Nk.skip
-  | Drop -> Nk.drop
-  | Union (f, vm, d, _) ->
-      let tsts =
-        Nk.union
-          (List.map
-             (fun (v, t') ->
-               let tst = Nk.filter true f v in
-               let next = to_exp_inner t' in
-               Nk.seq_pair tst next)
-             (Value.M.bindings !!vm))
-      in
-      let ntsts =
-        Nk.seq
-          (List.map (fun (v, _) -> Nk.filter false f v) (Value.M.bindings vm))
-      in
-      Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
-
 let rep (spref : t) (fields : Field.S.t) : Pk.t =
+  (*Printf.printf "rep fields: ";
+  Field.S.iter (fun f -> print_string (Field.get_or_fail_fid f)) fields;*)
   let fillin = Field.S.fold (fun f a -> match Field.M.find_opt f a with
                                         | None -> Field.M.add f Value.choose a
                                         | Some _ -> a) fields in
   let rec r (sp: t) (partial: Pk.t) =
+    (*let _ = Printf.printf "taking rep: %s\n%!" (to_string sp) in*)
       match !sp with
       | Skip -> fillin partial
       | Drop -> failwith "Cannot take representative of Sp.Drop!"
@@ -265,8 +274,6 @@ let rec of_pk (pk: Pk.t) =
     let f,v = Field.M.min_binding pk in
     mk (f, Value.M.singleton v (of_pk (Field.M.remove f pk)), drop)
 
-let to_exp sp = to_exp_inner !sp
-let to_string t = to_exp t |> Nk.to_string
 
 let dump () = 
   SPHashtbl.clear pool; 

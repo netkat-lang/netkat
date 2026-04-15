@@ -9,14 +9,57 @@ type spp =
 
 type t = spp ref
 
+let rec to_exp sppref =
+  let spp = !sppref in
+  match spp with
+  | Skip -> Nk.skip
+  | Drop -> Nk.drop
+  | Union (f, fms, ms, d, _) ->
+      let branches =
+        Value.M.bindings fms
+        |> List.map (fun (vi, m) ->
+               let mods =
+                 Value.M.bindings m
+                 |> List.map (fun (vj, spp) ->
+                        Nk.seq_pair (Nk.modif f vj) (to_exp spp))
+                 |> Nk.union
+               in
+               Nk.seq_pair (Nk.filter true f vi) mods)
+        |> Nk.union
+      in
+      let uneq =
+        Value.M.bindings fms
+        |> List.map (fun (vi, _) -> Nk.filter false f vi)
+        |> Nk.seq
+      in
+      let mods =
+        Value.M.bindings ms
+        |> List.map (fun (vi, sppi) ->
+               Nk.seq_pair (Nk.modif f vi) (to_exp sppi))
+        |> Nk.union
+      in
+      let def =
+        Nk.seq_pair
+          (Value.M.bindings ms
+          |> List.map (fun (vi, _) -> Nk.filter false f vi)
+          |> Nk.seq)
+          (to_exp d)
+      in
+      let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
+      Nk.union_pair branches defaults
+
+let to_string t = to_exp t |> Nk.to_string
+
 let get_hash = function
   | Skip -> Hashtbl.hash Skip
   | Drop -> Hashtbl.hash Drop
   | Union (_, _, _, _, x) -> x
 
-let compare spp1ref spp2ref =
+let rec compare2 spp1ref spp2ref flag =
   let spp1, spp2 = (!spp1ref, !spp2ref) in
+  Printf.printf "Spp.compare: %s ?= %s\n" (to_string spp1ref) (to_string spp2ref);
   let magic_compare spp1 spp2 =
+    if flag then compare2 spp1 spp2 flag else
     Stdlib.compare (get_hash !spp1) (get_hash !spp2)
   in
   match (spp1, spp2) with
@@ -40,6 +83,8 @@ let compare spp1ref spp2ref =
           if cmp_ms < 0 then -1
           else if cmp_ms > 0 then 1
           else magic_compare d1 d2
+
+let compare spp1ref spp2ref = compare2 spp1ref spp2ref false
 
 let init_hash (f, fms, ms, d) =
   let fms_v =
@@ -75,6 +120,7 @@ module SPPHashtbl = Hashtbl.Make (struct
   let hash = get_hash
 end)
 
+let eq2 a b flag = (compare2 a b flag)=0
 let eq = ( == )
 let pool_size = 64
 let pool = SPPHashtbl.create pool_size
@@ -129,46 +175,6 @@ let mk (f, fms, ms, d) =
   if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
   else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d)))
 
-let rec to_exp sppref =
-  let spp = !sppref in
-  match spp with
-  | Skip -> Nk.skip
-  | Drop -> Nk.drop
-  | Union (f, fms, ms, d, _) ->
-      let branches =
-        Value.M.bindings fms
-        |> List.map (fun (vi, m) ->
-               let mods =
-                 Value.M.bindings m
-                 |> List.map (fun (vj, spp) ->
-                        Nk.seq_pair (Nk.modif f vj) (to_exp spp))
-                 |> Nk.union
-               in
-               Nk.seq_pair (Nk.filter true f vi) mods)
-        |> Nk.union
-      in
-      let uneq =
-        Value.M.bindings fms
-        |> List.map (fun (vi, _) -> Nk.filter false f vi)
-        |> Nk.seq
-      in
-      let mods =
-        Value.M.bindings ms
-        |> List.map (fun (vi, sppi) ->
-               Nk.seq_pair (Nk.modif f vi) (to_exp sppi))
-        |> Nk.union
-      in
-      let def =
-        Nk.seq_pair
-          (Value.M.bindings ms
-          |> List.map (fun (vi, _) -> Nk.filter false f vi)
-          |> Nk.seq)
-          (to_exp d)
-      in
-      let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
-      Nk.union_pair branches defaults
-
-let to_string t = to_exp t |> Nk.to_string
 
 let rec of_sp sp =
   match !sp with
@@ -254,8 +260,6 @@ let rec to_exp = function
       let defaults = Nk.seq_pair uneq (Nk.union_pair mods def) in
       Nk.union_pair branches defaults
       *)
-
-let to_string t = to_exp t |> Nk.to_string
 
 let vm_to_string (m : Sp.t Value.M.t) : string =
   List.map

@@ -221,6 +221,7 @@ let bisim (a1: t) (a2: t) : bool =
 (* Compute a traced in the symmetric difference between two automata. Return
    None if they are bisimilar. *)
 let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
+ Printf.printf "states A: %s\nstates B: %s\n" (to_string a1) (to_string a2);
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t option = 
     match spps with
     | [] ->
@@ -250,8 +251,17 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                            let rem_pk = Sp.diff pk prev in
                            let s1obs = StateMap.find s1 a1.obs in
                            let s2obs = StateMap.find s2 a2.obs in
-                         if not (Spp.eq (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)
-                                        (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) then
+                           Printf.printf ">> states A: %d, states B: %d\n" (s1) (s2);
+                        (* check if these states produce the same observations *)
+                         let () = Printf.printf ">> obs1:%s obs2:%s\n{\n%!" (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)) (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) in
+                         Printf.printf "### CHECK BEGIN\n";
+                         (*Value.binding_mode := true;*)
+                         let check = not (Spp.eq2 (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)
+                                         (Spp.seq_pair (Spp.of_sp rem_pk) s2obs) true) in
+                         (*Value.binding_mode := false;*)
+                         Printf.printf "### CHECK END\n";
+                         if check then (
+                           Printf.printf "}\n";
                            (*
                            let () = Printf.printf "witness-difference:\n" in
                            let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem_pk) s1 s2 in
@@ -262,9 +272,11 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                            let out = Spp.push rem_pk xorobs in
                            (* let () = Printf.printf "out:%s\n%!" (Sp.to_string out) in *)
                            let last_spp = Spp.seq_pair (Spp.of_sp rem_pk) xorobs in
+                            Printf.printf ">> FAIL: BACKOUT\n";
                            let out_rep = Sp.rep out fields in
                            backout out_rep (last_spp::spps) [out_rep]
-                         else
+                         ) else (
+                           Printf.printf "begin {\n";
                            let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
                            let tr2 = StateMap.find s2 a2.trans |> StateMap.bindings in
                            let next = List.fold_left (fun a (ei, sppi)->
@@ -295,8 +307,9 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                               this packet (plus everything there already for this pair of states. *)
                            let vpk = Sp.union_pair prev rem_pk in
                            let visited' = PairMap.add (s1,s2) vpk visited in
+                           Printf.printf "}\n";
                            bq (next'@rem) visited'
-  in bq [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
+  ) in bq [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
 
 let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing
