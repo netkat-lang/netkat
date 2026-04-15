@@ -78,7 +78,7 @@ let rec token buf =
                              s first.pos_lnum (first.pos_cnum - first.pos_bol) in
                 exit 1
             end
-  | letter, Star alphanum -> VAR (Sedlexing.Latin1.lexeme buf)
+  | letter, Star alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
   | lowercase ->
       begin match Sedlexing.Utf8.lexeme buf with
       | "\u{03b5}" -> SKIP  (* ε *)

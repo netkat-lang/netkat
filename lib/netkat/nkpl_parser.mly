@@ -42,11 +42,11 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | TIKZ; e=nk_exp { Nkcmd.Tikz e }
-  | var=VAR; TST; e=nk_exp { Nkcmd.Let (var,e) }
-  | var=VAR; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
+  | var=IDENT; TST; e=nk_exp { Nkcmd.Let (var,e) }
+  | var=IDENT; TST; v=NUM { Nkcmd.VLet (var, Value.of_int v) }
   | REP; e=nk_exp { Nkcmd.Rep e }
-  | FOR; var=VAR; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
-  | e=nk_exp { Nkcmd.Print e (* TODO XXX *) }
+  | FOR; var=IDENT; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
+  (*| e=nk_exp { print_string ">> EXPR\n"; Nkcmd.Print e } *)
   ;
 
 nk_exp:
@@ -94,10 +94,10 @@ nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (Field.get_or_assign_fid f) (Value.of_int v) }
-  | f = IDENT; TST; v = VAR { Nkexp.vfilter true (Field.get_or_assign_fid f) v }
-  | f = IDENT; NTST; v = VAR { Nkexp.vfilter false (Field.get_or_assign_fid f) v }
-  | f = IDENT; MOD; v = VAR { Nkexp.vmodif (Field.get_or_assign_fid f) v }
-  | v=VAR { Nkexp.var v }
+  | f = IDENT; TST; v = IDENT { Nkexp.vfilter true (Field.get_or_assign_fid f) v }
+  | f = IDENT; NTST; v = IDENT { Nkexp.vfilter false (Field.get_or_assign_fid f) v }
+  | f = IDENT; MOD; v = IDENT { Nkexp.vmodif (Field.get_or_assign_fid f) v }
+  | v=IDENT { Nkexp.var v }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }
   | SKIP { Nkexp.skip }
