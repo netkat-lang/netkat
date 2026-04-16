@@ -55,6 +55,37 @@ let get_hash = function
   | Drop -> Hashtbl.hash Drop
   | Union (_, _, _, _, x) -> x
 
+let rec compare_env (en:Value.Env.t) spp1ref spp2ref flag : int Value.EnvMap.t = Value.EnvMap.empty
+(*  let spp1, spp2 = (!spp1ref, !spp2ref) in
+  Printf.printf "Spp.compare_env: %s ?= %s\n" (to_string spp1ref) (to_string spp2ref);
+  let magic_compare spp1 spp2 =
+    if flag then compare_env en spp1 spp2 flag else
+    Stdlib.compare (get_hash !spp1) (get_hash !spp2)
+  in
+  match (spp1, spp2) with
+  | Drop, Drop -> [en,0]
+  | Drop, _ -> [en,-1]
+  | _, Drop -> [en,1]
+  | Skip, Skip -> [en,0]
+  | Skip, _ -> [en,-1]
+  | _, Skip -> [en,1]
+  | Union (f1, fms1, ms1, d1, _), Union (f2, fms2, ms2, d2, _) ->
+      if f1 < f2 then [en,-1]
+      else if f2 < f1 then [en,1]
+      else
+        let cmp_fms =
+          Value.M.compare (Value.M.compare magic_compare) fms1 fms2
+        in
+        List.map (fun (en',c) ->
+          if c < 0 then -1
+          else if c > 0 then 1
+          else
+            let cmp_ms = Value.M.compare magic_compare ms1 ms2 in
+            if cmp_ms < 0 then -1
+            else if cmp_ms > 0 then 1
+            else magic_compare d1 d2
+        ) cmp_fms*)
+
 let rec compare2 spp1ref spp2ref flag =
   let spp1, spp2 = (!spp1ref, !spp2ref) in
   Printf.printf "Spp.compare: %s ?= %s\n" (to_string spp1ref) (to_string spp2ref);
@@ -73,6 +104,7 @@ let rec compare2 spp1ref spp2ref flag =
       if f1 < f2 then -1
       else if f2 < f1 then 1
       else
+        let xxx = Value.M.compare_env Value.Env.empty (fun e a b -> Value.M.compare_env Value.Env.empty (fun e a b -> Value.EnvMap.empty) a b) fms1 fms2 in
         let cmp_fms =
           Value.M.compare (Value.M.compare magic_compare) fms1 fms2
         in

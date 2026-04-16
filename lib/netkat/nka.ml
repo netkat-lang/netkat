@@ -255,10 +255,10 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
                         (* check if these states produce the same observations *)
                          let () = Printf.printf ">> obs1:%s obs2:%s\n{\n%!" (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)) (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) in
                          Printf.printf "### CHECK BEGIN\n";
-                         (*Value.binding_mode := true;*)
+                         Value.binding_mode := true;
                          let check = not (Spp.eq2 (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)
                                          (Spp.seq_pair (Spp.of_sp rem_pk) s2obs) true) in
-                         (*Value.binding_mode := false;*)
+                         Value.binding_mode := false;
                          Printf.printf "### CHECK END\n";
                          if check then (
                            Printf.printf "}\n";

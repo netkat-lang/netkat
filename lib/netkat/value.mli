@@ -2,6 +2,17 @@ val binding_mode : bool ref
 (** Operations involving packet values. *)
 type t
 
+module SMap : Map.S with type key = string
+
+module Env : sig
+  type t = int SMap.t
+  val empty : t
+end
+
+module EnvMap : sig
+  include Map.S with type key = Env.t
+end
+
 (** Comparator for packet values. *)
 val compare : t -> t -> int
 
@@ -18,6 +29,7 @@ val of_string : string -> t
 module M : sig
   include Map.S with type key = t
   val fold_bdgs : ('b -> key -> 'a -> 'b) -> 'b -> 'a t -> 'b
+  val compare_env : Env.t -> (Env.t -> 'a -> 'a -> int EnvMap.t) -> 'a t -> 'a t -> int EnvMap.t
 end
 
 (** Set type for packet values. *)

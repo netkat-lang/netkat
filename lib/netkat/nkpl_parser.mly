@@ -1,4 +1,11 @@
 %{
+let do_const_synth = true
+let add_vfilter b f v =
+  if do_const_synth then Nkexp.filter b (Field.get_or_assign_fid f) (Value.of_string v) else
+     Nkexp.vfilter b (Field.get_or_assign_fid f) v
+let add_vmodif f v =
+  if do_const_synth then Nkexp.modif (Field.get_or_assign_fid f) (Value.of_string v) else
+    Nkexp.vmodif (Field.get_or_assign_fid f) v
 %}
 
 %token LPAR RPAR EOF
@@ -7,7 +14,6 @@
 %token FWD BWD EXISTS FORALL REP
 %token NTST TST MOD
 %token SKIP DROP DUP
-%token <string> VAR
 %token <string> IDENT
 %token <string> FILENAME
 %token <int> NUM
@@ -94,9 +100,9 @@ nk_at:
   | f = IDENT; TST; v = NUM { Nkexp.filter true (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; NTST; v = NUM { Nkexp.filter false (Field.get_or_assign_fid f) (Value.of_int v) }
   | f = IDENT; MOD; v = NUM { Nkexp.modif (Field.get_or_assign_fid f) (Value.of_int v) }
-  | f = IDENT; TST; v = IDENT { Nkexp.vfilter true (Field.get_or_assign_fid f) v }
-  | f = IDENT; NTST; v = IDENT { Nkexp.vfilter false (Field.get_or_assign_fid f) v }
-  | f = IDENT; MOD; v = IDENT { Nkexp.vmodif (Field.get_or_assign_fid f) v }
+  | f = IDENT; TST; v = IDENT { add_vfilter true f v }
+  | f = IDENT; NTST; v = IDENT { add_vfilter false f v }
+  | f = IDENT; MOD; v = IDENT { add_vmodif f v }
   | v=IDENT { Nkexp.var v }
   | DUP { Nkexp.dup }
   | DROP { Nkexp.drop }
