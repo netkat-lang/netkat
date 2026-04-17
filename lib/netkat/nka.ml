@@ -348,7 +348,7 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : (Value.Env.t * Trace.t option)
              if (Value.Env.compare en en2)<>0 then
              acc@(bq en2 q visited) else acc
            ) [] bindings
-  ) in bq (*(Value.Env.add "y" 3 (Value.Env.singleton "x" 5))*)Value.Env.empty [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
+  ) in bq (Value.Env.add "y" 3 (Value.Env.singleton "x" 3)) [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
 
 let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing
