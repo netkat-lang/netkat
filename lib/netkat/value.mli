@@ -1,4 +1,3 @@
-val binding_mode : bool ref
 (** Operations involving packet values. *)
 type t
 
@@ -7,10 +6,31 @@ module SMap : Map.S with type key = string
 module Env : sig
   type t = int SMap.t
   val empty : t
+  val add : string -> int -> t -> t
+  val singleton : string -> int -> t
+  val compare : t -> t -> int
+  val to_string : t -> string
 end
 
 module EnvMap : sig
   include Map.S with type key = Env.t
+end
+
+module IntSet : sig
+  include Set.S with type elt = int
+end
+
+val collecting_assignments : bool ref
+val temp_assignments : (string,IntSet.t) Hashtbl.t
+val get_temp_bindings : unit -> ((string * int) list) list
+
+val start_collecting : Env.t -> unit
+val stop_collecting : unit -> unit
+
+module CustomInt : sig
+  type t
+  val compare_env : bool -> Env.t -> t -> t -> int EnvMap.t
+  val to_string : t -> string
 end
 
 (** Comparator for packet values. *)

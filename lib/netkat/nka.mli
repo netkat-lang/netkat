@@ -45,7 +45,7 @@ val rep : t -> Field.S.t -> Trace.t
 
 (** Computes a trace in the symmetric difference of the trace sets for the two
     automata. If the automata are language equivalent, returns [None]. *)
-val xor_rep : t -> t -> Field.S.t -> Trace.t option
+val xor_rep : t -> t -> Field.S.t -> (Value.Env.t * Trace.t option) list
 
 (** Decides whether the two Netkat automaton are bisimilar. Because
     the representation forces that the automata are deterministic, this is

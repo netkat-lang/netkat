@@ -4,19 +4,69 @@ module Env = struct
   type t = int SMap.t
   let compare = SMap.compare Int.compare
   let empty = SMap.empty
+  let add = SMap.add
+  let singleton = SMap.singleton
+  let to_string (en:t) = SMap.fold (fun k v acc -> Printf.sprintf "%s, %s=%d" acc k v) en ""
 end
+
+module IntSet = Set.Make(struct
+  type t = int
+  let compare = Int.compare
+end)
 
 module EnvMap = Map.Make(Env)
 
-let binding_mode = ref false
-let temp = ((Hashtbl.create 100) : ((int*int),int) Hashtbl.t)
+let collecting_assignments = ref false
+let temp_assignments = ((Hashtbl.create 10) : (string,IntSet.t) Hashtbl.t)
+let assignments = ((Hashtbl.create 10) : (string,int option) Hashtbl.t)
+
+(*let _ = Hashtbl.add assignments "x" (Some(5))
+let _ = Hashtbl.add assignments "y" (Some(3))*)
+
+let start_collecting (en: Env.t) =
+  Hashtbl.clear assignments;
+  Hashtbl.clear temp_assignments;
+  collecting_assignments := true;
+  SMap.iter (fun s i -> Hashtbl.replace assignments s (Some(i))) en
+
+let stop_collecting () =
+  collecting_assignments := false;
+  ()
+
+let add_temp_assignment s i =
+  let st = (
+    match (Hashtbl.find_opt temp_assignments s) with
+    | None -> IntSet.empty
+    | Some(s) -> s
+  ) in
+  Hashtbl.replace temp_assignments s (IntSet.add i st)
+
+(*let _ = add_temp_assignment "z" 123
+let _ = add_temp_assignment "z" 456*)
+
+let cartesian_product tbl =
+  let bindings =
+    Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
+  in
+  List.fold_left (fun acc (key, values) ->
+    let with_values =
+      IntSet.fold (fun v acc_inner ->
+        List.fold_left (fun acc_inner2 partial ->
+          ((key, v) :: partial) :: acc_inner2
+        ) acc_inner acc
+      ) values []
+    in
+    let with_null = acc in
+    with_values @ with_null
+  ) [ [] ] bindings
+
+let get_temp_bindings () = cartesian_product temp_assignments
+
+
 (* e.nkpl *)
 (*let _ = Hashtbl.add temp (300,400) 0
 let _ = Hashtbl.add temp (300,3) 0*)
 (* d.nkpl *)
-let _ = Hashtbl.add temp (300,3) 0
-let _ = Hashtbl.add temp (400,4) 0
-
 
 (*let _ = Hashtbl.add temp (400,300) 0
 let _ = Hashtbl.add temp (300,3) 0
@@ -28,28 +78,39 @@ type temp = int_or_var
 module CustomInt = struct
   type t = int_or_var 
 
+  let to_string i = match i with
+  | Int(i) -> Printf.sprintf "Int(%d)" i
+  | Metavar(s) -> Printf.sprintf "Metavar(%s)" s
+
   let compare_env use_env (e:Env.t) (a:t) (b:t) : int EnvMap.t = match (a,b) with
   | (Int(a),Int(b)) -> EnvMap.singleton e (Int.compare a b)
   | (Metavar(s1),Metavar(s2)) -> (
     if s1==s2 then EnvMap.singleton e 0 else
-    match (SMap.find_opt s1 e, SMap.find_opt s2 e) with
-    | (Some(v1),Some(v2)) -> EnvMap.singleton e (Int.compare v1 v2)
+    match (Hashtbl.find_opt assignments s1, Hashtbl.find_opt assignments s2) with
+    | (Some(v1),Some(v2)) -> EnvMap.singleton e (Option.compare Int.compare v1 v2)
     | _ -> EnvMap.singleton e (String.compare s1 s2)
   )
   | (Int(i),Metavar(s)) -> (
-    match (SMap.find_opt s e) with
-    | Some(v) -> EnvMap.singleton e (Int.compare i v)
-    | None -> EnvMap.add e (-1) (if use_env then EnvMap.singleton (SMap.add s i e) 0 else EnvMap.empty)  
+    match (Hashtbl.find_opt assignments s) with
+    | Some(Some(v)) -> EnvMap.singleton e (Int.compare i v)
+    (*| None -> EnvMap.add e (-1) (if use_env then EnvMap.singleton (SMap.add s i e) 0 else EnvMap.empty)*)
+    | _ -> if !collecting_assignments then add_temp_assignment s i; EnvMap.singleton e (-1)
   )
   | (Metavar(s),Int(i)) -> (
-    match (SMap.find_opt s e) with
-    | Some(v) -> EnvMap.singleton e (Int.compare v i)
-    | None -> EnvMap.add e 1 (if use_env then EnvMap.singleton (SMap.add s i e) 0 else EnvMap.empty)
+    match (Hashtbl.find_opt assignments s) with
+    | Some(Some(v)) -> EnvMap.singleton e (Int.compare v i)
+    (*| None -> EnvMap.add e 1 (if use_env then EnvMap.singleton (SMap.add s i e) 0 else EnvMap.empty)*)
+    | _ -> if !collecting_assignments then add_temp_assignment s i; EnvMap.singleton e 1
   )
 
-  let compare (a:t) (b:t) = match EnvMap.choose_opt (compare_env false SMap.empty a b) with
+  let compare (a:t) (b:t) =
+  let result = match EnvMap.choose_opt (compare_env true (SMap.singleton "y" 3)(* TODO XXX *) a b) with
   | None -> failwith "CustomInt.compare: expected list of length > 0"
-  | Some(_,i) -> i
+  | Some(_,i) -> i in
+  if true(*!collecting_assignments*) then Printf.printf "Value.compare: %s <--> %s = %d\n" (to_string a) (to_string b) result;
+  (*let stack = Printexc.get_callstack 20 in
+  print_endline (Printexc.raw_backtrace_to_string stack);*)
+  result
 
   (*let compare (a:t) (b:t) =
     let cmp one two = (
@@ -86,6 +147,7 @@ module M = struct
       let temp = List.fold_left (fun acc2 (k2, v2) ->
         EnvMap.fold (fun en' _ acc' ->
           (* compare keys *)
+          Printf.printf "    >> comparing: %s to %s\n" (CustomInt.to_string k1) (CustomInt.to_string k2);
           let result = CustomInt.compare_env true en' k1 k2 in
           EnvMap.fold (fun (k3:Env.t) (v3:int) acc3 ->
             if v3 = 0 then (

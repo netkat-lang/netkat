@@ -220,7 +220,7 @@ let bisim (a1: t) (a2: t) : bool =
 
 (* Compute a traced in the symmetric difference between two automata. Return
    None if they are bisimilar. *)
-let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
+let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : (Value.Env.t * Trace.t option) list =
  Printf.printf "states A: %s\nstates B: %s\n" (to_string a1) (to_string a2);
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t option = 
     match spps with
@@ -236,80 +236,119 @@ let xor_rep (a1: t) (a2: t) (fields: Field.S.t) : Trace.t option =
     | spp::rem -> 
         let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
         backout pk' rem (pk'::partial) in
-  let rec bq (q: (Sp.t * Spp.t list * int * int) list) visited = 
+  let rec bq (en: Value.Env.t) (q: (Sp.t * Spp.t list * int * int) list) visited = (
     match q with
-    | [] -> None
+    | [] -> print_string "WIN\n"; [en,None]
     | (pk, spps, s1, s2)::rem ->
-                         if Sp.eq pk Sp.drop ||
-                            (PairMap.mem (s1,s2) visited) && 
-                            (Sp.le pk (PairMap.find (s1,s2) visited)) then
-                           bq rem visited
-                         else
-                           let prev = match PairMap.find_opt (s1,s2) visited with
-                                      | None -> Sp.drop
-                                      | Some a -> a in
-                           let rem_pk = Sp.diff pk prev in
-                           let s1obs = StateMap.find s1 a1.obs in
-                           let s2obs = StateMap.find s2 a2.obs in
-                           Printf.printf ">> states A: %d, states B: %d\n" (s1) (s2);
-                        (* check if these states produce the same observations *)
-                         let () = Printf.printf ">> obs1:%s obs2:%s\n{\n%!" (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)) (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) in
-                         Printf.printf "### CHECK BEGIN\n";
-                         Value.binding_mode := true;
-                         let check = not (Spp.eq2 (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)
-                                         (Spp.seq_pair (Spp.of_sp rem_pk) s2obs) true) in
-                         Value.binding_mode := false;
-                         Printf.printf "### CHECK END\n";
-                         if check then (
-                           Printf.printf "}\n";
-                           (*
-                           let () = Printf.printf "witness-difference:\n" in
-                           let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem_pk) s1 s2 in
-                           let () = Printf.printf "obs1:%s obs2:%s\n%!" (Spp.to_string s1obs) (Spp.to_string s2obs) in
-                           *)
-                           let xorobs = Spp.xor s1obs s2obs in
-                           (* let () = Printf.printf "xorobs:%s\n%!" (Spp.to_string xorobs) in *)
-                           let out = Spp.push rem_pk xorobs in
-                           (* let () = Printf.printf "out:%s\n%!" (Sp.to_string out) in *)
-                           let last_spp = Spp.seq_pair (Spp.of_sp rem_pk) xorobs in
-                            Printf.printf ">> FAIL: BACKOUT\n";
-                           let out_rep = Sp.rep out fields in
-                           backout out_rep (last_spp::spps) [out_rep]
-                         ) else (
-                           Printf.printf "begin {\n";
-                           let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
-                           let tr2 = StateMap.find s2 a2.trans |> StateMap.bindings in
-                           let next = List.fold_left (fun a (ei, sppi)->
-                              (List.map (fun (ej, sppj) ->
-                                let cap = Spp.intersect_pair sppi sppj in
-                                let pk' = Spp.push rem_pk cap in
-                                let spp = Spp.seq_pair (Spp.of_sp rem_pk) cap in
-                                (pk', spp::spps, ei, ej)) tr2)@a) [] tr1 in
-                           let all1 = List.map (fun (_,spp) -> spp) tr1 |> Spp.union in
-                           let all2  = List.map (fun (_,spp) -> spp) tr2 |> Spp.union in
-                           let rem1 = List.map (fun (ei,sppi) ->
-                               let diff = Spp.diff sppi all2 in
-                               let pk' = Spp.push rem_pk diff in
-                               let spp = Spp.seq_pair (Spp.of_sp rem_pk) diff in
-                               (pk', spp::spps, ei, State.drop)) tr1 in
-                           let rem2 = List.map (fun (ei,sppi) ->
-                               let diff = Spp.diff sppi all1 in
-                               let pk' = Spp.push rem_pk diff in
-                               let spp = Spp.seq_pair (Spp.of_sp rem_pk) diff in
-                               (pk', spp::spps, State.drop, ei)) tr2 in
-                           let next' = next @ rem1 @ rem2 in
-                           (*
-                           let () = Printf.printf "from %d,%d\n" s1 s2 in
-                           let () = List.iter (fun (pk,t1,t2) -> Printf.printf "%s %d %d\n"
-                              (Sp.to_string pk) t1 t2) next' in
-                           *)
-                           (* Update the visited set to include everything in
-                              this packet (plus everything there already for this pair of states. *)
-                           let vpk = Sp.union_pair prev rem_pk in
-                           let visited' = PairMap.add (s1,s2) vpk visited in
-                           Printf.printf "}\n";
-                           bq (next'@rem) visited'
-  ) in bq [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
+     let extend_env en binding = (
+       let en2 = List.fold_left (fun en' (s,i) ->
+         Value.Env.add s i en'
+       ) en binding in
+       en2
+     ) in
+    let result = (
+       let print_collected () = (
+         Hashtbl.iter (fun k v ->
+           let s = Value.IntSet.fold (fun i acc -> Printf.sprintf "%s, %d" acc i) v "" in
+           Printf.printf "  Collected: %s = %s\n" k s;
+         ) Value.temp_assignments;
+         let bindings = Value.get_temp_bindings () in
+         List.iter (fun l ->
+            let s = List.fold_left (fun acc (s,i) -> Printf.sprintf "%s, %s=%d" acc s i) "" l in
+            Printf.printf "binding: %s\n" s;
+         ) bindings
+       ) in
+       Printf.printf "\n\n### CHECK1 BEGIN\n";
+       Value.start_collecting en;
+       let check1 = Sp.eq pk Sp.drop ||
+          (PairMap.mem (s1,s2) visited) && 
+          (Sp.le pk (PairMap.find (s1,s2) visited)) in
+       Value.collecting_assignments := false;
+       Value.stop_collecting ();
+       print_collected ();
+       Printf.printf "\n\n### CHECK1 END\n";
+       if check1 then
+         (bq en rem visited)
+       else (
+         let prev = match PairMap.find_opt (s1,s2) visited with
+                    | None -> Sp.drop
+                    | Some a -> a in
+         let rem_pk = Sp.diff pk prev in
+         let s1obs = StateMap.find s1 a1.obs in
+         let s2obs = StateMap.find s2 a2.obs in
+         Printf.printf ">> states A: %d, states B: %d\n" (s1) (s2);
+        (* check if these states produce the same observations *)
+         let () = Printf.printf ">> obs1:%s obs2:%s\n{\n%!" (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s1obs)) (Spp.to_string (Spp.seq_pair (Spp.of_sp rem_pk) s2obs)) in
+         Printf.printf "\n\n### CHECK2 BEGIN\n";
+         Value.start_collecting en;
+         let seq1 = (Spp.seq_pair (Spp.of_sp rem_pk) s1obs) in
+         Printf.printf "  ### CHECK A\n";
+         let seq2 = (Spp.seq_pair (Spp.of_sp rem_pk) s2obs) in
+         Printf.printf "  ### CHECK B\n";
+         let check = not (Spp.eq2 seq1
+                         seq2 true) in
+         Value.stop_collecting ();
+         print_collected ();
+         Printf.printf "### CHECK2 END\n\n\n";
+         if check then (
+           Printf.printf "}\n";
+           (*
+           let () = Printf.printf "witness-difference:\n" in
+           let () = Printf.printf "pk:%s s1:%d s2:%d\n%!" (Sp.to_string rem_pk) s1 s2 in
+           let () = Printf.printf "obs1:%s obs2:%s\n%!" (Spp.to_string s1obs) (Spp.to_string s2obs) in
+           *)
+           let xorobs = Spp.xor s1obs s2obs in
+           (* let () = Printf.printf "xorobs:%s\n%!" (Spp.to_string xorobs) in *)
+           let out = Spp.push rem_pk xorobs in
+           (* let () = Printf.printf "out:%s\n%!" (Sp.to_string out) in *)
+           let last_spp = Spp.seq_pair (Spp.of_sp rem_pk) xorobs in
+            Printf.printf ">> FAIL: BACKOUT\n";
+           let out_rep = Sp.rep out fields in
+           [en,backout out_rep (last_spp::spps) [out_rep]]
+         ) else (
+           Printf.printf "begin {\n";
+           let tr1 = StateMap.find s1 a1.trans |> StateMap.bindings in
+           let tr2 = StateMap.find s2 a2.trans |> StateMap.bindings in
+           let next = List.fold_left (fun a (ei, sppi)->
+              (List.map (fun (ej, sppj) ->
+                let cap = Spp.intersect_pair sppi sppj in
+                let pk' = Spp.push rem_pk cap in
+                let spp = Spp.seq_pair (Spp.of_sp rem_pk) cap in
+                (pk', spp::spps, ei, ej)) tr2)@a) [] tr1 in
+           let all1 = List.map (fun (_,spp) -> spp) tr1 |> Spp.union in
+           let all2  = List.map (fun (_,spp) -> spp) tr2 |> Spp.union in
+           let rem1 = List.map (fun (ei,sppi) ->
+               let diff = Spp.diff sppi all2 in
+               let pk' = Spp.push rem_pk diff in
+               let spp = Spp.seq_pair (Spp.of_sp rem_pk) diff in
+               (pk', spp::spps, ei, State.drop)) tr1 in
+           let rem2 = List.map (fun (ei,sppi) ->
+               let diff = Spp.diff sppi all1 in
+               let pk' = Spp.push rem_pk diff in
+               let spp = Spp.seq_pair (Spp.of_sp rem_pk) diff in
+               (pk', spp::spps, State.drop, ei)) tr2 in
+           let next' = next @ rem1 @ rem2 in
+           (*
+           let () = Printf.printf "from %d,%d\n" s1 s2 in
+           let () = List.iter (fun (pk,t1,t2) -> Printf.printf "%s %d %d\n"
+              (Sp.to_string pk) t1 t2) next' in
+           *)
+           (* update visited set to include everything in this packet plus everything there already for this pair of states *)
+           let vpk = Sp.union_pair prev rem_pk in
+           let visited' = PairMap.add (s1,s2) vpk visited in
+           Printf.printf "}\n";
+           (bq en (next'@rem) visited')
+         )
+       )
+    ) in
+    let bindings = Value.get_temp_bindings () in
+    result@
+           List.fold_left (fun acc binding ->
+             let en2 = extend_env en binding in
+             if (Value.Env.compare en en2)<>0 then
+             acc@(bq en2 q visited) else acc
+           ) [] bindings
+  ) in bq (*(Value.Env.add "y" 3 (Value.Env.singleton "x" 5))*)Value.Env.empty [(Sp.skip, [], a1.start, a2.start)] PairMap.empty
 
 let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
   (* This definition of [get] has the effect that an exp missing

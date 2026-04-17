@@ -57,7 +57,7 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          Printf.printf "### XOR BEGIN\n";
                          let sgn = if b then "≡" else "≢" in
                          (*Value.binding_mode := true;*)
-                         let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
+                         let res = (Nka.xor_rep a1 a2 (Field.get_fields ())) in
                          (*Value.binding_mode := false;*)
                          Printf.printf "### XOR END\n";
                          let stop = Unix.gettimeofday () in
@@ -97,22 +97,28 @@ and interp (bn: string) (env: Env.t) (c: t) =
                              failwith "mismatched bisim results!" in
                          *)
                          begin
-                         match b, res with
-                         | true, None
-                         | false, Some _ ->
-                           Printf.printf "*** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
-                            (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start)
-                         | true, Some cex ->
-                            begin
-                              Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
-                                (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                              Printf.printf "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
-                            end
-                         | false, None ->
-                            begin
-                            Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
-                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
-                            end
+                          Printf.printf "Result len = %d\n" (List.length res);
+                          List.iter (fun (en,res) ->
+                             match b, res with
+                             | true, None
+                             | false, Some _ ->
+                               Printf.printf "environment: %s\n" (Value.Env.to_string en);
+                               Printf.printf "*** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                                (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start)
+                             | true, Some cex ->
+                                begin
+                                  Printf.printf "environment: %s\n" (Value.Env.to_string en);
+                                  Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
+                                    (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
+                                  Printf.printf "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
+                                end
+                             | false, None ->
+                                begin
+                                Printf.printf "environment: %s\n" (Value.Env.to_string en);
+                                Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
+                                  (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
+                                end
+                            ) res
                           end; env
   | Print e ->
     let e' = Nkexp.eval env e in

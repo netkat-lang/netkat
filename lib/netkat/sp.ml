@@ -15,6 +15,30 @@ let deref_ms = Value.M.map (fun x -> !x)
 let ( !!! ) = deref_fms
 let ( !! ) = deref_ms
 
+let rec to_exp_inner = function
+  | Skip -> Nk.skip
+  | Drop -> Nk.drop
+  | Union (f, vm, d, _) ->
+      let tsts =
+        Nk.union
+          (List.map
+             (fun (v, t') ->
+               let tst = Nk.filter true f v in
+               let next = to_exp_inner t' in
+               Nk.seq_pair tst next)
+             (Value.M.bindings !!vm))
+      in
+      let ntsts =
+        Nk.seq
+          (List.map (fun (v, _) -> Nk.filter false f v) (Value.M.bindings vm))
+      in
+      Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
+
+let to_exp sp = to_exp_inner !sp
+let to_string t = to_exp t |> Nk.to_string
+
+
+
 let compare_inner sp1 sp2 =
   let magic_compare sp1 sp2 = Stdlib.compare (get_hash !sp1) (get_hash !sp2) in
   match (sp1, sp2) with
@@ -31,7 +55,9 @@ let compare_inner sp1 sp2 =
         let cmp_maps = Value.M.compare magic_compare fs1 fs2 in
         if cmp_maps = 0 then magic_compare d1 d2 else cmp_maps
 
-let compare sp1 sp2 = compare_inner !sp1 !sp2
+let compare sp1 sp2 =
+(*Printf.printf "Sp.compare: %s ?= %s\n" (to_string sp1) (to_string sp2);*)
+compare_inner !sp1 !sp2
 
 let init_hash (f, fs, d) =
   let fs_v =
@@ -56,7 +82,9 @@ module SPHashtbl = Hashtbl.Make (struct
   let hash = get_hash
 end)
 
-let eq = ( == )
+(* TODO XXX - I disabled this *)
+let eq a b = (compare a b)=0
+let eq_old = ( == )
 let pool_size = 64
 let pool = SPHashtbl.create pool_size
 
@@ -70,28 +98,6 @@ let fetch x =
 
 let skip = fetch Skip
 let drop = fetch Drop
-
-let rec to_exp_inner = function
-  | Skip -> Nk.skip
-  | Drop -> Nk.drop
-  | Union (f, vm, d, _) ->
-      let tsts =
-        Nk.union
-          (List.map
-             (fun (v, t') ->
-               let tst = Nk.filter true f v in
-               let next = to_exp_inner t' in
-               Nk.seq_pair tst next)
-             (Value.M.bindings !!vm))
-      in
-      let ntsts =
-        Nk.seq
-          (List.map (fun (v, _) -> Nk.filter false f v) (Value.M.bindings vm))
-      in
-      Nk.union_pair tsts (Nk.seq_pair ntsts (to_exp_inner !d))
-
-let to_exp sp = to_exp_inner !sp
-let to_string t = to_exp t |> Nk.to_string
 
 
 let mk (f, m, d) =

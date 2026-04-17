@@ -55,7 +55,7 @@ let get_hash = function
   | Drop -> Hashtbl.hash Drop
   | Union (_, _, _, _, x) -> x
 
-let rec compare_env (en:Value.Env.t) spp1ref spp2ref flag : int Value.EnvMap.t = Value.EnvMap.empty
+let rec compare_env flag (en:Value.Env.t) spp1ref spp2ref : int Value.EnvMap.t = Value.EnvMap.empty
 (*  let spp1, spp2 = (!spp1ref, !spp2ref) in
   Printf.printf "Spp.compare_env: %s ?= %s\n" (to_string spp1ref) (to_string spp2ref);
   let magic_compare spp1 spp2 =
@@ -104,7 +104,11 @@ let rec compare2 spp1ref spp2ref flag =
       if f1 < f2 then -1
       else if f2 < f1 then 1
       else
-        let xxx = Value.M.compare_env Value.Env.empty (fun e a b -> Value.M.compare_env Value.Env.empty (fun e a b -> Value.EnvMap.empty) a b) fms1 fms2 in
+        let xxx = Value.M.compare_env Value.Env.empty (fun e a b -> Value.M.compare_env e (fun e a b -> (* TODO XXX *)compare_env true e a b) a b) fms1 fms2 in
+        Value.EnvMap.iter (fun k v ->
+          let s = Value.SMap.fold (fun k v acc -> Printf.sprintf "%s, %s=%d" acc k v) k "" in
+          Printf.printf "  key={%s}, val=%d\n" s v
+        ) xxx;
         let cmp_fms =
           Value.M.compare (Value.M.compare magic_compare) fms1 fms2
         in
@@ -132,10 +136,16 @@ let init_hash (f, fms, ms, d) =
   in
   Hashtbl.hash (f, fms_v, ms_v, get_hash !d)
 
+let eq2 a b flag = (compare2 a b flag)=0
+
 module SPPHashtbl = Hashtbl.Make (struct
   type t = spp
 
-  let equal spp1 spp2 =
+  let equal spp1 spp2 = eq2 (ref spp1) (ref spp2) true
+
+  (* TODO XXX - I disabled this *)
+  let equal_old spp1 spp2 =
+    Printf.printf "Spp HASH compare: %s ?= %s\n" (to_string (ref spp1)) (to_string (ref spp2));
     match (spp1, spp2) with
     | Drop, Drop -> true
     | Drop, _ -> false
@@ -152,7 +162,7 @@ module SPPHashtbl = Hashtbl.Make (struct
   let hash = get_hash
 end)
 
-let eq2 a b flag = (compare2 a b flag)=0
+(* TODO XXX - do we need to update this? *)
 let eq = ( == )
 let pool_size = 64
 let pool = SPPHashtbl.create pool_size
@@ -162,7 +172,8 @@ let fetch x =
   | Some refx -> refx
   | None ->
       let refx = ref x in
-      SPPHashtbl.add pool x refx;
+      (* TODO XXX - I disabled this *)
+      (*SPPHashtbl.add pool x refx;*)
       refx
 
 let skip = fetch Skip
@@ -204,8 +215,9 @@ let mk (f, fms, ms, d) =
         in
         not (Value.M.equal ( == ) mi drop_branch))
       fms'' in
-  if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
-  else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d)))
+  let result = if Value.M.is_empty fms''' && Value.M.is_empty ms' then d
+  else fetch (Union (f, fms''', ms', d, init_hash (f, fms''', ms', d))) in
+  result
 
 
 let rec of_sp sp =
