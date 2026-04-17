@@ -24,6 +24,8 @@ val collecting_assignments : bool ref
 val temp_assignments : (string,IntSet.t) Hashtbl.t
 val get_temp_bindings : unit -> ((string * int) list) list
 
+val print_assignments : unit -> unit
+
 val start_collecting : Env.t -> unit
 val stop_collecting : unit -> unit
 

@@ -39,8 +39,9 @@ let to_string t = to_exp t |> Nk.to_string
 
 
 
-let compare_inner sp1 sp2 =
+let rec compare_inner sp1 sp2 =
   let magic_compare sp1 sp2 = Stdlib.compare (get_hash !sp1) (get_hash !sp2) in
+  (*let magic_compare sp1 sp2 = compare_inner (!sp1) (!sp2) in*)
   match (sp1, sp2) with
   | Drop, Drop -> 0
   | Drop, _ -> -1
@@ -67,6 +68,8 @@ let init_hash (f, fs, d) =
 
 module SPHashtbl = Hashtbl.Make (struct
   type t = sp
+
+  (*let equal spp1 spp2 = eq (ref spp1) (ref spp2)*)
 
   let equal spp1 spp2 =
     match (spp1, spp2) with

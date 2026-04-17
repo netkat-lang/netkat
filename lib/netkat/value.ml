@@ -20,16 +20,22 @@ let collecting_assignments = ref false
 let temp_assignments = ((Hashtbl.create 10) : (string,IntSet.t) Hashtbl.t)
 let assignments = ((Hashtbl.create 10) : (string,int option) Hashtbl.t)
 
+let print_assignments () = Hashtbl.iter (fun k v ->
+  Printf.printf "%s -> %s\n" k (match v with None -> "None" | Some(i) -> Printf.sprintf "Some(%d)" i)
+) assignments
+
 (*let _ = Hashtbl.add assignments "x" (Some(5))
 let _ = Hashtbl.add assignments "y" (Some(3))*)
 
 let start_collecting (en: Env.t) =
+  Printf.printf "START COLLECTING\n";
   Hashtbl.clear assignments;
   Hashtbl.clear temp_assignments;
   collecting_assignments := true;
   SMap.iter (fun s i -> Hashtbl.replace assignments s (Some(i))) en
 
 let stop_collecting () =
+  Printf.printf "STOP COLLECTING\n";
   collecting_assignments := false;
   ()
 
@@ -82,10 +88,11 @@ module CustomInt = struct
   | Int(i) -> Printf.sprintf "Int(%d)" i
   | Metavar(s) -> Printf.sprintf "Metavar(%s)" s
 
-  let compare_env use_env (e:Env.t) (a:t) (b:t) : int EnvMap.t = match (a,b) with
+  let compare_env use_env (e:Env.t) (a:t) (b:t) : int EnvMap.t =
+  let result = (match (a,b) with
   | (Int(a),Int(b)) -> EnvMap.singleton e (Int.compare a b)
   | (Metavar(s1),Metavar(s2)) -> (
-    if s1==s2 then EnvMap.singleton e 0 else
+    if s1=s2 then EnvMap.singleton e 0 else
     match (Hashtbl.find_opt assignments s1, Hashtbl.find_opt assignments s2) with
     | (Some(v1),Some(v2)) -> EnvMap.singleton e (Option.compare Int.compare v1 v2)
     | _ -> EnvMap.singleton e (String.compare s1 s2)
@@ -101,10 +108,12 @@ module CustomInt = struct
     | Some(Some(v)) -> EnvMap.singleton e (Int.compare v i)
     (*| None -> EnvMap.add e 1 (if use_env then EnvMap.singleton (SMap.add s i e) 0 else EnvMap.empty)*)
     | _ -> if !collecting_assignments then add_temp_assignment s i; EnvMap.singleton e 1
-  )
+  )) in
+  Printf.printf "Value.compare: %s ?= %s\n" (to_string a) (to_string b);
+  result
 
   let compare (a:t) (b:t) =
-  let result = match EnvMap.choose_opt (compare_env true (SMap.singleton "y" 3)(* TODO XXX *) a b) with
+  let result = match EnvMap.choose_opt (compare_env true SMap.empty a b) with
   | None -> failwith "CustomInt.compare: expected list of length > 0"
   | Some(_,i) -> i in
   if true(*!collecting_assignments*) then Printf.printf "Value.compare: %s <--> %s = %d\n" (to_string a) (to_string b) result;

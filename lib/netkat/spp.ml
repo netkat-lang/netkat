@@ -50,6 +50,24 @@ let rec to_exp sppref =
 
 let to_string t = to_exp t |> Nk.to_string
 
+let vm_to_string (m : Sp.t Value.M.t) : string =
+  List.map
+    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ Sp.to_string sp)
+    (Value.M.bindings m)
+  |> String.concat ", "
+
+let vmpp_to_string (m : spp ref Value.M.t) : string =
+  List.map
+    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ to_string sp)
+    (Value.M.bindings m)
+  |> String.concat ", "
+
+let vmm_to_string (m : spp ref Value.M.t Value.M.t) : string =
+  List.map
+    (fun (vi, mi) -> Value.to_string vi ^ "--->" ^ vmpp_to_string mi)
+    (Value.M.bindings m)
+  |> String.concat "; "
+
 let get_hash = function
   | Skip -> Hashtbl.hash Skip
   | Drop -> Hashtbl.hash Drop
@@ -88,12 +106,11 @@ let rec compare_env flag (en:Value.Env.t) spp1ref spp2ref : int Value.EnvMap.t =
 
 let rec compare2 spp1ref spp2ref flag =
   let spp1, spp2 = (!spp1ref, !spp2ref) in
-  Printf.printf "Spp.compare: %s ?= %s\n" (to_string spp1ref) (to_string spp2ref);
   let magic_compare spp1 spp2 =
-    if flag then compare2 spp1 spp2 flag else
+    if true(*flag*) then compare2 spp1 spp2 flag else
     Stdlib.compare (get_hash !spp1) (get_hash !spp2)
   in
-  match (spp1, spp2) with
+  let result = (match (spp1, spp2) with
   | Drop, Drop -> 0
   | Drop, _ -> -1
   | _, Drop -> 1
@@ -101,26 +118,31 @@ let rec compare2 spp1ref spp2ref flag =
   | Skip, _ -> -1
   | _, Skip -> 1
   | Union (f1, fms1, ms1, d1, _), Union (f2, fms2, ms2, d2, _) ->
-      if f1 < f2 then -1
-      else if f2 < f1 then 1
+      if f1 < f2 then (print_string "one\n"; -1)
+      else if f2 < f1 then (print_string "two\n"; 1)
       else
-        let xxx = Value.M.compare_env Value.Env.empty (fun e a b -> Value.M.compare_env e (fun e a b -> (* TODO XXX *)compare_env true e a b) a b) fms1 fms2 in
-        Value.EnvMap.iter (fun k v ->
-          let s = Value.SMap.fold (fun k v acc -> Printf.sprintf "%s, %s=%d" acc k v) k "" in
-          Printf.printf "  key={%s}, val=%d\n" s v
-        ) xxx;
+        let _ = Printf.printf "DOING COMPARE: { %s }  { %s }\n" (vmm_to_string fms1) (vmm_to_string fms2) in
+        let _ = Printf.printf "%s -> %s\n" (vmm_to_string fms1) (vmm_to_string (Value.M.of_seq (Value.M.to_seq fms1))) in
+        let _ = Printf.printf "%s -> %s\n" (vmm_to_string fms2) (vmm_to_string (Value.M.of_seq (Value.M.to_seq fms2))) in
+        (* TODO XXX - this is a hack *)
+        let fms1 = (Value.M.of_seq (Value.M.to_seq fms1)) in
+        let fms2 = (Value.M.of_seq (Value.M.to_seq fms2)) in
         let cmp_fms =
           Value.M.compare (Value.M.compare magic_compare) fms1 fms2
         in
-        if cmp_fms < 0 then -1
+        let _ = Printf.printf "DONE COMPARE\n" in
+        if cmp_fms < 0 then (print_string "three\n";  -1)
         else if cmp_fms > 0 then 1
         else
           let cmp_ms = Value.M.compare magic_compare ms1 ms2 in
           if cmp_ms < 0 then -1
           else if cmp_ms > 0 then 1
-          else magic_compare d1 d2
+          else magic_compare d1 d2) in
+  Value.print_assignments ();
+  Printf.printf "Spp.compare: %s ?= %s : %d (flag = %s)\n" (to_string spp1ref) (to_string spp2ref) result (if flag then "true" else "false");
+  result
 
-let compare spp1ref spp2ref = compare2 spp1ref spp2ref false
+let compare spp1ref spp2ref = compare2 spp1ref spp2ref true (* TODO *)
 
 let init_hash (f, fms, ms, d) =
   let fms_v =
@@ -305,23 +327,6 @@ let rec to_exp = function
       Nk.union_pair branches defaults
       *)
 
-let vm_to_string (m : Sp.t Value.M.t) : string =
-  List.map
-    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ Sp.to_string sp)
-    (Value.M.bindings m)
-  |> String.concat ", "
-
-let vmpp_to_string (m : spp ref Value.M.t) : string =
-  List.map
-    (fun (vj, sp) -> Value.to_string vj ^ "↦" ^ to_string sp)
-    (Value.M.bindings m)
-  |> String.concat ", "
-
-let vmm_to_string (m : spp ref Value.M.t Value.M.t) : string =
-  List.map
-    (fun (vi, mi) -> Value.to_string vi ^ "--->" ^ vmpp_to_string mi)
-    (Value.M.bindings m)
-  |> String.concat "; "
 
 module Memo_op = struct
   module Memo1_tbl = Hashtbl.Make (struct
