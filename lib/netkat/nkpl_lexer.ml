@@ -1,99 +1,162 @@
 open Nkpl_parser
 
+let lookahead = Queue.create ()
+let prev_token = ref None
+
+let cn = ref false
+let depth = ref 0
+
+let to_string t = match t with
+| DROP -> "DROP"
+| SKIP -> "SKIP"
+| IMPORT -> "IMPORT"
+| CHECK -> "CHECK"
+| PRINT -> "PRINT"
+| TIKZ -> "TIKZ"
+| REP -> "REP"
+| FOR -> "FOR"
+| IDENT s -> Printf.sprintf "IDENT(%s)" s
+| _ -> "?"
+
+let can_end_cmd t = match t with
+| Some(DROP | SKIP | DUP | RPAR | STAR | NUM _ | IDENT _) -> true
+| _ -> false
+
+let can_begin_cmd t = match t with
+| IMPORT | CHECK | PRINT | TIKZ | REP | FOR | IDENT _ -> true
+| _ -> false
+
 let digit = [%sedlex.regexp? '0' .. '9']
 let number = [%sedlex.regexp? Opt '-', Plus digit]
+let subdigit = [%sedlex.regexp? 0x2080 .. 0x2089]
 let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
-let alphanum = [%sedlex.regexp? digit | letter | '_' ]
+let alphanum = [%sedlex.regexp? digit | letter | subdigit | '_' ]
 let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_' | '-']
 let fn = [%sedlex.regexp? Star ch]
-let whsp = [%sedlex.regexp? ' ' | '\t' | '\n' | '?']
+let whsp = [%sedlex.regexp? ' ' | '\t' | '\r' | '\n' | '?']
+let newline = [%sedlex.regexp? '\n']
 let comment = [%sedlex.regexp? "--", Star (Compl (Chars "\n")), '\n']
 
-let rec token buf =
+let rec peek_token buf =
+  if Queue.is_empty lookahead then begin
+    let t = raw_token buf in
+    Queue.add t lookahead
+  end;
+  Queue.peek lookahead
+
+and token buf =
+  let t = if not (Queue.is_empty lookahead) then
+    Queue.take lookahead
+  else
+    raw_token buf
+  in
+  let next_token = peek_token buf in
+  let return t = (
+    prev_token := Some(t);
+    t
+  ) in
+  let test = (can_end_cmd !prev_token) && (can_begin_cmd next_token) in
+  Printf.printf "prev: %s, current: %s --> %s\n"
+    (match !prev_token with None -> "<none>" | Some(t) -> to_string t)
+    (to_string t)
+    (if test then "true" else "false");
+  match t with
+  | NEWLINE -> if test then return t else token buf
+  | _ -> return t
+
+and raw_token buf =
   match%sedlex buf with
   | comment (* line comment *)
-  | whsp -> token buf    (* ignore whitespace *)
-  | "rangesum" -> RANGESUM
-  | "import" -> IMPORT
-  | "check" -> CHECK
-  | "print" -> PRINT
-  | "tikz" -> TIKZ
+  | newline, Star (newline | whsp) -> NEWLINE
+  | whsp -> raw_token buf    (* ignore whitespace *)
+  | "rangesum" ->  RANGESUM
+  | "import" ->  IMPORT
+  | "check" ->  CHECK
+  | "print" ->  PRINT
+  | "tikz" ->  TIKZ
   | "drop"
-  | "emp" -> DROP
+  | "emp" ->  DROP
   | "eps"
-  | "skip" -> SKIP
-  | "forward" -> FWD
-  | "backward" -> BWD
-  | "exists" -> EXISTS
-  | "forall" -> FORALL
-  | "rep" -> REP
-  | "for" -> FOR
-  | "do" -> DO
-  | ".." -> DOTDOT
-  | "in" -> IN
-  | '(' -> LPAR
-  | ')' -> RPAR
+  | "skip" ->  SKIP
+  | "forward" ->  FWD
+  | "backward" ->  BWD
+  | "exists" ->  EXISTS
+  | "forall" ->  FORALL
+  | "rep" ->  REP
+  | "for" ->  FOR
+  | "do" ->  DO
+  | ".." ->  DOTDOT
+  | "in" ->  IN
+  | '(' ->  LPAR
+  | ')' ->  RPAR
   | '|'
-  | '+' -> PLUS
-  | '-' -> DIFF
+  | '+' ->  PLUS
+  | '-' ->  DIFF
   | '.'
-  | ';' -> DOT
-  | '*' -> STAR
-  | '~' -> NEG
-  | '&' -> AND
-  | '=' -> TST
-  | '^' -> XOR
-  | "dup" -> DUP
+  | ';' ->  DOT
+  | '*' ->  STAR
+  | '~' ->  NEG
+  | '&' ->  AND
+  | '=' ->  TST
+  | '^' ->  XOR
+  | "dup" ->  DUP
   | ":="
-  | "<-" -> MOD
-  | "==" -> EQUIV
-  | "!==" -> NEQUIV
-  | "!=" -> NTST
-  | number -> NUM (int_of_string (Sedlexing.Latin1.lexeme buf))
+  | "<-" ->  MOD
+  | "==" ->  EQUIV
+  | "!==" ->  NEQUIV
+  | "!=" ->  NTST
+  | number ->  (NUM (int_of_string (Sedlexing.Latin1.lexeme buf)))
 
   (* Unicode symbols for compatibility with 5stars *)
   | math -> let s = Sedlexing.Utf8.lexeme buf in
             begin match s with
-            | "\u{2295}" -> XOR    (* ⊕ *)
+            | "\u{21d2}" ->  ARROW  (* ⇒ *)
+            | "\u{2295}" ->  XOR    (* ⊕ *)
             | "\u{2227}"           (* ∧ *)
-            | "\u{2229}" -> AND    (* ∩ *)
-            | "\u{00AC}" -> NEG    (* ¬ *)
-            | "\u{22c5}" -> DOT    (* ⋅ *)
-            | "\u{03b4}" -> DUP    (* δ *)
-            | "\u{03b5}" -> SKIP   (* ε *)
-            | "\u{2205}" -> DROP   (* ∅ *)
-            | "\u{22a4}" -> SKIP   (* ⊤ *)
-            | "\u{22a5}" -> DROP   (* ⊥ *)
+            | "\u{2229}" ->  AND    (* ∩ *)
+            | "\u{00AC}" ->  NEG    (* ¬ *)
+            | "\u{22c5}" ->  DOT    (* ⋅ *)
+            | "\u{03b4}" ->  DUP    (* δ *)
+            | "\u{03b5}" ->  SKIP   (* ε *)
+            | "\u{2205}" ->  DROP   (* ∅ *)
+            | "\u{22a4}" ->  SKIP   (* ⊤ *)
+            | "\u{22a5}" ->  DROP   (* ⊥ *)
             | "\u{222a}"           (* ∪ *)
-            | "\u{2228}" -> PLUS   (* ∨ *)
-            | "\u{2190}" -> MOD    (* ← *)
-            | "\u{22c6}" -> STAR   (* ⋆ *)
-            | "\u{2261}" -> EQUIV  (* ≡ *)
-            | "\u{2262}" -> NEQUIV (* ≢ *)
-            | "\u{2260}" -> NTST   (* ≠ *)
-            | "\u{2208}" -> IN     (* ∈ *)
+            | "\u{2228}" ->  PLUS   (* ∨ *)
+            | "\u{2190}" ->  MOD    (* ← *)
+            | "\u{22c6}" ->  STAR   (* ⋆ *)
+            | "\u{2261}" ->  EQUIV  (* ≡ *)
+            | "\u{2262}" ->  NEQUIV (* ≢ *)
+            | "\u{2260}" ->  NTST   (* ≠ *)
+            | "\u{2208}" ->  IN     (* ∈ *)
             | _ ->
                 let first,last = Sedlexing.lexing_positions buf in
                 let () = Printf.printf "unknown math symbol: %s (line %d, col %d)\n%!"
                              s first.pos_lnum (first.pos_cnum - first.pos_bol) in
                 exit 1
             end
-  | letter, Star alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
+  | letter, Star alphanum ->
+    let s = Sedlexing.Utf8.lexeme buf in
+     (IDENT(s))
   | lowercase ->
       begin match Sedlexing.Utf8.lexeme buf with
-      | "\u{03b5}" -> SKIP  (* ε *)
-      | "\u{03b4}" -> DUP    (* δ *)
+      | "\u{03b5}" ->  SKIP  (* ε *)
+      | "\u{03b4}" ->  DUP    (* δ *)
+      | "\u{03bb}" ->  LAMBDA (* λ *)
       | _ ->
          let first,last = Sedlexing.lexing_positions buf in
          let () = Printf.printf "unrecognized character line %d, col %d\n%!"
                         first.pos_lnum (first.pos_cnum - first.pos_bol) in
          exit 1
       end
-  | '@', Plus alphanum -> IDENT (Sedlexing.Latin1.lexeme buf)
+  | '@', Plus alphanum ->
+    let s = Sedlexing.Utf8.lexeme buf in
+    (*String.iter (fun c -> Printf.printf "char: %c\n" c) s;*)
+     (IDENT (s))
   | '"', fn, '"' -> 
       let s = Sedlexing.Latin1.lexeme buf in
       let fn = String.sub s 1 (String.length s - 2) in
-      FILENAME fn
+       (FILENAME fn)
   | eof -> EOF
   | _ -> let first,last = Sedlexing.lexing_positions buf in
          let () = Printf.printf "unrecognized character line %d, col %d\n%!"
