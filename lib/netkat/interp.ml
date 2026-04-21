@@ -2,27 +2,15 @@ open Nkcmd
 
 let expect_nk v = match v with
 | Env.Expr(e) -> e
-| _ -> failwith (Printf.sprintf "unexpected closure: %s" "<closure>") (* TODO XXX *)
+| _ -> failwith (Printf.sprintf "unexpected closure: %s" "<closure>") (* TODO XXX - more contextual error message needed *)
 
-(*let rec eval_app (env: Env.t) (e: Nkexp.t) : (Env.t * Nkexp.t) =
-  Printf.printf "eval app\n";
-  flush stdout;
-  Printf.printf ">> eval app: %s\n" (Nkexp.to_string e);
-  flush stdout;
-  match e with
-  | Nkexp.Var x -> (env, Env.lookup_exp env x)
-  | App(e,eb) -> (
-    match (eval_app env e) with
-    | (env2,Nkexp.Lambda(s, ex)) ->
-      let (env3,eb') = (eval_app env2 eb) in
-      eval_app (Env.bind_exp env3 s eb') ex
-    | (_,e) -> failwith (Printf.sprintf "expected lambda: %s" (Nkexp.to_string e))
-  )
-  | _ -> (env,e)
-*)
+let expect_val v = match v with
+| Env.Num(v) -> v
+| _ -> failwith (Printf.sprintf "unexpected closure: %s" "<closure>") (* TODO XXX - more contextual error message needed *)
+
 let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
-  Printf.printf "EVAL: %s\n" (Nkexp.to_string e);
-  Printf.printf "   env: %s\n" (Env.to_string env);
+  (*Printf.printf "EVAL: %s\n" (Nkexp.to_string e);
+  Printf.printf "   env: %s\n" (Env.to_string env);*)
   flush stdout;
     match e with
     | Nkexp.Drop  -> Env.Expr(Nk.Drop)
@@ -33,10 +21,10 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
     | Nkexp.Intersect e0 -> Env.Expr(List.map (eval env) e0 |> List.map expect_nk |> Nk.intersect)
     | Nkexp.Dup -> Env.Expr(Nk.dup)
     | Nkexp.Filter (b,f,v) -> Env.Expr(Nk.filter b f v)
-    | Nkexp.VFilter (b,f,var) -> Env.Expr(Nk.filter b f (Env.lookup_val env var))
+    | Nkexp.VFilter (b,f,var) -> Env.Expr(Nk.filter b f (Env.lookup_val env var |> expect_val))
     | Nkexp.Mod (f,v) -> Env.Expr(Nk.modif f v)
-    | Nkexp.VMod (f,var) -> Env.Expr(Nk.modif f (Env.lookup_val env var))
-    | Nkexp.Var x -> Env.lookup_exp env x
+    | Nkexp.VMod (f,var) -> Env.Expr(Nk.modif f (Env.lookup_val env var |> expect_val))
+    | Nkexp.Var x -> Env.lookup_val env x
     | Nkexp.Xor (t1,t2) -> Env.Expr(Nk.xor (eval env t1 |> expect_nk) (eval env t2 |> expect_nk))
     | Nkexp.Diff (t1,t2) -> Env.Expr(Nk.diff (eval env t1 |> expect_nk) (eval env t2 |> expect_nk))
     | Nkexp.Neg e -> Env.Expr(Nk.neg (eval env e |> expect_nk))
@@ -55,7 +43,7 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
         match v1 with
         | Closure(env',s,body) ->
           let v2 = eval env e2 in
-          let env'' = Env.bind_exp env' s v2 in
+          let env'' = Env.bind_val env' s v2 in
           eval env'' body
         | _ -> failwith (Printf.sprintf "expected first argument to evaluate to closure: %s" (Nkexp.to_string e))
       )
@@ -109,22 +97,14 @@ and interp_file (fn: string) : Env.t =
 and interp (bn: string) (env: Env.t) (c: t) =
   match c with
   | Import s -> interp_file_with_env env (bn ^ s)
-  | Check (b, e1, e2) -> print_string "starting check\n";
-                         flush stdout;
-                         let start = Unix.gettimeofday () in
-                         print_string "evaluating expressions\n";
-                         flush stdout;
+  | Check (b, e1, e2) -> let start = Unix.gettimeofday () in
                          let e1' = eval env e1 |> expect_nk in
                          let e2' = eval env e2 |> expect_nk in
-                         print_string "building automata\n";
-                         flush stdout;
                          (*Printf.printf ">> CHECKING: %s == %s\n" (Nk.to_string e1') (Nk.to_string e2');*)
                          let a1 = Nka.autom e1' in
                          let a2 = Nka.autom e2' in
                          (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
                          (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
-                         print_string "performing xor\n";
-                         flush stdout;
                          let sgn = if b then "≡" else "≢" in
                          let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
                          let stop = Unix.gettimeofday () in
@@ -199,8 +179,8 @@ and interp (bn: string) (env: Env.t) (c: t) =
   | Tikz e -> Printf.printf "%s\n%!" (eval env e |> expect_nk |> Deriv.e |> Spp.tikz); env
   | Let (s, e) ->
     (*Printf.printf ">> LET %s = %s\n" s (Nkexp.to_string e);*)
-    Env.bind_exp env s (eval env e)
-  | VLet (s, v) -> Env.bind_val env s v
+    Env.bind_val env s (eval env e)
+  | VLet (s, v) -> Env.bind_val env s (Env.Num(v))
   | Rep e ->
       let a = (eval env e) |> expect_nk |> Nka.autom in
       let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> Printf.printf "%s\n%!" in
@@ -208,6 +188,6 @@ and interp (bn: string) (env: Env.t) (c: t) =
   | For (v, i_0, i_n, cmd) ->
       let indexes = List.init (i_n - i_0 + 1) (fun i -> i_0 + i) in
       List.fold_left (fun env i -> 
-        let env' = Env.bind_val env v (Value.of_int i) in
+        let env' = Env.bind_val env v (Env.Num(Value.of_int i)) in
         interp bn env' cmd
       ) env indexes

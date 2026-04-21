@@ -169,6 +169,7 @@ and raw_token buf =
                              s first.pos_lnum (first.pos_cnum - first.pos_bol) in
                 exit 1
             end
+  | 'T' -> SKIP
   | letteru, Star alphanum ->
     let s = Sedlexing.Utf8.lexeme buf in
      (IDENT(s))
