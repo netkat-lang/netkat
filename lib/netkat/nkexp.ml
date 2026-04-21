@@ -22,8 +22,8 @@ type t =
   | Exists of field * t
   | Forall of field * t
   | Var of string
-  (* | Lambda of string * t *)
-  (* | App of  *)
+  | Lambda of string * t
+  | App of t * t
   (* | Range of *) (* TODO *)
 
 let skip = Skip
@@ -100,11 +100,14 @@ let rec compare (t1:t) (t2:t) =
   | Neg _, _ -> -1
   | _, Neg _ -> 1
   | Var s1, Var s2 -> String.compare s1 s2
-  (*
   | Var _, _ -> -1
   | _, Var _ -> 1
-  *)
-  (*| Lambda (s1,e1), Lambda (s2,e2) -> if String.compare s1 s2 <> 0 then String.compare s1 s2 else compare e1 e2 *)
+  | Lambda (s1,e1), Lambda (s2,e2) -> if String.compare s1 s2 <> 0 then String.compare s1 s2 else compare e1 e2
+  | Lambda _, _ -> -1
+  | _, Lambda _ -> 1
+  | App (e1,b1), App (e2,b2) ->
+    let c = compare e1 e2 in
+    if c==0 then compare b1 b2 else c
 
 (* Syntactic eqalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
@@ -112,6 +115,8 @@ and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
 let fwd (t:t) : t = Fwd t
 let bwd (t:t) : t = Bwd t
 let neg (t:t) : t = Neg t
+let app (t:t) (t2:t) : t = App (t, t2)
+let lambda (s: string) (t:t) : t = Lambda (s, t)
 let exists (f: field) (t:t) : t = Exists (f, t)
 let forall (f: field) (t:t) : t = Forall (f, t)
 let diff (r1:t) (r2:t) : t = Diff (r1, r2)
@@ -209,40 +214,13 @@ let to_string (e: t) : string =
     | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
     | Forall (f,e) -> "forall " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
-    (* | Lambda (s, e) -> Printf.sprintf "λ %s ⇒ %s" s (to_string_parent (prec e) e) *)
+    | Lambda (s, e) -> Printf.sprintf "(λ %s ⇒ %s)" s (to_string_parent (prec e) e)
+    | App(e1, e2) -> Printf.sprintf "(%s %s)" (to_string_parent (prec e1) e1) (to_string_parent (prec e2) e2)
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
 
   to_string_parent 0 e
-
-let rec eval (env: Env.t) (e: t) : Nk.t =
-    match e with
-    | Drop  -> Nk.Drop
-    | Skip -> Nk.Skip
-    | Seq e0 -> List.map (eval env) e0 |> Nk.seq
-    | Union e0 -> List.map (eval env) e0 |> Nk.union
-    | Star e0 -> eval env e0 |> Nk.star
-    | Intersect e0 -> List.map (eval env) e0 |> Nk.intersect
-    | Dup -> Nk.dup
-    | Filter (b,f,v) -> Nk.filter b f v
-    | VFilter (b,f,var) -> Nk.filter b f (Env.lookup_val env var)
-    | Mod (f,v) -> Nk.modif f v
-    | VMod (f,var) -> Nk.modif f (Env.lookup_val env var)
-    | Var x -> Env.lookup_exp env x
-    | Xor (t1,t2) -> Nk.xor (eval env t1) (eval env t2)
-    | Diff (t1,t2) -> Nk.diff (eval env t1) (eval env t2)
-    | Neg e -> Nk.neg (eval env e)
-    | Fwd e -> Nka.forward (eval env e) |> Sp.to_exp
-    | Bwd e -> Nka.backward (eval env e) |> Sp.to_exp
-    | Forall (f,e) -> begin
-                      match e with
-                      | Drop
-                      | Skip -> eval env e
-                      | _ -> failwith ("TODO: " ^ __LOC__)
-                      end
-    | Exists (f,e) -> failwith ("TODO: " ^ __LOC__)
-    (* | Lambda (s,e) -> failwith ("TODO: " ^ __LOC__) *)
 
 let rec to_nested e =
     match e with

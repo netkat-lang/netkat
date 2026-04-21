@@ -151,7 +151,7 @@ let rec neg (e: t) = match e with
   | Star e -> Star (neg e)
   | Diff (e1,e2) -> failwith "Negation undefined for diff"
   | Xor (e1,e2) -> failwith "Negation undefined for xor"
-  | Intersect es -> List.map neg es |> intersect
+  | Intersect es -> List.map neg es |> union 
 
 let rec rand (fs : field list) (vs : value list) (n : int) : t =
   let rand_choice l =

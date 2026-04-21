@@ -22,6 +22,8 @@ type t =
   | Exists of field * t
   | Forall of field * t
   | Var of string
+  | Lambda of string * t
+  | App of t * t
 
 (** Provides a comparison using the standard interface to [compare]. *)
 val compare : t -> t -> int
@@ -38,6 +40,12 @@ val fwd : t -> t
 
 (** Node in AST for invoking the backward algorithm. *)
 val bwd : t -> t
+
+(** Node in AST for application. *)
+val app : t -> t -> t
+
+(** Node in AST for lambda. *)
+val lambda : string -> t -> t
 
 (** Node in AST for existential quantifiers. *)
 val exists : field -> t -> t
@@ -107,9 +115,6 @@ val diff : t -> t -> t
 
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
-
-(** Evaluates a Nkexp to a fully formed Nk term. *)
-val eval : Env.t -> t -> Nk.t
 
 val to_nested : t -> t
 

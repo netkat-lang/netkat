@@ -68,7 +68,7 @@ nkpl_cmd:
 nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }
   | BWD; e=nk_exp { Nkexp.bwd e }
-  | LAMBDA; f=IDENT; ARROW; e=nk_exp { Nkexp.forall (Field.get_or_assign_fid f) e }
+  | LAMBDA; v=IDENT; ARROW; e=nk_exp { Nkexp.lambda v e }
   | FORALL; f=IDENT; e=nk_exp { Nkexp.forall (Field.get_or_assign_fid f) e }
   | EXISTS; f=IDENT; e=nk_exp { Nkexp.exists (Field.get_or_assign_fid f) e }
   | e=nk_sum { e }
@@ -97,7 +97,11 @@ nk_seq:
 
 nk_un:
   | r=nk_un; STAR { Nkexp.star r }
-  | r=nk_par { r }
+  | r=nk_par; m=list(nk_par) {
+    match m with
+    | [] -> r
+    | a::more -> List.fold_left (fun acc a2 -> Nkexp.app acc a2) (Nkexp.app r a) more
+  }
   ;
 
 nk_par:

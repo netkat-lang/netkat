@@ -1,10 +1,14 @@
 open Nkpl_parser
 
-let lookahead = Queue.create ()
-let prev_token = ref None
+type lexer_state = {
+  lookahead : Nkpl_parser.token Queue.t;
+  mutable prev_token : Nkpl_parser.token option ref;
+}
 
-let cn = ref false
-let depth = ref 0
+let fresh_state () = {
+  lookahead = Queue.create ();
+  prev_token = ref None;
+}
 
 let to_string t = match t with
 | DROP -> "DROP"
@@ -15,11 +19,40 @@ let to_string t = match t with
 | TIKZ -> "TIKZ"
 | REP -> "REP"
 | FOR -> "FOR"
+| FWD -> "FWD"
+| BWD -> "BWD"
+| EXISTS -> "EXISTS"
+| FORALL -> "FORALL"
+| REP -> "REP"
+| DO -> "DO"
+| DOTDOT -> "DOTDOT"
+| IN -> "IN"
+| LPAR -> "LPAR"
+| RPAR -> "RPAR"
+| PLUS -> "PLUS"
+| DIFF -> "DIFF"
+| DOT -> "DOT"
+| STAR -> "STAR"
+| NEG -> "NEG"
+| AND -> "AND"
+| TST -> "TST"
+| XOR -> "XOR"
+| DUP -> "DUP"
+| MOD -> "MOD"
+| EQUIV -> "EQUIV"
+| NEQUIV -> "NEQUIV"
+| NTST -> "NTST"
+| FILENAME s -> Printf.sprintf "FILENAME(%s)" s
 | IDENT s -> Printf.sprintf "IDENT(%s)" s
-| _ -> "?"
+| NUM i -> Printf.sprintf "NUM(%d)" i
+| NEWLINE -> "<newline>"
+| RANGESUM _ -> "RANGESUM"
+| EOF -> "EOF"
+| LAMBDA _ -> "LAMBDA"
+| ARROW -> "ARROW"
 
 let can_end_cmd t = match t with
-| Some(DROP | SKIP | DUP | RPAR | STAR | NUM _ | IDENT _) -> true
+| Some(DROP | SKIP | DUP | RPAR | STAR | NUM _ | IDENT _ | FILENAME _) -> true
 | _ -> false
 
 let can_begin_cmd t = match t with
@@ -30,38 +63,39 @@ let digit = [%sedlex.regexp? '0' .. '9']
 let number = [%sedlex.regexp? Opt '-', Plus digit]
 let subdigit = [%sedlex.regexp? 0x2080 .. 0x2089]
 let letter = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z']
-let alphanum = [%sedlex.regexp? digit | letter | subdigit | '_' ]
+let letteru = [%sedlex.regexp? 'a' .. 'z' | 'A' .. 'Z' | '_']
+let alphanum = [%sedlex.regexp? digit | letter | subdigit | '_' | '-' ]
 let ch = [%sedlex.regexp? digit | number | letter | '.' | '/' | '_' | '-']
 let fn = [%sedlex.regexp? Star ch]
 let whsp = [%sedlex.regexp? ' ' | '\t' | '\r' | '\n' | '?']
 let newline = [%sedlex.regexp? '\n']
 let comment = [%sedlex.regexp? "--", Star (Compl (Chars "\n")), '\n']
 
-let rec peek_token buf =
-  if Queue.is_empty lookahead then begin
+let rec peek_token state buf =
+  if Queue.is_empty state.lookahead then begin
     let t = raw_token buf in
-    Queue.add t lookahead
+    Queue.add t state.lookahead
   end;
-  Queue.peek lookahead
+  Queue.peek state.lookahead
 
-and token buf =
-  let t = if not (Queue.is_empty lookahead) then
-    Queue.take lookahead
+and token state buf =
+  let t = if not (Queue.is_empty state.lookahead) then
+    Queue.take state.lookahead
   else
     raw_token buf
   in
-  let next_token = peek_token buf in
+  let next_token = peek_token state buf in
   let return t = (
-    prev_token := Some(t);
+    state.prev_token := Some(t);
     t
   ) in
-  let test = (can_end_cmd !prev_token) && (can_begin_cmd next_token) in
-  Printf.printf "prev: %s, current: %s --> %s\n"
-    (match !prev_token with None -> "<none>" | Some(t) -> to_string t)
+  let test = (can_end_cmd !(state.prev_token)) && (can_begin_cmd next_token) in
+  (*Printf.printf "prev: %s, current: %s --> %s\n"
+    (match !(state.prev_token) with None -> "<none>" | Some(t) -> to_string t)
     (to_string t)
-    (if test then "true" else "false");
+    (if test then "true" else "false");*)
   match t with
-  | NEWLINE -> if test then return t else token buf
+  | NEWLINE -> if test then return t else token state buf
   | _ -> return t
 
 and raw_token buf =
@@ -135,7 +169,7 @@ and raw_token buf =
                              s first.pos_lnum (first.pos_cnum - first.pos_bol) in
                 exit 1
             end
-  | letter, Star alphanum ->
+  | letteru, Star alphanum ->
     let s = Sedlexing.Utf8.lexeme buf in
      (IDENT(s))
   | lowercase ->
