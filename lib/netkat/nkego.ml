@@ -374,13 +374,14 @@ let make_egraph e =
       (* TODO XXX - not quite right *)
       make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?c" "?a"))] [%s (set "?c" "?b")] @
       [] in
-    let _ = EGraph.run_until_saturation ~fuel:(`Bounded 15) graph rules in
+    let return_code = EGraph.run_until_saturation ~fuel:(`Bounded 13) graph rules in
     let r = Extractor.extract graph e1 in
     print_string "building\n";
     let result = L.to_sexp r in
     let _ = Printf.printf "%s\n" (Sexp.to_string result) in
+    let _ = Printf.printf "saturated: %s\n" (Bool.to_string return_code) in
     let _ = Printf.printf "input: %s\n" (Nkexp.to_string (Nkexp.of_sexp expr1)) in
-    let _ = Printf.printf "output: %s\n" (Nkexp.to_string (Nkexp.of_sexp result)) in
+    let _ = Printf.printf "output: %s\n\n" (Nkexp.to_string (Nkexp.of_sexp result)) in
     (*let _ = Printf.printf "%s\n" (Nkexp.to_string (Nkexp.of_sexp [%s (seq (set a 1) (set a 2))]))*)
     (* Convert to graphviz *)
     let g : Odot.graph = EGraph.to_dot graph in

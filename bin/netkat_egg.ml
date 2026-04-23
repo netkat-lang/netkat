@@ -4,7 +4,7 @@ open Stdlib
 (*let _ = Nkego.test () *)
 
 let rec loop () =
-  let () = Printf.printf "nkpl> " in
+  let () = Printf.printf "netkat> " in
   try read_line () |> Nkego.interp_string |> loop
 
   with
