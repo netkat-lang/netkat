@@ -48,10 +48,6 @@ nkpl_cmd_list:
   | r=nkpl_cmd; NEWLINE+; rs=nkpl_cmd_list { r::rs }
   ;
 
-ident_list:
-  | xs = nonempty_list(IDENT) { xs }
-  ;
-
 nkpl_cmd:
   | IMPORT; fn = FILENAME { Nkcmd.Import fn }
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }

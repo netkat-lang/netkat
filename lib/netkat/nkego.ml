@@ -420,7 +420,7 @@ let test () =
     (*let expr1 = Nkexp.to_sexp (Nkexp.filter true (Field.get_or_assign_fid "a") (Value.of_int 2))*)
     let expr2 = expr1 (* Sexplib0.Sexp.List [Sexp.Atom "="; Sexp.Atom "f"; Sexp.Atom "1"] *) in
     let e1 = EGraph.add_node graph (L.of_sexp expr1) in
-    let e2 = EGraph.add_node graph (L.of_sexp expr2) in
+    let _e2 = EGraph.add_node graph (L.of_sexp expr2) in
     let rules =
       (* Kleene Algebra Axioms *)
       make_rules ~bidir:true  [%s (union "?a" (union "?b" "?c"))] [%s (union (union "?a" "?b") "?c")] @

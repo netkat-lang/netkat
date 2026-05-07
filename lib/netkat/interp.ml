@@ -168,8 +168,8 @@ and interp out (bn: string) (env: Env.t) (c: t) =
                             end
                           end; env
   | Print e ->
-    let e' = eval env e |> expect_nk in
-    (*let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
+    (*let e' = eval env e |> expect_nk in
+    let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
       match init with
       | Some(ex) ->*)
         printf out "%s\n%!" (eval env e |> expect_nk |> Nk.to_string);

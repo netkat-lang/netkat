@@ -23,7 +23,6 @@ let to_string t = match t with
 | BWD -> "BWD"
 | EXISTS -> "EXISTS"
 | FORALL -> "FORALL"
-| REP -> "REP"
 | DO -> "DO"
 | DOTDOT -> "DOTDOT"
 | IN -> "IN"
@@ -46,10 +45,13 @@ let to_string t = match t with
 | IDENT s -> Printf.sprintf "IDENT(%s)" s
 | NUM i -> Printf.sprintf "NUM(%d)" i
 | NEWLINE -> "<newline>"
-| RANGESUM _ -> "RANGESUM"
+| RANGESUM -> "RANGESUM"
 | EOF -> "EOF"
-| LAMBDA _ -> "LAMBDA"
+| LAMBDA -> "LAMBDA"
 | ARROW -> "ARROW"
+| RBRACE -> "RBRACE"
+| LBRACE -> "LBRACE"
+|COM -> "COM"
 
 let can_end_cmd t = match t with
 | Some(DROP | SKIP | DUP | RPAR | STAR | NUM _ | IDENT _ | FILENAME _) -> true

@@ -220,6 +220,7 @@ let to_string (e: t) : string =
     | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Lambda (s, e) -> Printf.sprintf "(λ %s ⇒ %s)" s (to_string_parent (prec e) e)
     | App(e1, e2) -> Printf.sprintf "(%s %s)" (to_string_parent (prec e1) e1) (to_string_parent (prec e2) e2)
+    | Num(n) -> Printf.sprintf "%d" n
     in
 
     if (prec e) < parent_prec then "(" ^ s ^ ")" else s in
@@ -232,24 +233,30 @@ let rec to_nested e =
     | Skip -> Skip
     | Dup -> Dup
     | Var x -> Var x
-    | Star e -> Star e
-    | Fwd (po,e) -> Fwd (po,e)
-    | Bwd (po,e) -> Bwd (po,e)
-    | Neg e -> Neg e
+    | Star e -> Star (to_nested e)
+    | Fwd (po,e) -> Fwd (po,to_nested e)
+    | Bwd (po,e) -> Bwd (po,to_nested e)
+    | Neg e -> Neg (to_nested e)
+    | Seq([]) -> Seq([])
     | Seq([e]) -> to_nested e
     | Seq(e::l) -> Seq(e::[to_nested (Seq(l))])
+    | Union([]) -> Union([])
     | Union([e]) -> to_nested e
     | Union(e::l) -> Union(e::[to_nested (Union(l))])
+    | Intersect([]) -> Intersect([])
     | Intersect([e]) -> to_nested e
     | Intersect(e::l) -> Intersect(e::[to_nested (Intersect(l))])
-    | Xor (e1,e2) -> Xor(e1,e2)
-    | Diff (e1,e2)  -> Diff(e1,e2)
+    | Xor (e1,e2) -> Xor(to_nested e1,to_nested e2)
+    | Diff (e1,e2)  -> Diff(to_nested e1,to_nested e2)
     | Filter (b,f,v) -> Filter(b,f,v)
     | VFilter (b,f,v)-> VFilter(b,f,v)
     | Mod (f,v) -> Mod(f,v)
     | VMod (f,v) -> VMod(f,v)
-    | Forall (f,e) -> Forall(f,e)
-    | Exists (f,e) -> Exists(f,e)
+    | Forall (f,e) -> Forall(f,to_nested e)
+    | Exists (f,e) -> Exists(f,to_nested e)
+    | Lambda (s, e) -> Lambda(s, to_nested e)
+    | App(e1, e2) -> App(to_nested e1, to_nested e2)
+    | Num(n) -> Num(n)
 
 let rec to_sexp e =
     match e with
@@ -272,6 +279,9 @@ let rec to_sexp e =
     | VMod (f,v) -> List [Atom "vset"; Atom (Field.get_or_fail_fid f); Atom v]
     | Forall (f,e) -> List [Atom "forall"; Atom (Field.get_or_fail_fid f); to_sexp e]
     | Exists (f,e) ->  List [Atom "exists"; Atom (Field.get_or_fail_fid f); to_sexp e]
+    | Num(n) -> Atom(string_of_int n)
+    | Lambda (s, e) -> List [Atom "lambda"; Atom(s); to_sexp e]
+    | App(e1, e2) -> List [Atom "app"; to_sexp e1; to_sexp e2]
 
 let rec of_sexp =
 let to_string x = (match x with
