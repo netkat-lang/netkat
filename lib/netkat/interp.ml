@@ -13,6 +13,7 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
   Printf.printf "   env: %s\n" (Env.to_string env);*)
   flush stdout;
     match e with
+    | Nkexp.Num i  -> Env.Num(Value.of_int i)
     | Nkexp.Drop  -> Env.Expr(Nk.Drop)
     | Nkexp.Skip -> Env.Expr(Nk.Skip)
     | Nkexp.Seq e0 -> Env.Expr(List.map (eval env) e0 |> List.map expect_nk |> Nk.seq)
@@ -28,8 +29,10 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
     | Nkexp.Xor (t1,t2) -> Env.Expr(Nk.xor (eval env t1 |> expect_nk) (eval env t2 |> expect_nk))
     | Nkexp.Diff (t1,t2) -> Env.Expr(Nk.diff (eval env t1 |> expect_nk) (eval env t2 |> expect_nk))
     | Nkexp.Neg e -> Env.Expr(Nk.neg (eval env e |> expect_nk))
-    | Nkexp.Fwd e -> Env.Expr(Nka.forward (eval env e |> expect_nk) |> Sp.to_exp)
-    | Nkexp.Bwd e -> Env.Expr(Nka.backward (eval env e |> expect_nk) |> Sp.to_exp)
+    | Nkexp.Fwd (None,e) -> Env.Expr(Nka.forward (eval env e |> expect_nk) |> Sp.to_exp)
+    | Nkexp.Fwd (Some(p),e) -> Env.Expr(Nka.forward_init (eval env e |> expect_nk) (Sp.of_pk p) |> Sp.to_exp)
+    | Nkexp.Bwd (None,e) -> Env.Expr(Nka.backward (eval env e |> expect_nk) |> Sp.to_exp)
+    | Nkexp.Bwd (Some(p),e) -> Env.Expr(Nka.backward_final (eval env e |> expect_nk) (Sp.of_pk p) |> Sp.to_exp)
     | Nkexp.Forall (f,e) -> begin
                       match e with
                       | Nkexp.Drop
@@ -151,31 +154,31 @@ and interp (bn: string) (env: Env.t) (c: t) =
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start)
                          | true, Some cex ->
                             begin
-                              Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
+                              Printf.printf ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               Printf.printf "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
                             end
                          | false, None ->
                             begin
-                            Printf.printf "XXX Check \u{001b}[31mFAILED.\u{001b}[0m XXX (expected: %s %s %s)\n%!"
+                            Printf.printf ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
                             end
                           end; env
   | Print e ->
     let e' = eval env e |> expect_nk in
-    let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
+    (*let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
       match init with
-      | Some(ex) ->
-        let ex2 = eval env ex |> expect_nk in
+      | Some(ex) ->*)
+        Printf.printf "%s\n%!" (eval env e |> expect_nk |> Nk.to_string);
+        (*let ex2 = eval env ex |> expect_nk in
         let ei = Nka.forward ex2 in
         let x = Nka.forward_init e' ei in
-        Printf.printf "print: %s\n%!" (eval env e |> expect_nk |> Nk.to_string);
         Printf.printf "forward: %s\n%!" (Sp.to_string x);
-        Printf.printf "backward: %s\n%!" (Sp.to_string (Nka.backward_final e' ei));
+        Printf.printf "backward: %s\n%!" (Sp.to_string (Nka.backward_final e' ei));*)
         env
-      | None ->
+      (*| None ->
         env
-    )
+    )*)
   | Tikz e -> Printf.printf "%s\n%!" (eval env e |> expect_nk |> Deriv.e |> Spp.tikz); env
   | Let (s, e) ->
     (*Printf.printf ">> LET %s = %s\n" s (Nkexp.to_string e);*)

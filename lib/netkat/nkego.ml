@@ -365,7 +365,7 @@ let make_egraph e =
       make_rules ~bidir:false [%s (seq "?a" (not "?a"))] [%s drop] @*)
       make_cond_rules ~bidir:true [%s (seq "?a" "?a")] [%s "?a"] (is_predicate "a") @
       (* Packet Algebra Axioms *)
-      make_rules ~bidir:true  [%s (seq dup (set "?a" "?b"))] [%s (seq (set "?a" "?b") dup)] @
+      make_rules ~bidir:true  [%s (seq dup (eq "?a" "?b"))] [%s (seq (eq "?a" "?b") dup)] @
       make_rules ~bidir:true  [%s (seq (set "?a" "?b") (eq "?a" "?b"))] [%s (set "?a" "?b")] @
       make_rules ~bidir:true  [%s (seq (eq "?a" "?b") (set "?a" "?b"))] [%s (eq "?a" "?b")] @
       make_rules ~bidir:false [%s (seq (set "?a" "?b") (set "?a" "?c"))] [%s (set "?a" "?c")] @

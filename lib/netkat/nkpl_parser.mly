@@ -16,7 +16,7 @@ let add_macro s e = Hashtbl.replace macros s e
 %token RANGESUM IMPORT CHECK PRINT TIKZ EQUIV NEQUIV FOR DO IN DOTDOT
 %token ARROW LAMBDA
 %token PLUS DIFF AND DOT STAR NEG XOR
-%token FWD BWD EXISTS FORALL REP
+%token FWD BWD EXISTS FORALL REP LBRACE RBRACE COM
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token NEWLINE
@@ -65,9 +65,22 @@ nkpl_cmd:
   (*| e=nk_exp { print_string ">> EXPR\n"; Nkcmd.Print e } *)
   ;
 
+field:
+  | f=IDENT; TST; v=NUM { (Field.get_or_assign_fid f, Value.of_int v) }
+
+fields:
+  | { Pk.empty }
+  | f=field; fs=fields { let (a,b) = f in Pk.add fs a b }
+  | f=field; COM; fs=fields { let (a,b) = f in Pk.add fs a b }
+
+packet:
+  | LBRACE; fs=fields; RBRACE { fs }
+
 nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }
-  | BWD; e=nk_exp { Nkexp.bwd e }
+  | FWD; p=packet; e=nk_exp { Nkexp.Fwd(Some(p),e) }
+  | BWD; e=nk_exp  { Nkexp.bwd e }
+  | BWD; p=packet; e=nk_exp { Nkexp.Bwd(Some(p),e) }
   | LAMBDA; v=IDENT; ARROW; e=nk_exp { Nkexp.lambda v e }
   | FORALL; f=IDENT; e=nk_exp { Nkexp.forall (Field.get_or_assign_fid f) e }
   | EXISTS; f=IDENT; e=nk_exp { Nkexp.exists (Field.get_or_assign_fid f) e }
@@ -75,7 +88,7 @@ nk_exp:
   ;
 
 nk_sum:
-  | r1=nk_conj; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }
+  | r1=nk_diff; PLUS; r2=nk_sum { Nkexp.union_pair r1 r2 }
   | r=nk_diff { r }
   ;
 
@@ -97,11 +110,17 @@ nk_seq:
 
 nk_un:
   | r=nk_un; STAR { Nkexp.star r }
-  | r=nk_par; m=list(nk_par) {
+  | r=nk_par; m=list(nk_val) {
     match m with
     | [] -> r
     | a::more -> List.fold_left (fun acc a2 -> Nkexp.app acc a2) (Nkexp.app r a) more
   }
+  ;
+
+nk_val:
+  | v=NUM { Nkexp.Num(v) }
+  | c=nk_at { c }
+  | LPAR; r=nk_exp; RPAR { r }
   ;
 
 nk_par:

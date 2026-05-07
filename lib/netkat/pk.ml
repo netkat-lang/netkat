@@ -8,6 +8,12 @@ type t = value Field.M.t
 let compare = Field.M.compare Value.compare
 let eq t1 t2 = compare t1 t2 = 0
 
+let add p k v = Field.M.add k v p
+
+let singleton k v = Field.M.singleton k v
+
+let empty = Field.M.empty
+
 let to_string p =
   let bdgs = Field.M.bindings p
            |> List.map (fun (f,v) -> (Field.get_or_fail_fid f) ^ "=" ^ (Value.to_string v)) in

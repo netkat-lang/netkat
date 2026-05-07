@@ -17,11 +17,12 @@ type t =
   | Diff of t * t
   | Xor of t * t
   | Neg of t
-  | Fwd of t
-  | Bwd of t
+  | Fwd of Pk.t option * t
+  | Bwd of Pk.t option * t
   | Exists of field * t
   | Forall of field * t
   | Var of string
+  | Num of int
   | Lambda of string * t
   | App of t * t
   (* | Range of *) (* TODO *)
@@ -78,16 +79,16 @@ let rec compare (t1:t) (t2:t) =
   | Intersect s1, Intersect s2 -> List.compare compare s1 s2
   | Intersect _, _ -> -1
   | _, Intersect _ -> 1
-  | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
+  | Diff (t1,t2), Diff (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4 (* TODO XXX - typo? *)
   | Diff _, _ -> -1
   | _, Diff _ -> 1
-  | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4
+  | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4 (* TODO XXX - typo? *)
   | Xor _, _ -> -1
   | _, Xor _ -> 1
-  | Fwd s1, Fwd s2 -> compare s1 s2
+  | Fwd (a1,s1), Fwd (a2,s2) -> if Option.compare Pk.compare a1 a2 = 0 then compare s1 s2 else Option.compare Pk.compare a1 a1
   | Fwd _, _ -> -1
   | _, Fwd _ -> 1
-  | Bwd s1, Bwd s2 -> compare s1 s2
+  | Bwd (a1,s1), Bwd (a2,s2) -> if Option.compare Pk.compare a1 a2 = 0 then compare s1 s2 else Option.compare Pk.compare a1 a1
   | Bwd _, _ -> -1
   | _, Bwd _ -> 1
   | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else Field.compare f1 f2
@@ -102,6 +103,9 @@ let rec compare (t1:t) (t2:t) =
   | Var s1, Var s2 -> String.compare s1 s2
   | Var _, _ -> -1
   | _, Var _ -> 1
+  | Num i1, Num i2 -> Int.compare i1 i2
+  | Num _, _ -> -1
+  | _, Num _ -> 1
   | Lambda (s1,e1), Lambda (s2,e2) -> if String.compare s1 s2 <> 0 then String.compare s1 s2 else compare e1 e2
   | Lambda _, _ -> -1
   | _, Lambda _ -> 1
@@ -112,8 +116,8 @@ let rec compare (t1:t) (t2:t) =
 (* Syntactic eqalence *)
 and eq (r1:t) (r2:t) = ((compare r1 r2) = 0)
 
-let fwd (t:t) : t = Fwd t
-let bwd (t:t) : t = Bwd t
+let fwd (t:t) : t = Fwd (None,t)
+let bwd (t:t) : t = Bwd (None,t)
 let neg (t:t) : t = Neg t
 let app (t:t) (t2:t) : t = App (t, t2)
 let lambda (s: string) (t:t) : t = Lambda (s, t)
@@ -210,8 +214,8 @@ let to_string (e: t) : string =
     | Var x -> x
     | Xor (t1,t2) -> (to_string_parent (prec e) t1) ^ " ⊕ " ^ (to_string_parent (prec e) t2)
     | Diff (t1,t2) ->  (to_string_parent (prec e) t1) ^ " - " ^ (to_string_parent (prec e) t2)
-    | Fwd e -> "forward " ^ (to_string_parent (prec e) e)
-    | Bwd e -> "backward " ^ (to_string_parent (prec e) e)
+    | Fwd (po,e) -> "forward " ^ (match po with Some(p) -> (Pk.to_string p)^" " | None -> "") ^ (to_string_parent (prec e) e)
+    | Bwd (po,e) -> "backward " ^ (match po with Some(p) -> (Pk.to_string p)^" " | None -> "") ^ (to_string_parent (prec e) e)
     | Forall (f,e) -> "forall " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Lambda (s, e) -> Printf.sprintf "(λ %s ⇒ %s)" s (to_string_parent (prec e) e)
@@ -229,8 +233,8 @@ let rec to_nested e =
     | Dup -> Dup
     | Var x -> Var x
     | Star e -> Star e
-    | Fwd e -> Fwd e
-    | Bwd e -> Bwd e
+    | Fwd (po,e) -> Fwd (po,e)
+    | Bwd (po,e) -> Bwd (po,e)
     | Neg e -> Neg e
     | Seq([e]) -> to_nested e
     | Seq(e::l) -> Seq(e::[to_nested (Seq(l))])
@@ -254,8 +258,8 @@ let rec to_sexp e =
     | Dup -> Atom "dup"
     | Var x -> Atom x
     | Star e -> List [Atom "star"; to_sexp e]
-    | Fwd e -> List [Atom "forward"; to_sexp e]
-    | Bwd e -> List [Atom "backward"; to_sexp e]
+    | Fwd (po,e) -> List [Atom "forward"; to_sexp e] (* TODO - handle po? *)
+    | Bwd (po,e) -> List [Atom "backward"; to_sexp e] (* TODO - handle po? *)
     | Neg e -> List [Atom "not"; to_sexp e]
     | Seq el  -> List ((Atom "seq")::(List.map to_sexp el))
     | Union el -> List ((Atom "union")::(List.map to_sexp el))
@@ -287,8 +291,8 @@ function
 )
 | List ((Atom "star")::l::_) -> Star (of_sexp l)
 | List ((Atom "not")::l::_) -> Neg (of_sexp l)
-| List ((Atom "forward")::l::_) -> Fwd (of_sexp l)
-| List ((Atom "backward")::l::_) -> Bwd (of_sexp l)
+| List ((Atom "forward")::l::_) -> Fwd (None, of_sexp l) (* TODO - handle the optional arg to forward? *)
+| List ((Atom "backward")::l::_) -> Bwd (None, of_sexp l) (* TODO - handle the optional arg to backward? *)
 | List ((Atom "union")::l) -> Union (List.map of_sexp l)
 | List ((Atom "seq")::l) -> Seq (List.map of_sexp l)
 | List ((Atom "intersection")::l) -> Intersect (List.map of_sexp l)

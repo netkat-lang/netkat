@@ -123,11 +123,14 @@ and raw_token buf =
   | "in" ->  IN
   | '(' ->  LPAR
   | ')' ->  RPAR
+  | '[' ->  LBRACE
+  | ']' ->  RBRACE
   | '|'
   | '+' ->  PLUS
   | '-' ->  DIFF
   | '.'
   | ';' ->  DOT
+  | ',' ->  COM
   | '*' ->  STAR
   | '~' ->  NEG
   | '&' ->  AND
