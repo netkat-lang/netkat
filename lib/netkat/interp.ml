@@ -1,5 +1,8 @@
 open Nkcmd
 
+let printf out fmt =
+  Printf.ksprintf out fmt 
+
 let expect_nk v = match v with
 | Env.Expr(e) -> e
 | _ -> failwith (Printf.sprintf "unexpected closure: %s" "<closure>") (* TODO XXX - more contextual error message needed *)
@@ -9,8 +12,8 @@ let expect_val v = match v with
 | _ -> failwith (Printf.sprintf "unexpected closure: %s" "<closure>") (* TODO XXX - more contextual error message needed *)
 
 let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
-  (*Printf.printf "EVAL: %s\n" (Nkexp.to_string e);
-  Printf.printf "   env: %s\n" (Env.to_string env);*)
+  (*printf "EVAL: %s\n" (Nkexp.to_string e);
+  printf "   env: %s\n" (Env.to_string env);*)
   flush stdout;
     match e with
     | Nkexp.Num i  -> Env.Num(Value.of_int i)
@@ -50,10 +53,10 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
           eval env'' body
         | _ -> failwith (Printf.sprintf "expected first argument to evaluate to closure: %s" (Nkexp.to_string e))
       )
-      (*Printf.printf "env: %s\n" (Env.to_string env2);*)
-      (*Printf.printf "EVAL APP: %s --> %s\n" (Nkexp.to_string e) (Nk.to_string result);*)
+      (*printf "env: %s\n" (Env.to_string env2);*)
+      (*printf "EVAL APP: %s --> %s\n" (Nkexp.to_string e) (Nk.to_string result);*)
 
-let rec parse_file_with_env (env: Env.t) (fn: string) : Nkcmd.t list =
+let rec parse_file_with_env out (env: Env.t) (fn: string) : Nkcmd.t list =
   let f = In_channel.open_text fn in
   let lexbuf = Sedlexing.Utf8.from_channel f in
   let lexer  = Sedlexing.with_tokenizer (Nkpl_lexer.token (Nkpl_lexer.fresh_state ())) lexbuf in
@@ -63,10 +66,10 @@ let rec parse_file_with_env (env: Env.t) (fn: string) : Nkcmd.t list =
   with
     | Nkpl_parser.Error s ->
       let (x,y) = Sedlexing.lexing_positions lexbuf in
-      Printf.printf "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+      printf out "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
       exit 1)
 
-and parse_string (env: Env.t) (s: string) : Nkcmd.t option =
+and parse_string out (env: Env.t) (s: string) : Nkcmd.t option =
   let lexbuf = Sedlexing.Utf8.from_string s in
   let lexer  = Sedlexing.with_tokenizer (Nkpl_lexer.token (Nkpl_lexer.fresh_state ())) lexbuf in
   let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.single_cmd in
@@ -75,39 +78,39 @@ and parse_string (env: Env.t) (s: string) : Nkcmd.t option =
   with
     | Nkpl_parser.Error s ->
       let (x,y) = Sedlexing.lexing_positions lexbuf in
-      Printf.printf "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+      printf out "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
       exit 1)
 
-and parse_file (fn: string) : Nkcmd.t list =
-  parse_file_with_env Env.empty fn
+and parse_file out (fn: string) : Nkcmd.t list =
+  parse_file_with_env out Env.empty fn
 
-let rec interp_file_with_env (env: Env.t) (fn: string) : Env.t =
-  let cmds = parse_file_with_env env fn in
+let rec interp_file_with_env out (env: Env.t) (fn: string) : Env.t =
+  let cmds = parse_file_with_env out env fn in
   let bn = match String.rindex_opt fn '/' with
            | None -> ""
            | Some i -> String.sub fn 0 (i+1) in
-  List.fold_left (interp bn) env cmds
+  List.fold_left (interp out bn) env cmds
 
-and interp_string (env: Env.t) (s: string) =
-  let c = parse_string env s in
+and interp_string out (env: Env.t) (s: string) =
+  let c = parse_string out env s in
   match c with
     | None -> env
-    | Some cmd -> interp "" env cmd
+    | Some cmd -> interp out "" env cmd
 
-and interp_file (fn: string) : Env.t =
-  interp_file_with_env Env.empty fn
+and interp_file out (fn: string) : Env.t =
+  interp_file_with_env out Env.empty fn
 
-and interp (bn: string) (env: Env.t) (c: t) =
+and interp out (bn: string) (env: Env.t) (c: t) =
   match c with
-  | Import s -> interp_file_with_env env (bn ^ s)
+  | Import s -> interp_file_with_env out env (bn ^ s)
   | Check (b, e1, e2) -> let start = Unix.gettimeofday () in
                          let e1' = eval env e1 |> expect_nk in
                          let e2' = eval env e2 |> expect_nk in
-                         (*Printf.printf ">> CHECKING: %s == %s\n" (Nk.to_string e1') (Nk.to_string e2');*)
+                         (*printf out ">> CHECKING: %s == %s\n" (Nk.to_string e1') (Nk.to_string e2');*)
                          let a1 = Nka.autom e1' in
                          let a2 = Nka.autom e2' in
-                         (* let () = Printf.printf "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
-                         (* let () = Printf.printf "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
+                         (* let () = printf out "Autom a1:\n%s\n-----\n%!" (Nka.to_string a1) in *)
+                         (* let () = printf out "Autom a2:\n%s\n-----\n%!" (Nka.to_string a2) in *)
                          let sgn = if b then "≡" else "≢" in
                          let res = Nka.xor_rep a1 a2 (Field.get_fields ()) in
                          let stop = Unix.gettimeofday () in
@@ -122,27 +125,27 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          | Some _,false,false -> ()
                          | _ ->
                              let () = match res with
-                             | None -> Printf.printf "None "
-                             | Some _ -> Printf.printf "Some " in
-                             (* let () = Printf.printf "%b\n"  res' in *)
-                             let () = Printf.printf "%b %b\n"  res' res'' in
-                             let () = Printf.printf "exps: %s ≡ %s\n"
+                             | None -> printf out "None "
+                             | Some _ -> printf out "Some " in
+                             (* let () = printf out "%b\n"  res' in *)
+                             let () = printf out "%b %b\n"  res' res'' in
+                             let () = printf out "exps: %s ≡ %s\n"
                                 (Nk.to_string e1') (Nk.to_string e2') in
-                             let () = Printf.printf "forward of e1-e2: %s\n"
+                             let () = printf out "forward of e1-e2: %s\n"
                                 (Sp.to_string (Nka.forward (Nk.diff e1' e2'))) in
-                             let () = Printf.printf "forward of e2-e1: %s\n"
+                             let () = printf out "forward of e2-e1: %s\n"
                                 (Sp.to_string (Nka.forward (Nk.diff e2' e1'))) in
-                             let () = Printf.printf "forward of ⊕: %s\n"
+                             let () = printf out "forward of ⊕: %s\n"
                                 (Sp.to_string (Nka.forward (Nk.xor e1' e2'))) in
-                             let () = Printf.printf "nka of e1: %s\n"
+                             let () = printf out "nka of e1: %s\n"
                                 (Nka.to_string (Nka.autom e1')) in
-                             let () = Printf.printf "nka of e2: %s\n"
+                             let () = printf out "nka of e2: %s\n"
                                 (Nka.to_string (Nka.autom e2')) in
-                             let () = Printf.printf "nka of e1-e2: %s\n"
+                             let () = printf out "nka of e1-e2: %s\n"
                                 (Nka.to_string (Nka.autom (Nk.diff e1' e2'))) in
-                             let () = Printf.printf "nka of e2-e1: %s\n"
+                             let () = printf out "nka of e2-e1: %s\n"
                                 (Nka.to_string (Nka.autom (Nk.diff e2' e1'))) in
-                             let () = Printf.printf "nka of e1⊕e2: %s\n"
+                             let () = printf out "nka of e1⊕e2: %s\n"
                                 (Nka.to_string (Nka.autom (Nk.xor e1' e2'))) in
                              failwith "mismatched bisim results!" in
                          *)
@@ -150,17 +153,17 @@ and interp (bn: string) (env: Env.t) (c: t) =
                          match b, res with
                          | true, None
                          | false, Some _ ->
-                           Printf.printf "*** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                           printf out "*** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start)
                          | true, Some cex ->
                             begin
-                              Printf.printf ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                              printf out ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                              Printf.printf "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
+                              printf out "Counterexample trace:\n%s\n%!" (Trace.to_string cex)(*; exit 1*)
                             end
                          | false, None ->
                             begin
-                            Printf.printf ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                            printf out  ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2)(*; exit 1*)
                             end
                           end; env
@@ -169,28 +172,28 @@ and interp (bn: string) (env: Env.t) (c: t) =
     (*let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
       match init with
       | Some(ex) ->*)
-        Printf.printf "%s\n%!" (eval env e |> expect_nk |> Nk.to_string);
+        printf out "%s\n%!" (eval env e |> expect_nk |> Nk.to_string);
         (*let ex2 = eval env ex |> expect_nk in
         let ei = Nka.forward ex2 in
         let x = Nka.forward_init e' ei in
-        Printf.printf "forward: %s\n%!" (Sp.to_string x);
-        Printf.printf "backward: %s\n%!" (Sp.to_string (Nka.backward_final e' ei));*)
+        printf out "forward: %s\n%!" (Sp.to_string x);
+        printf out "backward: %s\n%!" (Sp.to_string (Nka.backward_final e' ei));*)
         env
       (*| None ->
         env
     )*)
-  | Tikz e -> Printf.printf "%s\n%!" (eval env e |> expect_nk |> Deriv.e |> Spp.tikz); env
+  | Tikz e -> printf out "%s\n%!" (eval env e |> expect_nk |> Deriv.e |> Spp.tikz); env
   | Let (s, e) ->
-    (*Printf.printf ">> LET %s = %s\n" s (Nkexp.to_string e);*)
+    (*printf out ">> LET %s = %s\n" s (Nkexp.to_string e);*)
     Env.bind_val env s (eval env e)
   | VLet (s, v) -> Env.bind_val env s (Env.Num(v))
   | Rep e ->
       let a = (eval env e) |> expect_nk |> Nka.autom in
-      let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> Printf.printf "%s\n%!" in
+      let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> printf out "%s\n%!" in
       env
   | For (v, i_0, i_n, cmd) ->
       let indexes = List.init (i_n - i_0 + 1) (fun i -> i_0 + i) in
       List.fold_left (fun env i -> 
         let env' = Env.bind_val env v (Env.Num(Value.of_int i)) in
-        interp bn env' cmd
+        interp out bn env' cmd
       ) env indexes

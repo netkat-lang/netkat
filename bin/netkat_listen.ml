@@ -8,7 +8,7 @@ let rec process_line env buffer r w =
   | `Eof -> Core.printf "<DONE>\n%!"; exit 0
   | `Ok line ->
     (*Core.printf "line: \"%s\"\n%!" line;*)
-    let env2 = Interp.interp_string env line in
+    let env2 = Interp.interp_string (Writer.write w) env line in
     process_line env2 buffer r w
 
 let run uppercase port =

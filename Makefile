@@ -29,6 +29,12 @@ doc:
 run:
 	dune exec $(NAME)
 
+docker-build:
+	docker build -t netkat-server .
+
+docker-run:
+	docker run -it --rm -p 8080:8080 netkat-server
+
 install: build
 	dune install
 
