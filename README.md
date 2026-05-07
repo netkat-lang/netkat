@@ -1,14 +1,17 @@
 # Installation
 
 ```
-sudo apt install opam
-opam init
+sudo apt install -y autoconf
+sudo apt install -y opam
+opam init -y
 opam switch create 5.3.0
-eval $(opam env)
+eval $(opam env --switch=5.3.0)
 
 opam install -y dune
 opam install -y sedlex landmarks-ppx menhir yojson alcotest core async
 opam install -y ego
+
+make
 ```
 
 # Usage
