@@ -20,3 +20,4 @@ val eq : t -> t -> bool
 
 (** string representation of packets. *)
 val to_string : t -> string
+val to_json : t -> string

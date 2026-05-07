@@ -19,3 +19,9 @@ let to_string p =
            |> List.map (fun (f,v) -> (Field.get_or_fail_fid f) ^ "=" ^ (Value.to_string v)) in
   let hdr = String.concat "," bdgs in
   "[" ^ hdr ^ "]"
+
+let to_json p =
+  let bdgs = Field.M.bindings p
+           |> List.map (fun (f,v) -> "\""^(Field.get_or_fail_fid f) ^ "\":" ^ (Value.to_string v)) in
+  let hdr = String.concat "," bdgs in
+  "{" ^ hdr ^ "}"
