@@ -166,16 +166,16 @@ and interp out (bn: string) (env: Env.t) (c: t) : (Env.t * result list) =
                          match b, res with
                          | true, None
                          | false, Some _ ->
-                           printf out "*** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                           printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
                            [Success]
                          | true, Some cex ->
-                              printf out ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                              printf out "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               printf out "Counterexample trace:\n%s\n%!" (Trace.to_string cex);
                               [Fail(Some(cex))]
                          | false, None ->
-                            printf out  ">>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                            printf out  "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                             [Fail(None)]
                          )
