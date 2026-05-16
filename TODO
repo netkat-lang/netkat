@@ -1,3 +1,5 @@
+- Nondeterminism? Especially in counterexamples (order of fields)
+
 - Backward not implemented (line 328 in lib/netkat/nka.ml)
 - Forall/Exists are not implemented (TODO line 244 in lib/netkat/nkexp.ml)
 - command-level expr not implemented (TODO line 29 in lib/netkat/nkpl_parser.ml)

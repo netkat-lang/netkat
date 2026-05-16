@@ -1,6 +1,7 @@
 (* AST for NKPL program *)
 
 open Pk
+open Z3
 
 type t =
   | Drop
@@ -244,3 +245,50 @@ let to_string (nk: t) : string =
 
   to_string_parent 0 nk
 
+
+let to_string_z3 (nk: t) : string =
+  let rec to_string_parent (e: t) : string =
+    let s = match e with
+    | Drop  -> "drop"
+    | Skip -> "skip"
+    | Seq e0 -> "(and " ^ (String.concat " " (List.map (to_string_parent) e0)) ^ ")"
+    | Union e0 -> "(or " ^ (String.concat " " (List.map (to_string_parent) e0)) ^ ")"
+    | Star e0 -> "(star " ^ (to_string_parent e0) ^ ")"
+    | Intersect e0 -> "(and " ^ (String.concat " " (List.map (to_string_parent) e0)) ^ ")"
+    | Diff (e0,e1) -> "(diff " ^ (to_string_parent e0) ^ " " ^ (to_string_parent e1) ^ ")"
+    | Xor (e0,e1) -> "(xor " ^ (to_string_parent e0) ^ " " ^ (to_string_parent e1) ^ ")"
+    | Dup -> "dup"
+    | Filter (b,f,v) ->
+      (if b then "" else "(not ")^"(= "^ (Field.get_or_fail_fid f) ^ " " ^ (Value.to_string v) ^ ")"^(if b then "" else ")")
+    | Mod (f,v) -> "(= " ^ (Field.get_or_fail_fid f) ^ "' " ^ (Value.to_string v) ^ ")"
+    in
+    "" ^ s ^ "" in
+
+  to_string_parent nk
+
+let to_z3 (ctx : context) (nk : t) : Expr.expr =
+  let int_sort = Arithmetic.Integer.mk_sort ctx in
+  let var name = Expr.mk_const_s ctx name int_sort in
+  let int n = Arithmetic.Integer.mk_numeral_i ctx n in
+  let rec go (e : t) : Expr.expr =
+    match e with
+    | Drop -> Boolean.mk_false ctx
+    | Skip -> Boolean.mk_true ctx
+    | Seq e0 -> Boolean.mk_and ctx (List.map go e0)
+    | Union e0 -> Boolean.mk_or ctx (List.map go e0)
+    | Star e0 -> failwith "STAR not supported in SMT encoding"
+    | Intersect e0 -> Boolean.mk_and ctx (List.map go e0)
+    | Diff (e0, e1) -> Boolean.mk_and ctx [go e0;Boolean.mk_not ctx (go e1)]
+    | Xor (e0, e1) -> Boolean.mk_xor ctx (go e0) (go e1)
+    | Dup -> failwith "DUP not supported in SMT encoding"
+    | Filter (b, f, v) ->
+        let lhs = var (Field.get_or_fail_fid f) in
+        let rhs = int (Value.to_int v) in
+        let eq = Boolean.mk_eq ctx lhs rhs in
+        if b then eq else Boolean.mk_not ctx eq
+    | Mod (f, v) ->
+        let lhs = var (Field.get_or_fail_fid f ^ "__") in
+        let rhs = int (Value.to_int v) in
+        Boolean.mk_eq ctx lhs rhs
+  in
+  go nk

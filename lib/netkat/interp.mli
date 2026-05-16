@@ -1,6 +1,6 @@
 (** The module for interpreting nkpl commands from strings. *)
 
-type result
+type result = Success | Fail of Trace.t option
 
 (** Parse a string as a nkpl program. *)
 val parse_string : (string -> unit) -> Env.t -> string -> Nkcmd.t option
@@ -16,5 +16,6 @@ val interp_string : (string -> unit) -> Env.t -> string -> (Env.t * result list)
 
 (** Opens a file by its filename and interprets the contents; returns the resulting [Env.t]. *)
 val interp_file : (string -> unit) -> string -> (Env.t * result list)
+val interp_file_with_env : (string -> unit) -> Env.t -> string -> (Env.t * result list)
 
 val result_list_to_json : result list -> string

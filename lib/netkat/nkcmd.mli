@@ -4,6 +4,7 @@ type t =
   | Import of string
   | Check of bool * Nkexp.t * Nkexp.t
   | Print of Nkexp.t
+  | Prints of string
   | Tikz of Nkexp.t
   | Let of string * Nkexp.t
   | VLet of string * Value.t

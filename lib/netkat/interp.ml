@@ -1,5 +1,30 @@
 open Nkcmd
 
+(*
+open Z3
+
+let cfg = [("model", "true")]
+let ctx = mk_context cfg
+
+let x = Arithmetic.Integer.mk_const_s ctx "x"
+let y = Arithmetic.Integer.mk_const_s ctx "y"
+
+let solver = Solver.mk_simple_solver ctx
+
+let two = Arithmetic.Integer.mk_numeral_i ctx 2
+let sum = Arithmetic.mk_add ctx [x; y]
+
+let eq = Boolean.mk_eq ctx sum two
+
+let () =
+  Solver.add solver [eq];
+  match Solver.check solver [] with
+  | Solver.SATISFIABLE -> print_endline "sat"
+  | Solver.UNSATISFIABLE -> print_endline "unsat"
+  | Solver.UNKNOWN -> print_endline "unknown"
+
+*)
+
 type result = Success | Fail of Trace.t option
 
 let result_list_to_json rl = 
@@ -179,12 +204,15 @@ and interp out (bn: string) (env: Env.t) (c: t) : (Env.t * result list) =
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                             [Fail(None)]
                          )
+  | Prints s -> Printf.printf "%s\n%!" s; (env,[])
   | Print e ->
+    (* this overwrites an environment variable *)
+    (*let env = Env.bind_val env "foobar" (Env.Expr(Nk.skip)) in*)
     (*let e' = eval env e |> expect_nk in
     let init = Nkpl_parser_utils.exp_of_string "@a=3" in (
       match init with
       | Some(ex) ->*)
-        printf out "%s\n%!" (eval env e |> expect_nk |> Nk.to_string);
+        printf out "%s\n%!" (eval env e |> expect_nk |> Nk.to_string_z3);
         (*let ex2 = eval env ex |> expect_nk in
         let ei = Nka.forward ex2 in
         let x = Nka.forward_init e' ei in

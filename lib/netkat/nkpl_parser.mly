@@ -53,6 +53,7 @@ nkpl_cmd:
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
+  | PRINT; s=FILENAME { Nkcmd.Prints s }
   | TIKZ; e=nk_exp { Nkcmd.Tikz e }
   | var=IDENT; TST; e=nk_exp { add_macro var e; Nkcmd.Let (var,e) }
   | var=IDENT; TST; v=NUM { add_constant var v; Nkcmd.VLet (var, Value.of_int v) }
