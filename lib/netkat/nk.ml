@@ -266,9 +266,11 @@ let to_string_z3 (nk: t) : string =
 
   to_string_parent nk
 
-let to_z3 (ctx : context) (nk : t) : Expr.expr =
-  let int_sort = Arithmetic.Integer.mk_sort ctx in
-  let var name = Expr.mk_const_s ctx name int_sort in
+module StringMap = Map.Make(String)
+let suffix = "__"
+
+let to_z3 (ctx : context) (env : Expr.expr StringMap.t) (nk : t) : Expr.expr =
+  let var name = try StringMap.find name env with Not_found -> failwith (Printf.sprintf "could not find var: %s" name) in
   let int n = Arithmetic.Integer.mk_numeral_i ctx n in
   let rec go (e : t) : Expr.expr =
     match e with
@@ -287,8 +289,19 @@ let to_z3 (ctx : context) (nk : t) : Expr.expr =
         let eq = Boolean.mk_eq ctx lhs rhs in
         if b then eq else Boolean.mk_not ctx eq
     | Mod (f, v) ->
-        let lhs = var (Field.get_or_fail_fid f ^ "__") in
+        let lhs = var (Field.get_or_fail_fid f ^ suffix) in
         let rhs = int (Value.to_int v) in
         Boolean.mk_eq ctx lhs rhs
   in
   go nk
+
+let rec get_fields e : Field.S.t = match e with
+  | Drop | Skip | Dup -> Field.S.empty
+  | Filter(_,f,_) -> Field.S.singleton f
+  | Mod(f,_) -> Field.S.singleton f
+  | Seq(el)
+  | Union(el)
+  | Intersect(el) -> List.fold_left (fun acc e -> Field.S.union (get_fields e) acc) Field.S.empty el
+  | Star(e) -> get_fields e
+  | Diff(e1,e2)
+  | Xor(e1,e2) -> Field.S.union (get_fields e1) (get_fields e2)

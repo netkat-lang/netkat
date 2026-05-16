@@ -1,6 +1,10 @@
 (** Representation of a Netkat expression. *)
 
 open Pk
+open Z3
+
+module StringMap : Map.S with type key = string
+val suffix : string
 
 type t =
   | Drop
@@ -91,3 +95,7 @@ val rand_dupless : field list -> value list -> int -> t
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
 val to_string_z3 : t -> string
+
+val to_z3 : context -> Expr.expr StringMap.t -> t -> Expr.expr
+
+val get_fields : t -> Field.S.t

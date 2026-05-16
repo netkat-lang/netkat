@@ -1,30 +1,5 @@
 open Nkcmd
 
-(*
-open Z3
-
-let cfg = [("model", "true")]
-let ctx = mk_context cfg
-
-let x = Arithmetic.Integer.mk_const_s ctx "x"
-let y = Arithmetic.Integer.mk_const_s ctx "y"
-
-let solver = Solver.mk_simple_solver ctx
-
-let two = Arithmetic.Integer.mk_numeral_i ctx 2
-let sum = Arithmetic.mk_add ctx [x; y]
-
-let eq = Boolean.mk_eq ctx sum two
-
-let () =
-  Solver.add solver [eq];
-  match Solver.check solver [] with
-  | Solver.SATISFIABLE -> print_endline "sat"
-  | Solver.UNSATISFIABLE -> print_endline "unsat"
-  | Solver.UNKNOWN -> print_endline "unknown"
-
-*)
-
 type result = Success | Fail of Trace.t option
 
 let result_list_to_json rl = 

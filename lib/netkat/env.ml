@@ -8,7 +8,8 @@ and  nk_val = Num of value | Expr of Nk.t | Closure of t * string * Nkexp.t
 let empty = SMap.empty
 
 let bind_val (t:t) (s:string) (v:nk_val) = SMap.add s v t
-let lookup_val (t:t) (s:string) : nk_val = match SMap.find_opt s t with
+let lookup_val_opt (t:t) (s:string) : nk_val option = SMap.find_opt s t
+let lookup_val (t:t) (s:string) : nk_val = match lookup_val_opt t s with
                                          | None -> failwith ("Undefined exp symbol: " ^ s)
                                          | Some e -> e
 
