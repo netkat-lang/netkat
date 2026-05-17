@@ -305,3 +305,14 @@ let rec get_fields e : Field.S.t = match e with
   | Star(e) -> get_fields e
   | Diff(e1,e2)
   | Xor(e1,e2) -> Field.S.union (get_fields e1) (get_fields e2)
+
+let rec get_values e : Value.S.t = match e with
+  | Drop | Skip | Dup -> Value.S.empty
+  | Filter(_,_,v) -> Value.S.singleton v
+  | Mod(f,v) -> Value.S.singleton v
+  | Seq(el)
+  | Union(el)
+  | Intersect(el) -> List.fold_left (fun acc e -> Value.S.union (get_values e) acc) Value.S.empty el
+  | Star(e) -> get_values e
+  | Diff(e1,e2)
+  | Xor(e1,e2) -> Value.S.union (get_values e1) (get_values e2)

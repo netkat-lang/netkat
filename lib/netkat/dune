@@ -9,7 +9,7 @@
   (public_name netkat.netkat)
   (instrumentation (backend landmarks))
   (preprocess (pps landmarks-ppx sedlex.ppx ppx_sexp ppx_deriving.std))
-  (libraries landmarks unix yojson menhirLib sedlex ego z3))
+  (libraries landmarks unix yojson menhirLib sedlex str ego z3))
 
 (documentation
   (package netkat)

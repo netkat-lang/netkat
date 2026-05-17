@@ -24,7 +24,7 @@ let () =
 
 *)
 
-let max_filters = 2 (* TODO *)
+let max_filters = 1 (* TODO *)
 
 let chop_suffix suffix s =
   if String.ends_with ~suffix s
@@ -58,6 +58,8 @@ let interp_file out (fn: string) : (Env.t * result list) =
       let fields_temp = List.map Field.get_or_fail_fid field_ids in
       let fields = fields_temp@(List.map (fun f -> f^Nk.suffix) fields_temp) in
       List.iter (fun f -> Printf.printf ">> field: %s\n" f) fields;
+
+      let values = Value.S.elements (Nk.get_values hop) in
 
       let cfg = [("model", "true")] in
       let ctx = mk_context cfg in
@@ -150,7 +152,14 @@ let interp_file out (fn: string) : (Env.t * result list) =
             ])
         in
 
-        Solver.add solver [wf1; wf2];
+        let wf3 = Boolean.mk_or ctx (List.map (fun v ->
+          Boolean.mk_implies ctx
+            filter_enable
+            (Boolean.mk_eq ctx filter_val (Arithmetic.Integer.mk_numeral_i ctx (Value.to_int v)))
+          ) values)
+        in
+
+        Solver.add solver [wf1; wf2; wf3];
 
         let filter =
           Boolean.mk_ite
@@ -258,10 +267,10 @@ let interp_file out (fn: string) : (Env.t * result list) =
             print_endline (Model.to_string model);
             (* TODO: if SAT, need to extract the concrete filters from Z3 model *)
             let get model e = Option.get (Model.eval model e true) in
+            let strip s = Str.global_replace (Str.regexp "[() ]") "" s in
             let get_int model e =
-              int_of_string
-                (Expr.to_string
-                   (Option.get (Model.eval model e true)))
+              let s = strip (Expr.to_string (Option.get (Model.eval model e true))) in
+              try int_of_string s with _ -> failwith (Printf.sprintf "get_int: expected int: \"%s\"\n" s)
             in
             let candidate_filters = List.map (fun (_,filter_enable,filter_type,filter_field,filter_val) ->
               let enable_v = Boolean.is_true (get model filter_enable) in
@@ -289,7 +298,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
                 try
                   let field_name = List.nth fields_temp field_v in
                   Printf.printf "## SAT FILTER: en=%b, ty=%b, field=%d/%d (%s), va=%d\n%!" enable_v type_v field_v (List.length fields_temp)  field_name val_v;
-                  let e = Nk.Filter(enable_v,Field.get_or_assign_fid field_name,Value.of_int val_v) in
+                  let e = Nk.Filter(not type_v,Field.get_or_assign_fid field_name,Value.of_int val_v) in
                   Printf.printf "### CANDIDATE: %s\n" (Nk.to_string e);
                   (Some(e),bl)
                 with _ -> (None,bl)

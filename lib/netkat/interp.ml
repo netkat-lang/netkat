@@ -70,17 +70,18 @@ let rec eval (env: Env.t) (e: Nkexp.t) : Env.nk_val =
       (*printf "EVAL APP: %s --> %s\n" (Nkexp.to_string e) (Nk.to_string result);*)
 
 let rec parse_file_with_env out (env: Env.t) (fn: string) : Nkcmd.t list =
-  let f = In_channel.open_text fn in
-  let lexbuf = Sedlexing.Utf8.from_channel f in
-  let lexer  = Sedlexing.with_tokenizer (Nkpl_lexer.token (Nkpl_lexer.fresh_state ())) lexbuf in
-  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.nkpl_file in
-  (try
-    parser lexer
-  with
-    | Nkpl_parser.Error s ->
-      let (x,y) = Sedlexing.lexing_positions lexbuf in
-      printf out "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
-      exit 1)
+  In_channel.with_open_text fn (fun f ->
+    let lexbuf = Sedlexing.Utf8.from_channel f in
+    let lexer  = Sedlexing.with_tokenizer (Nkpl_lexer.token (Nkpl_lexer.fresh_state ())) lexbuf in
+    let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.nkpl_file in
+    (try
+      parser lexer
+    with
+      | Nkpl_parser.Error s ->
+        let (x,y) = Sedlexing.lexing_positions lexbuf in
+        printf out "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+        exit 1)
+  )
 
 and parse_string out (env: Env.t) (s: string) : Nkcmd.t option =
   let lexbuf = Sedlexing.Utf8.from_string s in
