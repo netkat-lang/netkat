@@ -15,7 +15,7 @@ let chop_suffix suffix s =
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
-let interp_file out (fn: string) : (Env.t * result list) =
+let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
   (* helper function: convert list of results to set of traces *)
   let collect results = (
     List.fold_left (fun (is_fail,acc) x -> match x with
@@ -26,13 +26,13 @@ let interp_file out (fn: string) : (Env.t * result list) =
   ) in
   (* perform initial run of the input file, using hole=skip *)
   let ienv = Env.bind_val Env.empty "hole" (Env.Expr(Nk.skip)) in
-  let (env, results) = Interp.interp_file_with_env out ienv fn in
+  let (cmds, env, results) = Interp.interp_file_with_env out ienv fn in
   let (is_fail,cr) = collect results in
   (* if the initial run was successful, we are done *)
   if not is_fail then (
     (* TODO: return the filter (skip in this case) *)
     Printf.printf "SUCCESS\n";
-    (env, results)
+    (cmds, env, results)
   (* if the initial run was unsuccessful... *)
   ) else (
     (* grab the current "hop" expression -- this represents a single hop of the forwarding behavior *)
@@ -43,13 +43,18 @@ let interp_file out (fn: string) : (Env.t * result list) =
       Printf.printf "Using hop:\n%s\n" (Nk.to_string hop);
 
       (* collect all the field names in the hop *)
-      let field_ids = Field.S.elements (Nk.get_fields hop) in
+      (*let field_ids = Field.S.elements (Nk.get_fields hop) in*)
+      (* collect all the field names in the entire input file *)
+      let field_ids = Field.S.elements (Nkcmd.get_fields_from_cmds cmds) in
       let fields_temp = List.map Field.get_or_fail_fid field_ids in
       let fields = fields_temp@(List.map (fun f -> f^Nk.suffix) fields_temp) in
       List.iter (fun f -> Printf.printf "Using field: %s\n" f) fields;
 
       (* collect all the constant values from the hop *)
-      let values = Value.S.elements (Nk.get_values hop) in
+      (*let values = Value.S.elements (Nk.get_values hop) in*)
+      (* collect all the constant values from the entire input file *)
+      let values = Value.S.elements (Nkcmd.get_values_from_cmds cmds) in
+      List.iter (fun v -> Printf.printf "Using value: %s\n" (Value.to_string v)) values;
 
       (* set up a Z3 solver *)
       let cfg = [("model", "true")] in
@@ -228,7 +233,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
       let rec loop count env failures num_filters = (
         Printf.printf "## CEGIS iteration %d ##\n" count;
         (* run the input file *)
-        let (env2, results) = Interp.interp_file_with_env out env fn in
+        let (cmds, env2, results) = Interp.interp_file_with_env out env fn in
         let (is_fail,fails) = collect results in
         (* if all the checks passed, we are done *)
         if not is_fail then (
@@ -238,7 +243,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
           | Expr(e) -> Printf.printf "SYNTH: SUCCESS: %s\n%!" (Nk.to_string e);
           | _ -> Printf.printf "SYNTH: SUCCESS\n%!"
           );
-          (env2,[])
+          (cmds,env2,[])
         (* if some check(s) failed... *)
         ) else (
           Printf.printf "SYNTH: FAIL\n%!";
@@ -343,8 +348,11 @@ let interp_file out (fn: string) : (Env.t * result list) =
             let env3 = Env.bind_val env2 "hole" (Env.Expr(Nk.Intersect(List.filter_map fst candidate_filters))) in
             loop (count+1) env3 failures2 num_filters
           | _ ->
-            (* if UNSAT, we increase max num filters and continue iterating *)
-            loop (count+1) env2 failures2 (num_filters+1)
+            (* if UNSAT, this is a failure to generate a candidate *)
+            (* TODO: couple of options here: (1) exit (failure), (2) increase num_filters and try again *)
+            Printf.printf "SYNTH: UNSAT\n%!";
+            (*loop (count+1) env2 failures2 (num_filters+1)*)
+            (cmds,env2,[])
           )
         )
       ) in
@@ -352,5 +360,5 @@ let interp_file out (fn: string) : (Env.t * result list) =
       loop 1 env cr 1
     | _ ->
       Printf.printf "ERROR: count not find \"hop\" expression in input file\n";
-      (env,results)
+      (cmds,env,results)
   )

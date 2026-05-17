@@ -13,3 +13,9 @@ type t =
 
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
+
+val get_fields : t -> Field.S.t
+val get_values : t -> Value.S.t
+
+val get_fields_from_cmds : t list -> Field.S.t
+val get_values_from_cmds : t list -> Value.S.t

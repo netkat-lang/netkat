@@ -26,7 +26,7 @@ let () =
     failwith usage
   else
     List.iter (fun f ->
-      let (_,results) = (if !synth then Cegis.interp_file else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
+      let (_,_,results) = (if !synth then Cegis.interp_file else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
       Core.printf "\n%s\n" (Interp.result_list_to_json results);
       ()
     ) (!filenames);

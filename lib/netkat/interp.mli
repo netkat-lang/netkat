@@ -15,7 +15,7 @@ val interp : (string -> unit) -> string -> Env.t -> Nkcmd.t -> (Env.t * result l
 val interp_string : (string -> unit) -> Env.t -> string -> (Env.t * result list)
 
 (** Opens a file by its filename and interprets the contents; returns the resulting [Env.t]. *)
-val interp_file : (string -> unit) -> string -> (Env.t * result list)
-val interp_file_with_env : (string -> unit) -> Env.t -> string -> (Env.t * result list)
+val interp_file : (string -> unit) -> string -> (Nkcmd.t list * Env.t * result list)
+val interp_file_with_env : (string -> unit) -> Env.t -> string -> (Nkcmd.t list * Env.t * result list)
 
 val result_list_to_json : result list -> string

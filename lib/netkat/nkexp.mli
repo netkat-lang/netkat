@@ -124,3 +124,6 @@ val of_sexp : Sexplib0.Sexp.t -> t
 
 (** Make s-expression from netkat expression. *)
 val to_sexp : t -> Sexplib0.Sexp.t
+
+val get_fields : t -> Field.S.t
+val get_values : t -> Value.S.t
