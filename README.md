@@ -9,7 +9,7 @@ eval $(opam env --switch=5.3.0)
 
 opam install -y dune
 opam install -y sedlex landmarks-ppx menhir yojson alcotest core async
-opam install -y ego
+opam install -y ego z3
 
 make
 ```

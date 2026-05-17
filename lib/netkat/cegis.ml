@@ -1,38 +1,22 @@
+(* example usage: *)
+(* dune exec netkat -- -s test-me.nkpl *)
+
 open Interp
 open Z3
 
-(* printf out "%s\n%!" (eval env e |> expect_nk |> Deriv.e |> Spp.to_exp |> Nk.to_string_z3) *)
-
-(*
-
-let x = Arithmetic.Integer.mk_const_s ctx "x"
-let y = Arithmetic.Integer.mk_const_s ctx "y"
-
-let solver = Solver.mk_simple_solver ctx
-
-let two = Arithmetic.Integer.mk_numeral_i ctx 2
-let sum = Arithmetic.mk_add ctx [x; y]
-
-let eq = Boolean.mk_eq ctx sum two
-
-let () =
-  Solver.add solver [eq];
-  match Solver.check solver [] with
-  | Solver.SATISFIABLE -> print_endline "sat"
-  | Solver.UNSATISFIABLE -> print_endline "unsat"
-  | Solver.UNKNOWN -> print_endline "unknown"
-
-*)
-
+(* max number of filters for synthesis *)
 let max_filters = 1 (* TODO *)
 
+(* remove a suffix from a string *)
+(* chop_suffix "__" "test__" --> ("test", true) *)
+(* chop_suffix "__" "other"  --> ("other", false) *)
 let chop_suffix suffix s =
   if String.ends_with ~suffix s
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
 let interp_file out (fn: string) : (Env.t * result list) =
-  (* convert list of results to set of traces *)
+  (* helper function: convert list of results to set of traces *)
   let collect results = (
     List.fold_left (fun (is_fail,acc) x -> match x with
     | Fail(Some(t)) -> (true, Trace.S.add t acc)
@@ -40,27 +24,34 @@ let interp_file out (fn: string) : (Env.t * result list) =
     | _ -> (is_fail, acc)
     ) (false,Trace.S.empty) results
   ) in
-  (* initial run of the input file *)
+  (* perform initial run of the input file, using hole=skip *)
   let ienv = Env.bind_val Env.empty "hole" (Env.Expr(Nk.skip)) in
   let (env, results) = Interp.interp_file_with_env out ienv fn in
   let (is_fail,cr) = collect results in
+  (* if the initial run was successful, we are done *)
   if not is_fail then (
+    (* TODO: return the filter (skip in this case) *)
     Printf.printf "SUCCESS\n";
     (env, results)
+  (* if the initial run was unsuccessful... *)
   ) else (
+    (* grab the current "hop" expression -- this represents a single hop of the forwarding behavior *)
     match Env.lookup_val_opt env "hop" with
     | Some(Env.Expr(e)) ->
       (* "normalize" the hop expression by converting to an SPP and back to an expression *)
       let hop = Spp.to_exp (Deriv.e e) in
-      Printf.printf "Using hop: %s\n" (Nk.to_string hop);
+      Printf.printf "Using hop:\n%s\n" (Nk.to_string hop);
+
       (* collect all the field names in the hop *)
       let field_ids = Field.S.elements (Nk.get_fields hop) in
       let fields_temp = List.map Field.get_or_fail_fid field_ids in
       let fields = fields_temp@(List.map (fun f -> f^Nk.suffix) fields_temp) in
-      List.iter (fun f -> Printf.printf ">> field: %s\n" f) fields;
+      List.iter (fun f -> Printf.printf "Using field: %s\n" f) fields;
 
+      (* collect all the constant values from the hop *)
       let values = Value.S.elements (Nk.get_values hop) in
 
+      (* set up a Z3 solver *)
       let cfg = [("model", "true")] in
       let ctx = mk_context cfg in
       let solver = Solver.mk_simple_solver ctx in
@@ -68,6 +59,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
       let int_sort = Arithmetic.Integer.mk_sort ctx in
       let bool_sort = Boolean.mk_sort ctx in
 
+      (* this is for the transition relation *)
       (* T : Int x ... x Int -> Bool *)
       let t_decl =
         FuncDecl.mk_func_decl
@@ -133,6 +125,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
         let (filter_enable, filter_type, filter_field, filter_val) =
           mk_filter_vars ctx n in
 
+        (* for a disabled filter, all the other components are set to zero *)
         let wf1 =
           Boolean.mk_implies ctx
             (Boolean.mk_not ctx filter_enable)
@@ -143,6 +136,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
             ])
         in
 
+        (* for an enabled filter, it must designate a valid field *)
         let wf2 =
           Boolean.mk_implies ctx
             filter_enable
@@ -152,6 +146,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
             ])
         in
 
+        (* the value of the filter must be constrained to the set of allowed values *)
         let wf3 = Boolean.mk_or ctx (List.map (fun v ->
           Boolean.mk_implies ctx
             filter_enable
@@ -159,8 +154,27 @@ let interp_file out (fn: string) : (Env.t * result list) =
           ) values)
         in
 
+        (* assert well-formedness constraints on the filters *)
         Solver.add solver [wf1; wf2; wf3];
 
+        (* build the filter property, according to this basic example
+
+          (ite filter1-enable (xor filter1-type
+            (ite (= filter1-field 0) (= dev filter1-val)
+            (ite (= filter1-field 1) (= if filter1-val)
+            (ite (= filter1-field 2) (= dir filter1-val)
+            (ite (= filter1-field 3) (= srcip0 filter1-val)
+            (ite (= filter1-field 4) (= srcip1 filter1-val)
+            (ite (= filter1-field 5) (= srcip2 filter1-val)
+            (ite (= filter1-field 6) (= srcip3 filter1-val)
+            (ite (= filter1-field 7) (= dstip0 filter1-val)
+            (ite (= filter1-field 8) (= dstip1 filter1-val)
+            (ite (= filter1-field 9) (= dstip2 filter1-val)
+            (ite (= filter1-field 10) (= dstip3 filter1-val)
+            (not filter1-type))))))))))))
+          ) true)
+
+        *)
         let filter =
           Boolean.mk_ite
             ctx
@@ -170,12 +184,12 @@ let interp_file out (fn: string) : (Env.t * result list) =
                (mk_field_ite 0 filter_type filter_field filter_val fields_temp))
             (Boolean.mk_true ctx)
         in
-        Printf.printf "## FILTER:\n%s\n" (Expr.to_string filter);
+        (*Printf.printf "Filter formula:\n%s\n" (Expr.to_string filter);*)
         (filter,filter_enable,filter_type,filter_field,filter_val)::acc
       ) [] (List.init max_filters (fun i -> i + 1)) in
       let filters = List.map (fun (f,_,_,_,_) -> f) filters_data in
 
-      (* dump the hop to Z3 *)
+      (* dump the hop and filter constraints to Z3 *)
       let hop_body = Nk.to_z3 ctx var_map hop in
       let body = Boolean.mk_and ctx (filters@[hop_body]) in
 
@@ -189,6 +203,7 @@ let interp_file out (fn: string) : (Env.t * result list) =
         Boolean.mk_eq ctx t_app body
       in
 
+      (* this is the body of the transition relation *)
       (* (forall (...) (= (T ...) body)) *)
       let forall =
         Quantifier.expr_of_quantifier (
@@ -204,18 +219,18 @@ let interp_file out (fn: string) : (Env.t * result list) =
         )
       in
 
+      (* assert the transition relation *)
       Solver.add solver [forall];
-      Printf.printf "## FORALL:\n%s\n" (Expr.to_string forall);
+      (*Printf.printf "Forall formula:\n%s\n" (Expr.to_string forall);*)
 
+      (* this is the main CEGIS loop *)
+      (* TODO - num_filters is not being used correctly *)
       let rec loop count env failures num_filters = (
         Printf.printf "## CEGIS iteration %d ##\n" count;
-        let h = Env.lookup_val env "hole" in (
-        match h with
-        | Expr(e) -> Printf.printf "## HOLE: %s\n%!" (Nk.to_string e);
-        | _ -> Printf.printf "## NO HOLE\n%!"
-        );
+        (* run the input file *)
         let (env2, results) = Interp.interp_file_with_env out env fn in
         let (is_fail,fails) = collect results in
+        (* if all the checks passed, we are done *)
         if not is_fail then (
           (* TODO - return the synthesized filters *)
           let h = Env.lookup_val env2 "hole" in (
@@ -224,27 +239,33 @@ let interp_file out (fn: string) : (Env.t * result list) =
           | _ -> Printf.printf "SYNTH: SUCCESS\n%!"
           );
           (env2,[])
+        (* if some check(s) failed... *)
         ) else (
           Printf.printf "SYNTH: FAIL\n%!";
-          (* add the bad traces to seen *)
+          (* add the bad traces to seen - NOTE: we are currently not using past bad traces *)
           let failures2 = Trace.S.union fails failures in
           (* dump the seen traces to Z3 *)
           Trace.S.iter (fun x ->
-            Printf.printf "### Bad trace: %s\n%!" (Trace.to_string x);
+            Printf.printf "Handling bad trace: %s\n%!" (Trace.to_string x);
+            (* loop through the pairs of packets in the trace *)
             let rec pairs l acc = (match l with
             | p1::p2::more -> 
-              Printf.printf "## packet 1: %s\n%!" (Pk.to_string p1);
-              Printf.printf "## packet 2: %s\n%!" (Pk.to_string p2);
+              (*Printf.printf "packet 1: %s\n%!" (Pk.to_string p1);
+              Printf.printf "packet 2: %s\n%!" (Pk.to_string p2);*)
+              (* note that we ignore identical packet pairs (stuttering transitions) *)
               if Pk.compare p1 p2 <> 0 then (
+                (* loop through the fields *)
                 let vs = List.map (fun f ->
                   let (f2,had_suffix) = chop_suffix Nk.suffix f in
+                  (* if the field name designates the "next" version of that field, use p2, otherwise p1 *)
                   let p = if had_suffix then p2 else p1 in
                   let fid = Field.get_or_assign_fid f2 in
                   let v = Field.M.find fid p in
-                  Printf.printf "  ## field: %s -> %s (fid:%s, val:%s)\n%!" f f2 (Field.to_string fid) (Value.to_string v);
+                  (*Printf.printf "  field: %s -> %s (fid:%s, val:%s)\n%!" f f2 (Field.to_string fid) (Value.to_string v);*)
                   Arithmetic.Integer.mk_numeral_i ctx (Value.to_int v)
                 ) fields in
 
+                (* build the application of the transition relation to this packet pair *)
                 let t_app =
                   Expr.mk_app ctx t_decl vs
                 in
@@ -255,23 +276,28 @@ let interp_file out (fn: string) : (Env.t * result list) =
             let ps = pairs x []  in
             let a = Boolean.mk_and ctx ps in
             let n = Boolean.mk_not ctx a in
+            (* assert (not (and (T p1 p2) (T p2 p3) ...)) *)
             Solver.add solver [n];
-            Printf.printf "## AND:\n%s\n" (Expr.to_string n);
+            (*Printf.printf "Trace formula:\n%s\n" (Expr.to_string n);*)
             ()
-          ) fails (*failures2*); (* NOTE - we're only adding the new failures *)
+          ) fails (*failures2*); (* NOTE - we are only adding the new failures *)
+
           (* check sat Z3 *)
           (match Solver.check solver [] with
+          (* in the SAT case, we will extract the concrete filters from Z3 model, and iterate with these *)
           | Solver.SATISFIABLE ->
-            Printf.printf "## SAT\n";
+            Printf.printf "SAT\n";
+            (* get the model from the solver *)
             let model = Option.get (Solver.get_model solver) in
-            print_endline (Model.to_string model);
-            (* TODO: if SAT, need to extract the concrete filters from Z3 model *)
+            (*Printf.printf "MODEL:\n%s\n" (Model.to_string model);*)
             let get model e = Option.get (Model.eval model e true) in
+            (* this deals with negative numbers like this "(- 1)" returned by Z3 *)
             let strip s = Str.global_replace (Str.regexp "[() ]") "" s in
             let get_int model e =
               let s = strip (Expr.to_string (Option.get (Model.eval model e true))) in
               try int_of_string s with _ -> failwith (Printf.sprintf "get_int: expected int: \"%s\"\n" s)
             in
+            (* get the valuations from the Z3 model, and build the corresponding NetKAT filters *)
             let candidate_filters = List.map (fun (_,filter_enable,filter_type,filter_field,filter_val) ->
               let enable_v = Boolean.is_true (get model filter_enable) in
               let type_v = Boolean.is_true (get model filter_type) in
@@ -297,29 +323,32 @@ let interp_file out (fn: string) : (Env.t * result list) =
               if enable_v then (
                 try
                   let field_name = List.nth fields_temp field_v in
-                  Printf.printf "## SAT FILTER: en=%b, ty=%b, field=%d/%d (%s), va=%d\n%!" enable_v type_v field_v (List.length fields_temp)  field_name val_v;
+                  Printf.printf "Filter from model: enabled=%b, type=%b, field=%d (%s), val=%d\n%!" enable_v type_v field_v field_name val_v;
                   let e = Nk.Filter(not type_v,Field.get_or_assign_fid field_name,Value.of_int val_v) in
-                  Printf.printf "### CANDIDATE: %s\n" (Nk.to_string e);
+                  Printf.printf "Candidate NetKAT filter: %s\n" (Nk.to_string e);
                   (Some(e),bl)
                 with _ -> (None,bl)
               ) else (None,bl)
             ) filters_data in
+
+            (* this generates a "blocking clause" to prevent this specific set of filters from *)
+            (* being generated again *)
             let bl = (List.map snd candidate_filters) in
             if not (List.is_empty bl) then (
               let block = Boolean.mk_not ctx (Boolean.mk_and ctx bl) in
-              Printf.printf "## BLOCK:\n%s\n" (Expr.to_string block);
+              (*Printf.printf "Blocking clause formula:\n%s\n" (Expr.to_string block);*)
               Solver.add solver [block]
             );
-            (* TODO: put these filters in "hole" in the env and recurse *)
-            (* TODO *)
+            (* put these filters in "hole" in the env and recurse *)
             let env3 = Env.bind_val env2 "hole" (Env.Expr(Nk.Intersect(List.filter_map fst candidate_filters))) in
             loop (count+1) env3 failures2 num_filters
           | _ ->
-            (* if UNSAT, we need to increase max num filters *)
+            (* if UNSAT, we increase max num filters and continue iterating *)
             loop (count+1) env2 failures2 (num_filters+1)
           )
         )
       ) in
+      (* start the CEGIS loop *)
       loop 1 env cr 1
     | _ ->
       Printf.printf "ERROR: count not find \"hop\" expression in input file\n";

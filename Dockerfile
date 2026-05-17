@@ -17,6 +17,7 @@ RUN apt update && \
       git \
       m4 \
       opam \
+      libgmp-dev \
       pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
@@ -39,6 +40,7 @@ RUN eval $(opam env --switch=5.3.0) && \
       yojson \
       alcotest \
       core \
+      z3 \
       async && \
     opam install -y --assume-depexts ego
 
