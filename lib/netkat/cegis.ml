@@ -25,7 +25,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
     ) (false,Trace.S.empty) results
   ) in
   (* perform initial run of the input file, using hole=skip *)
-  let ienv = Env.bind_val Env.empty "hole" (Env.Expr(Nk.skip)) in
+  let ienv = Env.bind_val_access Env.empty "hole" (Env.Expr(Nk.skip)) Env.ReadOnly Env.Force in
   let (cmds, env, results) = Interp.interp_file_with_env out ienv fn in
   let (is_fail,cr) = collect results in
   (* if the initial run was successful, we are done *)
@@ -345,7 +345,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
               Solver.add solver [block]
             );
             (* put these filters in "hole" in the env and recurse *)
-            let env3 = Env.bind_val env2 "hole" (Env.Expr(Nk.Intersect(List.filter_map fst candidate_filters))) in
+            let env3 = Env.bind_val_access env2 "hole" (Env.Expr(Nk.Intersect(List.filter_map fst candidate_filters))) Env.ReadOnly Env.Force in
             loop (count+1) env3 failures2 num_filters
           | _ ->
             (* if UNSAT, this is a failure to generate a candidate *)
