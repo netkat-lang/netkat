@@ -11,7 +11,7 @@ let max_filters = 1 (* TODO *)
 
 let omit_fields =
   List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
-  ["@dir";"@dev";"@if";"@srcip-0";"srcip-1";"@dstip-0";"@dstip-1"]
+  ["@dir";"@if"(*;"@srcip-0";"@srcip-1";"@dstip-0";"@dstip-1"*)]
 
 (* remove a suffix from a string *)
 (* chop_suffix "__" "test__" --> ("test", true) *)
@@ -172,13 +172,28 @@ let interp_file out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t 
             ])
         in
 
-        (* the value of the filter must be constrained to the set of allowed values *)
-        (* TODO - make these come from the lookup table *)
-        let wf3 = Boolean.mk_or ctx (List.map (fun v ->
-          Boolean.mk_implies ctx
-            filter_enable
+        let wf3s = List.map (fun i ->
+          let s = List.nth fields_temp i in
+          let fid = Field.get_or_assign_fid s in
+          let vals = match Field.M.find_opt fid fv_map with Some(s) -> s | None -> Value.S.empty in
+          Printf.printf ">> examine field: %d: %s (%s)\n" i s (Field.to_string fid);
+          Value.S.iter (fun v -> Printf.printf "  val: %s\n" (Value.to_string v)) vals;
+          let o = (Boolean.mk_or ctx (List.map (fun v ->
             (Boolean.mk_eq ctx filter_val (Arithmetic.Integer.mk_numeral_i ctx (Value.to_int v)))
-          ) values)
+          ) (Value.S.elements vals))) in
+          let im = Boolean.mk_implies ctx (Boolean.mk_eq ctx filter_field (Arithmetic.Integer.mk_numeral_i ctx i)) o in
+          Printf.printf "  formula: %s\n" (Expr.to_string im);
+          im
+        ) (List.init (List.length fields_temp) Fun.id) in
+
+        (* the value of the filter must be constrained to the set of allowed values *)
+        let wf3 = Boolean.mk_implies ctx filter_enable
+          (* TODO - old version: use all possible values *)
+          (*(Boolean.mk_or ctx (List.map (fun v ->
+            (Boolean.mk_eq ctx filter_val (Arithmetic.Integer.mk_numeral_i ctx (Value.to_int v)))
+          ) values))*)
+          (* NOTE - new version: from the lookup table, for each field *)
+          (Boolean.mk_and ctx wf3s)
         in
 
         (* assert well-formedness constraints on the filters *)
