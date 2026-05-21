@@ -98,13 +98,16 @@ and parse_string out (env: Env.t) (s: string) : Nkcmd.t option =
 and parse_file out (fn: string) : Nkcmd.t list =
   parse_file_with_env out Env.empty fn
 
-let rec interp_file_with_env out (env: Env.t) (fn: string) : (Nkcmd.t list * Env.t * result list) =
+let rec interp_cmds_with_env out (env: Env.t) (bn: string) (cmds: Nkcmd.t list) : (Nkcmd.t list * Env.t * result list) =
+  let (env, res) = List.fold_left (fun (env,res) e -> let (env2,res2) = interp out bn env e in (env2,(res@res2))) (env,[]) cmds in
+  (cmds, env, res)
+
+and interp_file_with_env out (env: Env.t) (fn: string) : (string * (Nkcmd.t list * Env.t * result list)) =
   let cmds = parse_file_with_env out env fn in
   let bn = match String.rindex_opt fn '/' with
            | None -> ""
            | Some i -> String.sub fn 0 (i+1) in
-  let (env, res) = List.fold_left (fun (env,res) e -> let (env2,res2) = interp out bn env e in (env2,(res@res2))) (env,[]) cmds in
-  (cmds, env, res)
+  (bn, interp_cmds_with_env out env bn cmds)
 
 and interp_string out (env: Env.t) (s: string) =
   let c = parse_string out env s in
@@ -113,12 +116,12 @@ and interp_string out (env: Env.t) (s: string) =
     | Some cmd -> interp out "" env cmd
 
 and interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
-  interp_file_with_env out Env.empty fn
+  snd (interp_file_with_env out Env.empty fn)
 
 and interp out (bn: string) (env: Env.t) (c: t) : (Env.t * result list) =
   match c with
   | Import s ->
-    let (_,env,res) = interp_file_with_env out env (bn ^ s) in
+    let (_,env,res) = snd (interp_file_with_env out env (bn ^ s)) in
     (env,res)
   | Check (b, e1, e2) -> let start = Unix.gettimeofday () in
                          let e1' = eval env e1 |> expect_nk in

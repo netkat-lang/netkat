@@ -4,8 +4,14 @@
 open Interp
 open Z3
 
+module StringSet = Stdlib.Set.Make(String)
+
 (* max number of filters for synthesis *)
-let max_filters = 1 (* TODO *)
+let max_filters = 2 (* TODO *)
+
+let omit_fields =
+  List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
+  ["@dir";"@dev";"@if";"@srcip-0";"srcip-1";"@dstip-0";"@dstip-1"]
 
 (* remove a suffix from a string *)
 (* chop_suffix "__" "test__" --> ("test", true) *)
@@ -26,7 +32,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
   ) in
   (* perform initial run of the input file, using hole=skip *)
   let ienv = Env.bind_val_access Env.empty "hole" (Env.Expr(Nk.skip)) Env.ReadOnly Env.Force in
-  let (cmds, env, results) = Interp.interp_file_with_env out ienv fn in
+  let (bn, (cmds, env, results)) = Interp.interp_file_with_env out ienv fn in
   let (is_fail,cr) = collect results in
   (* if the initial run was successful, we are done *)
   if not is_fail then (
@@ -46,8 +52,13 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
       (*let field_ids = Field.S.elements (Nk.get_fields hop) in*)
       (* collect all the field names in the entire input file *)
       let field_ids = Field.S.elements (Nkcmd.get_fields_from_cmds cmds) in
-      let fields_temp = List.map Field.get_or_fail_fid field_ids in
-      let fields = fields_temp@(List.map (fun f -> f^Nk.suffix) fields_temp) in
+      let fields_temp,fields_all = List.fold_left (fun (acc1,acc2) fid ->
+        let s = Field.get_or_fail_fid fid in
+        if StringSet.mem s omit_fields then (acc1,(s::acc2))
+        else ((s::acc1),(s::acc2))
+      ) ([],[]) field_ids in
+      let fields_temp,fields_all = (List.rev fields_temp, List.rev fields_all) in
+      let fields = fields_all@(List.map (fun f -> f^Nk.suffix) fields_all) in
       List.iter (fun f -> Printf.printf "Using field: %s\n" f) fields;
 
       (* collect all the constant values from the hop *)
@@ -189,7 +200,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
                (mk_field_ite 0 filter_type filter_field filter_val fields_temp))
             (Boolean.mk_true ctx)
         in
-        (*Printf.printf "Filter formula:\n%s\n" (Expr.to_string filter);*)
+        Printf.printf "Filter formula:\n%s\n" (Expr.to_string filter);
         (filter,filter_enable,filter_type,filter_field,filter_val)::acc
       ) [] (List.init max_filters (fun i -> i + 1)) in
       let filters = List.map (fun (f,_,_,_,_) -> f) filters_data in
@@ -233,7 +244,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
       let rec loop count env failures num_filters = (
         Printf.printf "## CEGIS iteration %d ##\n" count;
         (* run the input file *)
-        let (cmds, env2, results) = Interp.interp_file_with_env out env fn in
+        let (cmds, env2, results) = Interp.interp_cmds_with_env out env bn cmds in
         let (is_fail,fails) = collect results in
         (* if all the checks passed, we are done *)
         if not is_fail then (
@@ -328,13 +339,20 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
               if enable_v then (
                 try
                   let field_name = List.nth fields_temp field_v in
-                  Printf.printf "Filter from model: enabled=%b, type=%b, field=%d (%s), val=%d\n%!" enable_v type_v field_v field_name val_v;
+                  (*Printf.printf "Filter from model: enabled=%b, type=%b, field=%d (%s), val=%d\n%!" enable_v type_v field_v field_name val_v;*)
                   let e = Nk.Filter(not type_v,Field.get_or_assign_fid field_name,Value.of_int val_v) in
-                  Printf.printf "Candidate NetKAT filter: %s\n" (Nk.to_string e);
+                  (*Printf.printf "Candidate NetKAT filter: %s\n" (Nk.to_string e);*)
                   (Some(e),bl)
                 with _ -> (None,bl)
               ) else (None,bl)
             ) filters_data in
+
+            Printf.printf "Candidate NetKAT filter: ";
+            List.iter (fun (a,_) -> match a with
+            | Some(e) ->
+                  Printf.printf ", %s" (Nk.to_string e);
+            | None -> ()) candidate_filters;
+            Printf.printf "\n%!";
 
             (* this generates a "blocking clause" to prevent this specific set of filters from *)
             (* being generated again *)
