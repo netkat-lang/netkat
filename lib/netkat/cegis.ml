@@ -7,11 +7,6 @@ open Z3
 module StringSet = Stdlib.Set.Make(String)
 
 (* max number of filters for synthesis *)
-let max_filters = 1 (* TODO *)
-
-let omit_fields =
-  List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
-  ["@dir";"@if"(*;"@srcip-0";"@srcip-1";"@dstip-0";"@dstip-1"*)]
 
 (* remove a suffix from a string *)
 (* chop_suffix "__" "test__" --> ("test", true) *)
@@ -21,7 +16,12 @@ let chop_suffix suffix s =
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
-let interp_file out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
+let interp_file max_filters ignore_fields out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
+  (* TODO - this default is probably not right *)
+  let omit_fields =
+    List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
+    ignore_fields in
+
   (* helper function: convert list of results to set of traces *)
   let collect results = (
     List.fold_left (fun (is_fail,acc) x -> match x with

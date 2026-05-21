@@ -4,14 +4,26 @@ open Stdlib
 let filenames = ref []
 let quiet = ref false
 let synth = ref false
+let fd = ref false
 
 let add_filename filename =
   filenames := filename :: !filenames
 
 let i = ref 0
+let n = ref 1
+let ignore_fields = ref []
+
+let add_string s =
+  ignore_fields := s::!ignore_fields
+
+let add_default_strings () =
+  ignore_fields := ["@dir";"@dev";"@if"(*;"@srcip-0";"@srcip-1";"@dstip-0";"@dstip-1"*)]
 
 let specs = [
   ("-i", Arg.Set_int i, "Test flag");
+  ("-n", Arg.Set_int n, "Maximum number of filters");
+  ("-f", Arg.String add_string, "Specify a field to ignore");
+  ("-fd", Arg.Unit add_default_strings, "Ignore default fields");
   ("-q", Arg.Set quiet, "Quiet output");
   ("-s", Arg.Set synth, "CEGIS synthesizer");
 ]
@@ -26,7 +38,7 @@ let () =
     failwith usage
   else
     List.iter (fun f ->
-      let (_,_,results) = (if !synth then Cegis.interp_file else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
+      let (_,_,results) = (if !synth then Cegis.interp_file !n !ignore_fields else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
       Core.printf "\n%s\n" (Interp.result_list_to_json results);
       ()
     ) (!filenames);
