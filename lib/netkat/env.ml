@@ -36,3 +36,4 @@ let rec nk_val_to_string (v:nk_val) = match v with
 and to_string (t:t) =
   Printf.sprintf "{%s}"
   (SMap.fold (fun k (v,_) acc -> Printf.sprintf "%s, %s->%s" acc k (nk_val_to_string v)) t "")
+

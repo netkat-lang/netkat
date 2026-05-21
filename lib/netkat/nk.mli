@@ -98,5 +98,4 @@ val to_string_z3 : t -> string
 
 val to_z3 : context -> Expr.expr StringMap.t -> t -> Expr.expr
 
-val get_fields : t -> Field.S.t
-val get_values : t -> Value.S.t
+val get_field_vals : t -> Value.S.t Field.M.t

@@ -7,7 +7,7 @@ open Z3
 module StringSet = Stdlib.Set.Make(String)
 
 (* max number of filters for synthesis *)
-let max_filters = 2 (* TODO *)
+let max_filters = 1 (* TODO *)
 
 let omit_fields =
   List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
@@ -21,7 +21,7 @@ let chop_suffix suffix s =
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
-let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
+let interp_file out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
   (* helper function: convert list of results to set of traces *)
   let collect results = (
     List.fold_left (fun (is_fail,acc) x -> match x with
@@ -32,13 +32,13 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
   ) in
   (* perform initial run of the input file, using hole=skip *)
   let ienv = Env.bind_val_access Env.empty "hole" (Env.Expr(Nk.skip)) Env.ReadOnly Env.Force in
-  let (bn, (cmds, env, results)) = Interp.interp_file_with_env out ienv fn in
+  let (bn, (cmds, (env, field_val_map), results)) = Interp.interp_file_with_env out (ienv,Some(Field.M.empty)) fn in
   let (is_fail,cr) = collect results in
   (* if the initial run was successful, we are done *)
   if not is_fail then (
     (* TODO: return the filter (skip in this case) *)
     Printf.printf "SUCCESS\n";
-    (cmds, env, results)
+    (cmds, (env, field_val_map), results)
   (* if the initial run was unsuccessful... *)
   ) else (
     (* grab the current "hop" expression -- this represents a single hop of the forwarding behavior *)
@@ -48,10 +48,14 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
       let hop = Spp.to_exp (Deriv.e e) in
       Printf.printf "Using hop:\n%s\n" (Nk.to_string hop);
 
+      let fv_map = match field_val_map with Some(m) -> m | None -> Field.M.empty in
+
       (* collect all the field names in the hop *)
-      (*let field_ids = Field.S.elements (Nk.get_fields hop) in*)
       (* collect all the field names in the entire input file *)
-      let field_ids = Field.S.elements (Nkcmd.get_fields_from_cmds cmds) in
+      (*let field_vals = Nkcmd.get_field_vals_from_cmds env cmds in*)
+      let field_ids = List.map fst (Field.M.bindings fv_map) in
+
+      (*let field_ids = Field.S.elements fv_map in*)
       let fields_temp,fields_all = List.fold_left (fun (acc1,acc2) fid ->
         let s = Field.get_or_fail_fid fid in
         if StringSet.mem s omit_fields then (acc1,(s::acc2))
@@ -64,8 +68,14 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
       (* collect all the constant values from the hop *)
       (*let values = Value.S.elements (Nk.get_values hop) in*)
       (* collect all the constant values from the entire input file *)
-      let values = Value.S.elements (Nkcmd.get_values_from_cmds cmds) in
-      List.iter (fun v -> Printf.printf "Using value: %s\n" (Value.to_string v)) values;
+      (*let values = Value.S.elements (Nkcmd.get_values_from_cmds cmds) in*)
+      let values = Value.S.elements (Field.M.fold (fun f v acc -> Value.S.union acc v) fv_map Value.S.empty) in
+      (*List.iter (fun v -> Printf.printf "Using value: %s\n" (Value.to_string v)) values;
+      Field.M.iter (fun f vals ->
+          Value.S.iter (fun v -> Printf.printf "Using value: %s -> %s\n" (Field.get_or_fail_fid f) (Value.to_string v)) vals
+      ) fv_map;
+      print_string "Exiting\n";
+      exit 1;*)
 
       (* set up a Z3 solver *)
       let cfg = [("model", "true")] in
@@ -163,6 +173,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
         in
 
         (* the value of the filter must be constrained to the set of allowed values *)
+        (* TODO - make these come from the lookup table *)
         let wf3 = Boolean.mk_or ctx (List.map (fun v ->
           Boolean.mk_implies ctx
             filter_enable
@@ -241,10 +252,10 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
 
       (* this is the main CEGIS loop *)
       (* TODO - num_filters is not being used correctly *)
-      let rec loop count env failures num_filters = (
+      let rec loop count (env: Env.t) failures num_filters : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list)  = (
         Printf.printf "## CEGIS iteration %d ##\n" count;
         (* run the input file *)
-        let (cmds, env2, results) = Interp.interp_cmds_with_env out env bn cmds in
+        let (cmds, (env2, _), results) = Interp.interp_cmds_with_env out (env,None) bn cmds in
         let (is_fail,fails) = collect results in
         (* if all the checks passed, we are done *)
         if not is_fail then (
@@ -254,7 +265,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
           | Expr(e) -> Printf.printf "SYNTH: SUCCESS: %s\n%!" (Nk.to_string e);
           | _ -> Printf.printf "SYNTH: SUCCESS\n%!"
           );
-          (cmds,env2,[])
+          (cmds,(env2,field_val_map),[])
         (* if some check(s) failed... *)
         ) else (
           Printf.printf "SYNTH: FAIL\n%!";
@@ -370,7 +381,7 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
             (* TODO: couple of options here: (1) exit (failure), (2) increase num_filters and try again *)
             Printf.printf "SYNTH: UNSAT\n%!";
             (*loop (count+1) env2 failures2 (num_filters+1)*)
-            (cmds,env2,[])
+            (cmds,(env2,field_val_map),[])
           )
         )
       ) in
@@ -378,5 +389,5 @@ let interp_file out (fn: string) : (Nkcmd.t list * Env.t * result list) =
       loop 1 env cr 1
     | _ ->
       Printf.printf "ERROR: count not find \"hop\" expression in input file\n";
-      (cmds,env,results)
+      (cmds,(env,field_val_map),results)
   )

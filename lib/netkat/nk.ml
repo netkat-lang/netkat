@@ -295,24 +295,13 @@ let to_z3 (ctx : context) (env : Expr.expr StringMap.t) (nk : t) : Expr.expr =
   in
   go nk
 
-let rec get_fields e : Field.S.t = match e with
-  | Drop | Skip | Dup -> Field.S.empty
-  | Filter(_,f,_) -> Field.S.singleton f
-  | Mod(f,_) -> Field.S.singleton f
+let rec get_field_vals e : Value.S.t Field.M.t = match e with
+  | Drop | Skip | Dup -> Field.M.empty
+  | Filter(_,f,v) -> Field.M.singleton f (Value.S.singleton v)
+  | Mod(f,v) -> Field.M.singleton f (Value.S.singleton v)
   | Seq(el)
   | Union(el)
-  | Intersect(el) -> List.fold_left (fun acc e -> Field.S.union (get_fields e) acc) Field.S.empty el
-  | Star(e) -> get_fields e
+  | Intersect(el) -> List.fold_left (fun acc e -> Field.M.union  (fun key v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals e) acc) Field.M.empty el
+  | Star(e) -> get_field_vals e
   | Diff(e1,e2)
-  | Xor(e1,e2) -> Field.S.union (get_fields e1) (get_fields e2)
-
-let rec get_values e : Value.S.t = match e with
-  | Drop | Skip | Dup -> Value.S.empty
-  | Filter(_,_,v) -> Value.S.singleton v
-  | Mod(f,v) -> Value.S.singleton v
-  | Seq(el)
-  | Union(el)
-  | Intersect(el) -> List.fold_left (fun acc e -> Value.S.union (get_values e) acc) Value.S.empty el
-  | Star(e) -> get_values e
-  | Diff(e1,e2)
-  | Xor(e1,e2) -> Value.S.union (get_values e1) (get_values e2)
+  | Xor(e1,e2) -> Field.M.union  (fun key v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals e1) (get_field_vals e2)
