@@ -16,7 +16,7 @@ let chop_suffix suffix s =
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
-let interp_file max_filters ignore_fields out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
+let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
   (* TODO - this default is probably not right *)
   let omit_fields =
     List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
@@ -231,9 +231,15 @@ let interp_file max_filters ignore_fields out (fn: string) : (Nkcmd.t list * (En
       ) [] (List.init max_filters (fun i -> i + 1)) in
       let filters = List.map (fun (f,_,_,_,_) -> f) filters_data in
 
+      (* TODO *)
+      let clause_negate = Expr.mk_const ctx (Symbol.mk_string ctx "negate") bool_sort in
+
+      if not allow_disjunction then Solver.add solver [Boolean.mk_not ctx clause_negate];
+
       (* dump the hop and filter constraints to Z3 *)
       let hop_body = Nk.to_z3 ctx var_map hop in
-      let body = Boolean.mk_and ctx (filters@[hop_body]) in
+      let filters_body = Boolean.mk_xor ctx clause_negate (Boolean.mk_and ctx filters) in
+      let body = Boolean.mk_and ctx ([filters_body;hop_body]) in
 
       (* build (T v1 v2 ... vn) *)
       let t_app =
@@ -372,8 +378,10 @@ let interp_file max_filters ignore_fields out (fn: string) : (Nkcmd.t list * (En
                 with _ -> (None,bl)
               ) else (None,bl)
             ) filters_data in
+            (* TODO *)
+            let is_negated = Boolean.is_true (get model clause_negate) in
 
-            Printf.printf "Candidate NetKAT filter: ";
+            Printf.printf "Candidate NetKAT filter: [%b] " is_negated;
             List.iter (fun (a,_) -> match a with
             | Some(e) ->
                   Printf.printf ", %s" (Nk.to_string e);
@@ -384,12 +392,14 @@ let interp_file max_filters ignore_fields out (fn: string) : (Nkcmd.t list * (En
             (* being generated again *)
             let bl = (List.map snd candidate_filters) in
             if not (List.is_empty bl) then (
-              let block = Boolean.mk_not ctx (Boolean.mk_and ctx bl) in
+              let block = Boolean.mk_not ctx (Boolean.mk_and ctx ((if is_negated then clause_negate else Boolean.mk_not ctx clause_negate)::bl)) in
               (*Printf.printf "Blocking clause formula:\n%s\n" (Expr.to_string block);*)
               Solver.add solver [block]
             );
             (* put these filters in "hole" in the env and recurse *)
-            let env3 = Env.bind_val_access env2 "hole" (Env.Expr(Nk.Intersect(List.filter_map fst candidate_filters))) Env.ReadOnly Env.Force in
+            let e = Nk.Intersect(List.filter_map fst candidate_filters) in
+            let e' = if is_negated then Nk.neg e else e in
+            let env3 = Env.bind_val_access env2 "hole" (Env.Expr(e')) Env.ReadOnly Env.Force in
             loop (count+1) env3 failures2 num_filters
           | _ ->
             (* if UNSAT, this is a failure to generate a candidate *)

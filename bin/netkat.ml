@@ -5,6 +5,7 @@ let filenames = ref []
 let quiet = ref false
 let synth = ref false
 let fd = ref false
+let allow_disjunction = ref false
 
 let add_filename filename =
   filenames := filename :: !filenames
@@ -24,6 +25,7 @@ let specs = [
   ("-n", Arg.Set_int n, "Maximum number of filters");
   ("-f", Arg.String add_string, "Specify a field to ignore");
   ("-fd", Arg.Unit add_default_strings, "Ignore default fields");
+  ("-dis", Arg.Set allow_disjunction, "Allow exploring disjunctions");
   ("-q", Arg.Set quiet, "Quiet output");
   ("-s", Arg.Set synth, "CEGIS synthesizer");
 ]
@@ -38,7 +40,7 @@ let () =
     failwith usage
   else
     List.iter (fun f ->
-      let (_,_,results) = (if !synth then Cegis.interp_file !n !ignore_fields else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
+      let (_,_,results) = (if !synth then Cegis.interp_file !n !ignore_fields !allow_disjunction else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
       Core.printf "\n%s\n" (Interp.result_list_to_json results);
       ()
     ) (!filenames);
