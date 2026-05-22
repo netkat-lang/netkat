@@ -17,7 +17,6 @@ let chop_suffix suffix s =
   else (s, false)
 
 let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
-  (* TODO - this default is probably not right *)
   let omit_fields =
     List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
     ignore_fields in
@@ -69,7 +68,7 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
       (*let values = Value.S.elements (Nk.get_values hop) in*)
       (* collect all the constant values from the entire input file *)
       (*let values = Value.S.elements (Nkcmd.get_values_from_cmds cmds) in*)
-      let values = Value.S.elements (Field.M.fold (fun f v acc -> Value.S.union acc v) fv_map Value.S.empty) in
+      (*let values = Value.S.elements (Field.M.fold (fun f v acc -> Value.S.union acc v) fv_map Value.S.empty) in*)
       (*List.iter (fun v -> Printf.printf "Using value: %s\n" (Value.to_string v)) values;
       Field.M.iter (fun f vals ->
           Value.S.iter (fun v -> Printf.printf "Using value: %s -> %s\n" (Field.get_or_fail_fid f) (Value.to_string v)) vals
