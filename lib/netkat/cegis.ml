@@ -1,10 +1,11 @@
 (* example usage: *)
 (* dune exec netkat -- -s test-me.nkpl *)
 
-open Interp
 open Z3
 
 module StringSet = Stdlib.Set.Make(String)
+
+type result = Success of Nk.t | Fail
 
 (* max number of filters for synthesis *)
 
@@ -16,7 +17,7 @@ let chop_suffix suffix s =
   then (String.sub s 0 (String.length s - String.length suffix), true)
   else (s, false)
 
-let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
+let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * Interp.result list * result) =
   let omit_fields =
     List.fold_left (fun s x -> StringSet.add x s) StringSet.empty
     ignore_fields in
@@ -24,20 +25,22 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
   (* helper function: convert list of results to set of traces *)
   let collect results = (
     List.fold_left (fun (is_fail,acc) x -> match x with
-    | Fail(Some(t)) -> (true, Trace.S.add t acc)
-    | Fail(_) -> (true, acc)
+    | Interp.Fail(Some(t)) -> (true, Trace.S.add t acc)
+    | Interp.Fail(_) -> (true, acc)
     | _ -> (is_fail, acc)
     ) (false,Trace.S.empty) results
   ) in
   (* perform initial run of the input file, using hole=skip *)
   let ienv = Env.bind_val_access Env.empty "hole" (Env.Expr(Nk.skip)) Env.ReadOnly Env.Force in
+  Printf.printf "## CEGIS iteration 0 ##\n";
+  Printf.printf "VERIF: running NetKAT solver\n%!";
   let (bn, (cmds, (env, field_val_map), results)) = Interp.interp_file_with_env out (ienv,Some(Field.M.empty)) fn in
   let (is_fail,cr) = collect results in
   (* if the initial run was successful, we are done *)
   if not is_fail then (
-    (* TODO: return the filter (skip in this case) *)
-    Printf.printf "SUCCESS\n";
-    (cmds, (env, field_val_map), results)
+    (* TODO: return the filter ("skip" in this case) *)
+    Printf.printf "VERIF: SUCCESS\n";
+    (cmds, (env, field_val_map), results, Success(Nk.skip))
   (* if the initial run was unsuccessful... *)
   ) else (
     (* grab the current "hop" expression -- this represents a single hop of the forwarding behavior *)
@@ -62,7 +65,7 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
       ) ([],[]) field_ids in
       let fields_temp,fields_all = (List.rev fields_temp, List.rev fields_all) in
       let fields = fields_all@(List.map (fun f -> f^Nk.suffix) fields_all) in
-      List.iter (fun f -> Printf.printf "Using field: %s\n" f) fields;
+      (*List.iter (fun f -> Printf.printf "Using field: %s\n" f) fields;*)
 
       (* collect all the constant values from the hop *)
       (*let values = Value.S.elements (Nk.get_values hop) in*)
@@ -175,13 +178,13 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
           let s = List.nth fields_temp i in
           let fid = Field.get_or_assign_fid s in
           let vals = match Field.M.find_opt fid fv_map with Some(s) -> s | None -> Value.S.empty in
-          Printf.printf ">> examine field: %d: %s (%s)\n" i s (Field.to_string fid);
-          Value.S.iter (fun v -> Printf.printf "  val: %s\n" (Value.to_string v)) vals;
+          (*Printf.printf ">> examine field: %d: %s (%s)\n" i s (Field.to_string fid);*)
+          (*Value.S.iter (fun v -> Printf.printf "  val: %s\n" (Value.to_string v)) vals;*)
           let o = (Boolean.mk_or ctx (List.map (fun v ->
             (Boolean.mk_eq ctx filter_val (Arithmetic.Integer.mk_numeral_i ctx (Value.to_int v)))
           ) (Value.S.elements vals))) in
           let im = Boolean.mk_implies ctx (Boolean.mk_eq ctx filter_field (Arithmetic.Integer.mk_numeral_i ctx i)) o in
-          Printf.printf "  formula: %s\n" (Expr.to_string im);
+          (*Printf.printf "  formula: %s\n" (Expr.to_string im);*)
           im
         ) (List.init (List.length fields_temp) Fun.id) in
 
@@ -272,28 +275,30 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
 
       (* this is the main CEGIS loop *)
       (* TODO - num_filters is not being used correctly *)
-      let rec loop count (env: Env.t) failures num_filters : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list)  = (
-        Printf.printf "## CEGIS iteration %d ##\n" count;
+      let rec loop count (env: Env.t) failures num_filters : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * Interp.result list * result)  = (
+        Printf.printf "\n## CEGIS iteration %d ##\n" count;
         (* run the input file *)
+        Printf.printf "VERIF: running NetKAT solver\n%!";
         let (cmds, (env2, _), results) = Interp.interp_cmds_with_env out (env,None) bn cmds in
         let (is_fail,fails) = collect results in
         (* if all the checks passed, we are done *)
         if not is_fail then (
           (* TODO - return the synthesized filters *)
-          let h = Env.lookup_val env2 "hole" in (
+          let h = Env.lookup_val env2 "hole" in
+          let x = (
           match h with
-          | Expr(e) -> Printf.printf "SYNTH: SUCCESS: %s\n%!" (Nk.to_string e);
-          | _ -> Printf.printf "SYNTH: SUCCESS\n%!"
-          );
-          (cmds,(env2,field_val_map),[])
+          | Expr(e) -> Printf.printf "VERIF: SUCCESS: %s\n%!" (Nk.to_string e); e
+          | _ -> Printf.printf "VERIF: SUCCESS\n%!"; Nk.skip
+          ) in
+          (cmds,(env2,field_val_map),results,Success(x))
         (* if some check(s) failed... *)
         ) else (
-          Printf.printf "SYNTH: FAIL\n%!";
+          Printf.printf "VERIF: FAIL\n%!";
           (* add the bad traces to seen - NOTE: we are currently not using past bad traces *)
           let failures2 = Trace.S.union fails failures in
           (* dump the seen traces to Z3 *)
           Trace.S.iter (fun x ->
-            Printf.printf "Handling bad trace: %s\n%!" (Trace.to_string x);
+            Printf.printf "Handling counterexample trace: %s\n%!" (Trace.to_string x);
             (* loop through the pairs of packets in the trace *)
             let rec pairs l acc = (match l with
             | p1::p2::more -> 
@@ -333,7 +338,7 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
           (match Solver.check solver [] with
           (* in the SAT case, we will extract the concrete filters from Z3 model, and iterate with these *)
           | Solver.SATISFIABLE ->
-            Printf.printf "SAT\n";
+            Printf.printf "SYNTH: SAT (successfully synthesized candidate)\n";
             (* get the model from the solver *)
             let model = Option.get (Solver.get_model solver) in
             (*Printf.printf "MODEL:\n%s\n" (Model.to_string model);*)
@@ -380,12 +385,12 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
             (* TODO *)
             let is_negated = Boolean.is_true (get model clause_negate) in
 
-            Printf.printf "Candidate NetKAT filter: [%b] " is_negated;
-            List.iter (fun (a,_) -> match a with
+            Printf.printf "SYNTH: candidate NetKAT filter: %s" (if is_negated then "¬(" else "");
+            let _ = List.fold_left (fun flag (a,_) -> match a with
             | Some(e) ->
-                  Printf.printf ", %s" (Nk.to_string e);
-            | None -> ()) candidate_filters;
-            Printf.printf "\n%!";
+                  Printf.printf "%s%s" (if flag then " ∧ " else "") (Nk.to_string e); true
+            | None -> flag) false candidate_filters in
+            Printf.printf "%s\n%!" (if is_negated then ")" else "");
 
             (* this generates a "blocking clause" to prevent this specific set of filters from *)
             (* being generated again *)
@@ -403,15 +408,15 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
           | _ ->
             (* if UNSAT, this is a failure to generate a candidate *)
             (* TODO: couple of options here: (1) exit (failure), (2) increase num_filters and try again *)
-            Printf.printf "SYNTH: UNSAT\n%!";
+            Printf.printf "SYNTH: UNSAT (failed to synthesize candidate)\n%!";
             (*loop (count+1) env2 failures2 (num_filters+1)*)
-            (cmds,(env2,field_val_map),[])
+            (cmds,(env2,field_val_map),[],Fail)
           )
         )
       ) in
       (* start the CEGIS loop *)
       loop 1 env cr 1
     | _ ->
-      Printf.printf "ERROR: count not find \"hop\" expression in input file\n";
-      (cmds,(env,field_val_map),results)
+      failwith "ERROR: count not find \"hop\" expression in input file\n";
+      (*(cmds,(env,field_val_map),results,Fail)*)
   )

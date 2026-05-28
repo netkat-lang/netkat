@@ -40,8 +40,18 @@ let () =
     failwith usage
   else
     List.iter (fun f ->
-      let (_,_,results) = (if !synth then Cegis.interp_file !n !ignore_fields !allow_disjunction else Interp.interp_file) (if !quiet then (fun s -> ()) else print_string) f in
-      Core.printf "\n%s\n" (Interp.result_list_to_json results);
-      ()
+      if not !synth then (
+        let (_,(env,_),results) = Interp.interp_file (if !quiet then (fun s -> ()) else print_string) f in
+        Core.printf "\n%s\n" (Interp.result_list_to_json results);
+        ()
+      ) else (
+        let (_,(env,_),results,filter) = Cegis.interp_file !n !ignore_fields !allow_disjunction (if !quiet then (fun s -> ()) else print_string) f in
+        (*Core.printf "\n%s\n" (Interp.result_list_to_json results);*)
+        Printf.printf "\n";
+        match filter with
+        | Success(e) -> Printf.printf "SYNTHSIZER RESULT: SUCCESS: %s\n%!" (Nk.to_string e);
+        | Fail -> Printf.printf "SYNTHESIZER RESULT: FAIL\n%!";
+        ()
+      )
     ) (!filenames);
     ()
