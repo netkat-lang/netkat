@@ -13,23 +13,23 @@ dev-repo: "git+https://github.com/netkat-lang/netkat"
 bug-reports: "https://github.com/netkat-lang/netkat"
 license: "Apache-2.0"
 build: [
-  ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
   ["dune" "build" "@doc" "-p" name "-j" jobs] {with-doc}
 ]
 depends: [
-  "ocaml" {>= "4.09.0"}
-  "alcotest"
-  "dune" {>= "1.2"}
-  "core" {>= "v0.16"}
-  "ppx_deriving_yojson"
-  "ppx_jane" {>= "v0.16.0"}
-  "ppx_js_style" {>= "v0.16.0"}
-  "yojson" {>= "1.7.0"}
-  "nice_parser"
-  "sedlex" {>= "3.2"}
-  "menhir" {build & >= "20190626"}
-  "landmarks" {>= "1.5"}
+  "ocaml" {>= "5.3.0"}
+  "alcotest" {>= "1.9.0"}
+  "dune" {>= "3.19.1"}
+  "core" {>= "v0.17.0"}
+  "async" {>= "v0.17.0"}
+
+  "yojson" {>= "3.0.0"}
+  "sedlex" {>= "3.6"}
+  "menhir" {build & >= "20240715"}
   "landmarks-ppx" {>= "1.5"}
+  "landmarks" {>= "1.5"}
+
+  "ego" {>= "0.0.6"}
+  "z3" {>= "4.15.2"}
 ]
