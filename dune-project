@@ -3,7 +3,7 @@
 (using menhir 2.0)
 (documentation mld_files)
 
-(version cad7462-dirty)
+(version 0.0.1)
 
 (generate_opam_files true)
 
