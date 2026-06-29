@@ -6,6 +6,8 @@ open Z3
 
 module StringSet = Stdlib.Set.Make(String)
 
+let rand_seed = 43
+
 (* max number of filters for synthesis *)
 
 (* remove a suffix from a string *)
@@ -77,9 +79,13 @@ let interp_file max_filters ignore_fields allow_disjunction out (fn: string) : (
       exit 1;*)
 
       (* set up a Z3 solver *)
-      let cfg = [("model", "true")] in
+      let cfg = [("model", "true")(*; ("seed", "42"); ("smt.random_seed", "42"); ("sat.threads", "1"); ("sat.local_search_threads", "0")*)] in
       let ctx = mk_context cfg in
       let solver = Solver.mk_simple_solver ctx in
+      let params = Params.mk_params ctx in
+      Params.add_int params (Symbol.mk_string ctx "random_seed") rand_seed;
+      Params.add_int params (Symbol.mk_string ctx "smt.random_seed") rand_seed;
+      Solver.set_parameters solver params;
 
       let int_sort = Arithmetic.Integer.mk_sort ctx in
       let bool_sort = Boolean.mk_sort ctx in
