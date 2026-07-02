@@ -13,7 +13,7 @@ let add_macro s e = Hashtbl.replace macros s e
 %}
 
 %token LPAR RPAR EOF
-%token RANGESUM IMPORT CHECK PRINT TIKZ EQUIV NEQUIV FOR DO IN DOTDOT
+%token RANGESUM IMPORT CHECK PRINT TIKZ EQUIV NEQUIV LEQ FOR DO IN DOTDOT
 %token ARROW LAMBDA
 %token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD EXISTS FORALL REP LBRACE RBRACE COM
@@ -52,6 +52,7 @@ nkpl_cmd:
   | IMPORT; fn = FILENAME { Nkcmd.Import fn }
   | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
   | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
+  | CHECK; e1=nk_exp; LEQ; e2=nk_exp { Nkcmd.Check (true, Nkexp.Union([e1;e2]), e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | PRINT; s=FILENAME { Nkcmd.Prints s }
   | TIKZ; e=nk_exp { Nkcmd.Tikz e }
