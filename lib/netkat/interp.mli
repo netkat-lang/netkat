@@ -16,6 +16,14 @@ val interp_string : (string -> unit) -> (Env.t * Value.S.t Field.M.t option) -> 
 
 (** Opens a file by its filename and interprets the contents; returns the resulting [Env.t]. *)
 val interp_file : (string -> unit) -> string -> (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list)
+
+(** Parse a string as a full nkpl program (multiple commands), as opposed to [parse_string]
+    which only accepts a single command. *)
+val parse_program_string : (string -> unit) -> Env.t -> string -> Nkcmd.t list
+
+(** Interprets a string as a full nkpl program (multiple commands), as opposed to [interp_string]
+    which only accepts a single command. *)
+val interp_program_string : (string -> unit) -> (Env.t * Value.S.t Field.M.t option) -> string -> (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list)
 val interp_cmds_with_env : (string -> unit) -> (Env.t * Value.S.t Field.M.t option) -> string -> Nkcmd.t list -> (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list)
 val interp_file_with_env : (string -> unit) -> (Env.t * Value.S.t Field.M.t option) -> string -> (string * (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list))
 

@@ -160,6 +160,22 @@ and interp_string out ((env: Env.t), (m: Value.S.t Field.M.t option)) (s: string
 and interp_file out (fn: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
   snd (interp_file_with_env out (Env.empty,None (*TODO - is this right?*)) fn)
 
+and parse_program_string out (env: Env.t) (s: string) : Nkcmd.t list =
+  let lexbuf = Sedlexing.Utf8.from_string s in
+  let lexer  = Sedlexing.with_tokenizer (Nkpl_lexer.token (Nkpl_lexer.fresh_state ())) lexbuf in
+  let parser = MenhirLib.Convert.Simplified.traditional2revised Nkpl_parser.nkpl_file in
+  (try
+    parser lexer
+  with
+    | Nkpl_parser.Error s ->
+      let (x,y) = Sedlexing.lexing_positions lexbuf in
+      printf out "Parse error: %s (%d:%d)\n" (Sedlexing.Utf8.lexeme lexbuf) x.pos_lnum (x.pos_cnum - x.pos_bol);
+      exit 1)
+
+and interp_program_string out ((env: Env.t), (m: Value.S.t Field.M.t option)) (s: string) : (Nkcmd.t list * (Env.t * Value.S.t Field.M.t option) * result list) =
+  let cmds = parse_program_string out env s in
+  interp_cmds_with_env out (env,m) "" cmds
+
 and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: t) : ((Env.t * Value.S.t Field.M.t option) * result list ) =
   match c with
   | Import s ->
