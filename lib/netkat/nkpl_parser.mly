@@ -50,9 +50,9 @@ nkpl_cmd_list:
 
 nkpl_cmd:
   | IMPORT; fn = FILENAME { Nkcmd.Import fn }
-  | CHECK; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (true, e1, e2) }
-  | CHECK; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (false, e1, e2) }
-  | CHECK; e1=nk_exp; LEQ; e2=nk_exp { Nkcmd.Check (true, Nkexp.Union([e1;e2]), e2) }
+  | CHECK; tag=check_tag; e1=nk_exp; EQUIV; e2=nk_exp { Nkcmd.Check (tag, true, e1, e2) }
+  | CHECK; tag=check_tag; e1=nk_exp; NEQUIV; e2=nk_exp { Nkcmd.Check (tag, false, e1, e2) }
+  | CHECK; tag=check_tag; e1=nk_exp; LEQ; e2=nk_exp { Nkcmd.Check (tag, true, Nkexp.Union([e1;e2]), e2) }
   | PRINT; e=nk_exp { Nkcmd.Print e }
   | PRINT; s=FILENAME { Nkcmd.Prints s }
   | TIKZ; e=nk_exp { Nkcmd.Tikz e }
@@ -61,6 +61,11 @@ nkpl_cmd:
   | REP; e=nk_exp { Nkcmd.Rep e }
   | FOR; var=IDENT; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
   (*| e=nk_exp { print_string ">> EXPR\n"; Nkcmd.Print e } *)
+  ;
+
+check_tag:
+  | { None }
+  | s=FILENAME { Some s }
   ;
 
 field:

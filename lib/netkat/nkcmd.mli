@@ -2,7 +2,7 @@
 
 type t =
   | Import of string
-  | Check of bool * Nkexp.t * Nkexp.t
+  | Check of string option * bool * Nkexp.t * Nkexp.t
   | Print of Nkexp.t
   | Prints of string
   | Tikz of Nkexp.t

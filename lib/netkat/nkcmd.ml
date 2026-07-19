@@ -2,7 +2,7 @@
 
 type t =
   | Import of string
-  | Check of bool * Nkexp.t * Nkexp.t
+  | Check of string option * bool * Nkexp.t * Nkexp.t
   | Print of Nkexp.t
   | Prints of string
   | Tikz of Nkexp.t
@@ -15,7 +15,7 @@ type t =
 let rec to_string t =
   match t with
   | Import s -> "import \"" ^ s ^ "\""
-  | Check (b, e1, e2) -> "check " ^ (Nkexp.to_string e1) ^ (if b then "≡" else "≢") ^ (Nkexp.to_string e2)
+  | Check (tag, b, e1, e2) -> "check " ^ (match tag with None -> "" | Some s -> "\"" ^ s ^ "\" ") ^ (Nkexp.to_string e1) ^ (if b then "≡" else "≢") ^ (Nkexp.to_string e2)
   | Print e -> "print " ^ (Nkexp.to_string e)
   | Prints s -> "print \"" ^ s ^ "\""
   | Tikz e -> "tikz " ^ (Nkexp.to_string e)
@@ -59,7 +59,7 @@ match e with
 let rec get_field_vals (env: Env.t) c : Value.S.t Field.M.t =
   match c with
   | Import(s) -> Field.M.empty
-  | Check(_, e1, e2) ->
+  | Check(_, _, e1, e2) ->
     Printf.printf "Nkcmd.get_field_vals: check\n";
     Field.M.union (fun k v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals_from_exp env e1) (get_field_vals_from_exp env e2)
   | Print(e) -> get_field_vals_from_exp env e

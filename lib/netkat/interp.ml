@@ -1,6 +1,6 @@
 open Nkcmd
 
-type result = Success of Trace.t option | Fail of Trace.t option
+type result = Success of string option * Trace.t option | Fail of string option * Trace.t option
 
 let merge = (fun k v1 v2 -> Some(Value.S.union v1 v2))
 
@@ -17,15 +17,27 @@ let map_add m f v =
     let st = (match Field.M.find_opt f m with Some(s) -> s | None -> Value.S.empty) in
     Some(Field.M.add f (Value.S.add v st) m)
 
-let result_list_to_json rl = 
+let json_escape s =
+  let buf = Buffer.create (String.length s) in
+  String.iter (fun c -> match c with
+    | '"' -> Buffer.add_string buf "\\\""
+    | '\\' -> Buffer.add_string buf "\\\\"
+    | '\n' -> Buffer.add_string buf "\\n"
+    | c -> Buffer.add_char buf c
+  ) s;
+  Buffer.contents buf
+
+let result_list_to_json rl =
   let str_trace t =
     (Option.fold ~none:"" ~some:(fun t ->
       ", \"trace\":["^(fst (List.fold_left (fun (acc,flag) pk -> (acc^(if flag then "" else ", ")^(Pk.to_json pk), false)) ("",true) t))^"]") t
     ) in
+  let str_tag tag =
+    (Option.fold ~none:"" ~some:(fun s -> ", \"type\":\""^(json_escape s)^"\"") tag) in
   let item r = match r with
-  | Success(t) -> Printf.sprintf "{\"result\":\"SUCCESS\"%s}" (str_trace t)
-  | Fail(t) ->
-    Printf.sprintf "{\"result\":\"FAIL\"%s}" (str_trace t)
+  | Success(tag,t) -> Printf.sprintf "{\"result\":\"SUCCESS\"%s%s}" (str_tag tag) (str_trace t)
+  | Fail(tag,t) ->
+    Printf.sprintf "{\"result\":\"FAIL\"%s%s}" (str_tag tag) (str_trace t)
   in
   "[\n"^(fst (List.fold_left (fun (acc,flag) r -> (acc^(if flag then "" else ",\n")^(item r), false)) ("",true) rl))^"\n]"
 
@@ -182,7 +194,7 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
   | Import s ->
     let (_,(env,m),res) = snd (interp_file_with_env out (env,m) (bn ^ s)) in
     ((env,m),res)
-  | Check (b, e1, e2) -> let start = Unix.gettimeofday () in
+  | Check (tag, b, e1, e2) -> let start = Unix.gettimeofday () in
                          let l1 = eval (env,m) e1 in
                          let l2 = eval (env,snd l1) e2 in
                          let e1' = fst l1 |> expect_nk in
@@ -235,21 +247,21 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
                          | true, None -> 
                            printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
-                           [Success(None)]
+                           [Success(tag,None)]
                          | false, Some cex ->
                            printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
                            printf out "Witness trace:\n%s\n%!" (Trace.to_string cex);
-                           [Success(Some(cex))]
+                           [Success(tag,Some(cex))]
                          | true, Some cex ->
                               printf out "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               printf out "Counterexample trace:\n%s\n%!" (Trace.to_string cex);
-                              [Fail(Some(cex))]
+                              [Fail(tag,Some(cex))]
                          | false, None ->
                             printf out  "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                            [Fail(None)]
+                            [Fail(tag,None)]
                          )
   | Prints s -> Printf.printf "%s\n%!" s; ((env,m),[])
   | Print e ->
