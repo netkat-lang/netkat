@@ -20,3 +20,5 @@ val get_or_assign_fid : string -> t
 
 (** Looks up a field by name, but if there is not one, fails instead of generating one. *)
 val get_or_fail_fid : t -> string
+
+val to_string : t -> string

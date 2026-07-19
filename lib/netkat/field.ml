@@ -27,3 +27,5 @@ let get_or_fail_fid (n: t) : string =
   match Hashtbl.find_opt field_labels n with
   | Some f -> f
   | None -> failwith ("unknown field index: " ^ string_of_int n)
+
+let to_string = string_of_int

@@ -7,6 +7,7 @@ val compare : t -> t -> int
 
 (** [of_int x] is the packet value corresponding to the integer [x]. *)
 val of_int : int -> t
+val to_int : t -> int
 
 (** [to_string v] is the string representation of [v]. *)
 val to_string : t -> string

@@ -28,7 +28,7 @@ let rec process_line env buffer r w =
   | `Eof -> Core.printf "<DONE>\n%!"; exit 0
   | `Ok line -> (
     (*Core.printf "line: \"%s\"\n%!" line;*)
-    let (env2,results) = Interp.interp_string (if !quiet then (fun x -> ()) else Writer.write w) env line in
+    let ((env2,m2),results) = Interp.interp_string (if !quiet then (fun x -> ()) else Writer.write w) (env,None) line in
     Writer.writef w "\n%s\n%!" (Interp.result_list_to_json results);
     process_line env2 buffer r w
   )

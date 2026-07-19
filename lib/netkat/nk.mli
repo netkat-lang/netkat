@@ -90,3 +90,5 @@ val rand_dupless : field list -> value list -> int -> t
 
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
+
+val get_field_vals : t -> Value.S.t Field.M.t

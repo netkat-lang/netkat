@@ -16,6 +16,8 @@ let of_int = Fun.id
 let to_string = string_of_int
 let of_string = Fun.id (fun s -> int_of_string s)
 
+let to_int = Fun.id
+
 let compare = Int.compare
 
 let map_op_pair d op m1 m2 = M.merge(fun _ x y ->

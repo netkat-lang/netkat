@@ -244,3 +244,13 @@ let to_string (nk: t) : string =
 
   to_string_parent 0 nk
 
+let rec get_field_vals e : Value.S.t Field.M.t = match e with
+  | Drop | Skip | Dup -> Field.M.empty
+  | Filter(_,f,v) -> Field.M.singleton f (Value.S.singleton v)
+  | Mod(f,v) -> Field.M.singleton f (Value.S.singleton v)
+  | Seq(el)
+  | Union(el)
+  | Intersect(el) -> List.fold_left (fun acc e -> Field.M.union  (fun key v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals e) acc) Field.M.empty el
+  | Star(e) -> get_field_vals e
+  | Diff(e1,e2)
+  | Xor(e1,e2) -> Field.M.union  (fun key v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals e1) (get_field_vals e2)
