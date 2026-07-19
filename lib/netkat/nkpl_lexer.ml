@@ -40,6 +40,7 @@ let to_string t = match t with
 | MOD -> "MOD"
 | EQUIV -> "EQUIV"
 | NEQUIV -> "NEQUIV"
+| LEQ -> "LEQ"
 | NTST -> "NTST"
 | FILENAME s -> Printf.sprintf "FILENAME(%s)" s
 | IDENT s -> Printf.sprintf "IDENT(%s)" s
@@ -143,6 +144,7 @@ and raw_token buf =
   | "<-" ->  MOD
   | "==" ->  EQUIV
   | "!==" ->  NEQUIV
+  | "<=" ->  LEQ
   | "!=" ->  NTST
   | number ->  (NUM (int_of_string (Sedlexing.Latin1.lexeme buf)))
 
