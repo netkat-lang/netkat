@@ -3,7 +3,7 @@
 (using menhir 2.0)
 (documentation mld_files)
 
-(version 0.1.0)
+(version 0.1.1)
 
 (generate_opam_files true)
 
