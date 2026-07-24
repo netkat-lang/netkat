@@ -33,7 +33,7 @@ let result_list_to_json rl =
       ", \"trace\":["^(fst (List.fold_left (fun (acc,flag) pk -> (acc^(if flag then "" else ", ")^(Pk.to_json pk), false)) ("",true) t))^"]") t
     ) in
   let str_tag tag =
-    (Option.fold ~none:"" ~some:(fun s -> ", \"type\":\""^(json_escape s)^"\"") tag) in
+    (Option.fold ~none:"" ~some:(fun s -> ", \"name\":\""^(json_escape s)^"\"") tag) in
   let item r = match r with
   | Success(tag,t) -> Printf.sprintf "{\"result\":\"SUCCESS\"%s%s}" (str_tag tag) (str_trace t)
   | Fail(tag,t) ->
