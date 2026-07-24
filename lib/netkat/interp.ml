@@ -32,12 +32,12 @@ let result_list_to_json rl =
     (Option.fold ~none:"" ~some:(fun t ->
       ", \"trace\":["^(fst (List.fold_left (fun (acc,flag) pk -> (acc^(if flag then "" else ", ")^(Pk.to_json pk), false)) ("",true) t))^"]") t
     ) in
-  let str_tag tag =
-    (Option.fold ~none:"" ~some:(fun s -> ", \"name\":\""^(json_escape s)^"\"") tag) in
+  let str_name name =
+    (Option.fold ~none:"" ~some:(fun s -> ", \"name\":\""^(json_escape s)^"\"") name) in
   let item r = match r with
-  | Success(tag,t) -> Printf.sprintf "{\"result\":\"SUCCESS\"%s%s}" (str_tag tag) (str_trace t)
-  | Fail(tag,t) ->
-    Printf.sprintf "{\"result\":\"FAIL\"%s%s}" (str_tag tag) (str_trace t)
+  | Success(name,t) -> Printf.sprintf "{\"result\":\"SUCCESS\"%s%s}" (str_name name) (str_trace t)
+  | Fail(name,t) ->
+    Printf.sprintf "{\"result\":\"FAIL\"%s%s}" (str_name name) (str_trace t)
   in
   "[\n"^(fst (List.fold_left (fun (acc,flag) r -> (acc^(if flag then "" else ",\n")^(item r), false)) ("",true) rl))^"\n]"
 
@@ -194,7 +194,7 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
   | Import s ->
     let (_,(env,m),res) = snd (interp_file_with_env out (env,m) (bn ^ s)) in
     ((env,m),res)
-  | Check (tag, b, e1, e2) -> let start = Unix.gettimeofday () in
+  | Check (name, b, e1, e2) -> let start = Unix.gettimeofday () in
                          let l1 = eval (env,m) e1 in
                          let l2 = eval (env,snd l1) e2 in
                          let e1' = fst l1 |> expect_nk in
@@ -242,26 +242,31 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
                                 (Nka.to_string (Nka.autom (Nk.xor e1' e2'))) in
                              failwith "mismatched bisim results!" in
                          *)
+                         let str_name name = match name with Some(nm) -> Printf.sprintf " %s: " nm | _ -> "" in
                          ((env,snd l2), 
                          match b, res with
                          | true, None -> 
-                           printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                           printf out "## *** Check %s: \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                            (str_name name)
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
-                           [Success(tag,None)]
+                           [Success(name,None)]
                          | false, Some cex ->
-                           printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                           printf out "## *** Check %s: \u{001b}[32mSUCCESS!\u{001b}[0m *** (%s %s %s) time: %fs\n%!"
+                             (str_name name)
                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
                            printf out "Witness trace:\n%s\n%!" (Trace.to_string cex);
-                           [Success(tag,Some(cex))]
+                           [Success(name,Some(cex))]
                          | true, Some cex ->
-                              printf out "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                              printf out "## >>> Check %s: \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                                (str_name name)
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               printf out "Counterexample trace:\n%s\n%!" (Trace.to_string cex);
-                              [Fail(tag,Some(cex))]
+                              [Fail(name,Some(cex))]
                          | false, None ->
-                            printf out  "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                            printf out  "## >>> Check %s: \u{001b}[31mFAILED.\u{001b}[0m <<< (expected: %s %s %s)\n%!"
+                              (str_name name)
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                            [Fail(tag,None)]
+                            [Fail(name,None)]
                          )
   | Prints s -> Printf.printf "%s\n%!" s; ((env,m),[])
   | Print e ->
