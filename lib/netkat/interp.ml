@@ -242,7 +242,7 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
                                 (Nka.to_string (Nka.autom (Nk.xor e1' e2'))) in
                              failwith "mismatched bisim results!" in
                          *)
-                         let str_name name = match name with Some(nm) -> Printf.sprintf " %s: " nm | _ -> "" in
+                         let str_name name = match name with Some(nm) -> Printf.sprintf " [%s]" nm | _ -> "" in
                          ((env,snd l2), 
                          match b, res with
                          | true, None -> 
