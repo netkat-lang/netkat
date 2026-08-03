@@ -322,105 +322,64 @@ let forward_init (e: Nk.t) (init: Sp.t) : Sp.t =
           if Nk.eq e Nk.drop then loop rem visited todo_map else
           let p = Sp.diff pkref (get visited e) in
           let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
+          let todo_map_reset = NkMap.add e Sp.drop todo_map in
           let next = Deriv.d e
                      |> Sts.to_list in
           let next_states = List.map (fun (e, _) -> e) next in
-          let next_todo_map = List.fold_left (fun m (e, spp) -> NkMap.add e (Spp.push p spp) m) todo_map next in
+          let next_todo_map = List.fold_left (fun m (e, spp) -> NkMap.add e (Sp.union_pair (get_todo m e) (Spp.push p spp)) m) todo_map_reset next in
           loop (next_states@rem) v' next_todo_map
   in loop [e] NkMap.empty (NkMap.singleton e init)
 
 let forward (e: Nk.t) : Sp.t = forward_init e Sp.skip
 
 
+(** Unlike [forward_init], this cannot be computed lazily state-by-state on the
+    fly: propagating a state's contribution requires knowing all of its
+    *predecessors*, which (unlike successors, given by [Deriv.d]) are not
+    available without first knowing the full set of states. So we first
+    materialize the automaton via [autom], invert its transition function once
+    to get a predecessor map, then run the backward fixed point (Figure 8(ii)
+    of [1]) directly over that explicit, finite automaton. *)
 let backward_final (e: Nk.t) (final : Sp.t) : Sp.t =
-  let pull e = Spp.pull (Deriv.e e) final in
-  (* This definition of [get] has the effect that an exp missing
-     from [visited] is equivalent to mapped to Drop *)
-  let get m exp = match NkMap.find_opt exp m with
-                  | None -> Sp.drop
-                  | Some sp -> sp in
-  let get_todo m exp = match NkMap.find_opt exp m with
-                       | None -> pull exp
-                       | Some sp -> sp in
+  let a = autom e in
+  let get m q = match StateMap.find_opt q m with
+                | None -> Sp.drop
+                | Some sp -> sp in
+  let obs_spp q = match StateMap.find_opt q a.obs with
+                  | None -> Spp.drop
+                  | Some spp -> spp in
+  (* preds.(q) is the list of (q', spp) such that q' --[spp]--> q. *)
+  let preds = StateMap.fold (fun q' tr acc ->
+    StateMap.fold (fun q spp acc ->
+      StateMap.add q ((q', spp) :: (match StateMap.find_opt q acc with None -> [] | Some l -> l)) acc
+    ) tr acc
+  ) a.trans StateMap.empty in
+  let get_preds q = match StateMap.find_opt q preds with None -> [] | Some l -> l in
 
-  let rec loop (todo: Nk.t list) (visited: Sp.t NkMap.t) (todo_map : Sp.t NkMap.t) =
+  let rec loop (todo: State.t list) (done_: Sp.t StateMap.t) (todo_map : Sp.t StateMap.t) =
     match todo with
-    | [] -> get visited e
-    | e :: rem -> 
-      let pkref = get_todo todo_map e in
-      let pk = !pkref in 
-      match (e, pk) with 
-      | (_, Sp.Drop) -> loop rem visited todo_map
-      | (e, pk) ->
-          if Nk.eq e Nk.drop then loop rem visited todo_map else
-          let p = Sp.diff pkref (get visited e) in
-          let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
-          let next = Deriv.d e
-                     |> Sts.to_list in
-          let next_states = List.map (fun (e, _) -> e) next in
-          let next_todo_map = List.fold_left (fun m (e, spp) -> NkMap.add e (Spp.pull spp p) m) todo_map next in
-          loop (next_states@rem) v' next_todo_map
-  in loop [e] NkMap.empty NkMap.empty
+    | [] -> get done_ a.start
+    | q :: rem ->
+      let pkref = get todo_map q in
+      let pk = !pkref in
+      match pk with
+      | Sp.Drop -> loop rem done_ todo_map
+      | _ ->
+          if State.eq q State.drop then loop rem done_ todo_map else
+          let p = Sp.diff pkref (get done_ q) in
+          let done_' = StateMap.add q (Sp.union_pair p (get done_ q)) done_ in
+          let todo_map_reset = StateMap.add q Sp.drop todo_map in
+          let preds_q = get_preds q in
+          let pred_states = List.map fst preds_q in
+          let todo_map' = List.fold_left
+            (fun m (q', spp) -> StateMap.add q' (Sp.union_pair (get m q') (Spp.pull spp p)) m)
+            todo_map_reset preds_q in
+          loop (pred_states@rem) done_' todo_map'
+  in
+  let init_todo = StateSet.fold (fun q m -> StateMap.add q (Spp.pull (obs_spp q) final) m) a.states StateMap.empty in
+  loop (StateSet.elements a.states) StateMap.empty init_todo
 
 let backward (e: Nk.t) : Sp.t = backward_final e Sp.skip
-
-(*let backward (e: Nk.t) : Sp.t =
-  let pull e = Spp.pull (Deriv.e e) Sp.skip in
-  (* This definition of [get] has the effect that an exp missing
-     from [visited] is equivalent to mapped to Drop *)
-  let get m exp = match NkMap.find_opt exp m with
-                  | None -> Sp.drop (*pull exp*)
-                  | Some sp -> sp in
-
-  let rec loop (todo: (Nk.t * Sp.t) list) (visited: Sp.t NkMap.t) =
-    match todo with
-    | [] -> (match NkMap.find_opt e visited with
-      | None -> ref Sp.Drop
-      | Some(sp) -> sp
-      )
-    | (e, pkref) :: rem -> 
-      let pk = !pkref in 
-      match (e, pk) with 
-      | (_, Sp.Drop) -> loop rem visited
-      | (e, pk) ->
-          if Nk.eq e Nk.drop then loop rem visited else
-          let p = Sp.diff pkref (get visited e) in
-          let v' = NkMap.add e (Sp.union_pair p (get visited e)) visited in
-          let next = Deriv.d e
-                     |> Sts.to_list
-                     |> List.map (fun (e', spp) -> (e', Spp.pull spp p)) in
-          loop (next@rem) v'
-  in loop [(e, pull e)] NkMap.empty*)
-
-  (* Old implementation (assumed State = Nk)
-  let a = autom e in
-
-  let todo_init = 
-    StateSet.elements a.states |> List.map (fun e -> (e, Spp.pull (Deriv.e e) Sp.skip)) in
-
-  (* This definition of [get] has the effect that an exp missing
-     from [visited] is equivalent to mapped to Drop *)
-  let get m exp = match StateMap.find_opt exp m with
-                  | None -> Sp.drop
-                  | Some sp -> sp in
-
-  let rec loop (todo: (State.t * Sp.t) list) (visited: Sp.t StateMap.t) =
-    match todo with
-    | [] -> get visited a.start
-    | (e, pkref) :: rem -> 
-      let pk = !pkref in 
-      match (e, pk) with 
-    | (_, Sp.Drop) -> loop rem visited
-    | (e,pk) ->
-        if State.eq e State.drop then loop rem visited else
-        let p = Sp.diff pkref (get visited e) in
-        let v' = StateMap.add e (Sp.union_pair p (get visited e)) visited in
-        let next = StateSet.elements a.states 
-                   |> List.map (fun e' -> (e', Deriv.d e' |> Sts.trans e))
-                   |> List.map (fun (e', spp) -> (e', Spp.pull spp p)) in
-        loop (next@rem) v'
-  in loop todo_init StateMap.empty
-  *)
 
 let size (t: t) : int * int = 
   let n = StateSet.cardinal t.states in
