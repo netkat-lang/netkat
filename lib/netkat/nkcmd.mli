@@ -9,6 +9,7 @@ type t =
   | Let of string * Nkexp.t
   | VLet of string * Value.t
   | Rep of Nkexp.t
+  | Simulate of string option * Pk.t option * Nkexp.t
   | For of string * int * int * t
 
 (** Pretty prints the netkat expression. *)

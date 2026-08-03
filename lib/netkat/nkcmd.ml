@@ -9,6 +9,7 @@ type t =
   | Let of string * Nkexp.t
   | VLet of string * Value.t
   | Rep of Nkexp.t
+  | Simulate of string option * Pk.t option * Nkexp.t
   | For of string * int * int * t
 
 (** Pretty print the netkat expression. *)
@@ -22,6 +23,7 @@ let rec to_string t =
   | Let (s, e) -> "let " ^ s ^ " = " ^ (Nkexp.to_string e)
   | VLet (s, v) -> "let " ^ s ^ " = " ^ (Value.to_string v)
   | Rep e -> "rep " ^ (Nkexp.to_string e)
+  | Simulate (tag, pkt, e) -> "simulate " ^ (match tag with None -> "" | Some s -> "\"" ^ s ^ "\" ") ^ (match pkt with None -> "" | Some p -> (Pk.to_string p) ^ " ") ^ (Nkexp.to_string e)
   | For (v, i_0, i_n, cmd) -> Printf.sprintf "for %s ∈ %d..%d do %s" v i_0 i_n (to_string cmd)
 
 let expect_val v = match v with
@@ -68,6 +70,7 @@ let rec get_field_vals (env: Env.t) c : Value.S.t Field.M.t =
   | Let(_, e) -> get_field_vals_from_exp env e
   | VLet(_, v) -> Field.M.empty (* TODO - is this right? *)
   | Rep(e) -> get_field_vals_from_exp env e
+  | Simulate(_, _, e) -> get_field_vals_from_exp env e
   | For(_, _, _, cmd) -> get_field_vals env cmd
 
 let get_field_vals_from_cmds (env: Env.t) cl : Value.S.t Field.M.t =

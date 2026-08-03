@@ -131,6 +131,55 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       r (qrem@q') v'
   in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
 
+  (** [simulate_init a init fields] is [rep], generalized to not stop at the
+      first witness: it explores every state reachable (via BFS) from the
+      symbolic input [init], and backs out one concrete trace for every
+      state with non-empty output, i.e. one representative witness per
+      distinct state in the automaton, rather than a single witness ([rep])
+      or the summarized final output set ([forward_init]). A [witnessed] set
+      ensures each state contributes at most one trace, even though multiple
+      queue entries (from different predecessors, or discovered at
+      different points) may target it -- the number of traces returned is
+      therefore bounded by the (finite) number of automaton states. *)
+let simulate_init (a: t) (init: Sp.t) (fields: Field.S.t) : Trace.t list =
+  let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t =
+    match spps with
+    | [] -> partial
+    | spp::rem ->
+        let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
+        backout pk' rem (pk'::partial) in
+
+  let rec r (q: (State.t * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t)
+            (witnessed: StateSet.t) (traces: Trace.t list) : Trace.t list =
+    match q with
+    | [] -> traces
+    | (state, sp, spps) :: qrem ->
+      if Sp.eq sp Sp.drop then r qrem visited witnessed traces else
+      let ob = StateMap.find state a.obs in
+      let out = Spp.push sp ob in
+      let already_witnessed = StateSet.mem state witnessed in
+      let traces' =
+        if (not (Sp.eq out Sp.drop)) && not already_witnessed then
+          let refined = Spp.seq_pair (Spp.of_sp sp) ob in
+          let pk = Sp.rep out fields in
+          (backout pk (refined::spps) [pk]) :: traces
+        else traces in
+      let witnessed' = if Sp.eq out Sp.drop then witnessed else StateSet.add state witnessed in
+      let unseen s p = match StateMap.find_opt s visited with
+                       | None -> p
+                       | Some p' -> Sp.diff p p' in
+      let next = StateMap.find state a.trans |> StateMap.bindings in
+      let refine spp = Spp.seq_pair (Spp.of_sp sp) spp in
+      let q' = List.map (fun (s, spp) -> s, unseen s (Spp.push sp spp), (refine spp)::spps) next
+               |> List.filter (fun (_, sp, _) -> not (Sp.eq sp Sp.drop)) in
+      let v' = List.fold_left (fun a (s, sp, _) -> match StateMap.find_opt s a with
+                                                   | None -> StateMap.add s sp a
+                                                   | Some sp' -> StateMap.add s (Sp.union_pair sp sp') a) visited q' in
+      r (qrem@q') v' witnessed' traces'
+  in r [(a.start, init, [])] (StateMap.singleton a.start init) StateSet.empty []
+
+let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip fields
+
 (* This idea was fundamentally flawed...
 let xor (a1: t) (a2: t) =
   let num: int PairMap.t = StateSet.fold (fun s1 m1 ->

@@ -18,6 +18,7 @@ let to_string t = match t with
 | PRINT -> "PRINT"
 | TIKZ -> "TIKZ"
 | REP -> "REP"
+| SIMULATE -> "SIMULATE"
 | FOR -> "FOR"
 | FWD -> "FWD"
 | BWD -> "BWD"
@@ -59,7 +60,7 @@ let can_end_cmd t = match t with
 | _ -> false
 
 let can_begin_cmd t = match t with
-| IMPORT | CHECK | PRINT | TIKZ | REP | FOR | IDENT _ -> true
+| IMPORT | CHECK | PRINT | TIKZ | REP | SIMULATE | FOR | IDENT _ -> true
 | _ -> false
 
 let digit = [%sedlex.regexp? '0' .. '9']
@@ -120,6 +121,7 @@ and raw_token buf =
   | "exists" ->  EXISTS
   | "forall" ->  FORALL
   | "rep" ->  REP
+  | "simulate" ->  SIMULATE
   | "for" ->  FOR
   | "do" ->  DO
   | ".." ->  DOTDOT

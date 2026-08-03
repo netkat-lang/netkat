@@ -1,6 +1,6 @@
 open Nkcmd
 
-type result = Success of string option * Trace.t option | Fail of string option * Trace.t option
+type result = Success of string option * Trace.t list | Fail of string option * Trace.t list
 
 let merge = (fun k v1 v2 -> Some(Value.S.union v1 v2))
 
@@ -28,10 +28,12 @@ let json_escape s =
   Buffer.contents buf
 
 let result_list_to_json rl =
-  let str_trace t =
-    (Option.fold ~none:"" ~some:(fun t ->
-      ", \"trace\":["^(fst (List.fold_left (fun (acc,flag) pk -> (acc^(if flag then "" else ", ")^(Pk.to_json pk), false)) ("",true) t))^"]") t
-    ) in
+  let str_trace ts =
+    if ts = [] then "" else
+      let one_trace t =
+        "["^(fst (List.fold_left (fun (acc,flag) pk -> (acc^(if flag then "" else ", ")^(Pk.to_json pk), false)) ("",true) t))^"]" in
+      ", \"traces\":["^(String.concat ", " (List.map one_trace ts))^"]"
+  in
   let str_name name =
     (Option.fold ~none:"" ~some:(fun s -> ", \"name\":\""^(json_escape s)^"\"") name) in
   let item r = match r with
@@ -249,24 +251,24 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
                            printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m%s *** (%s %s %s) time: %fs\n%!"
                             (str_name name)
                             (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
-                           [Success(name,None)]
+                           [Success(name,[])]
                          | false, Some cex ->
                            printf out "## *** Check \u{001b}[32mSUCCESS!\u{001b}[0m%s *** (%s %s %s) time: %fs\n%!"
                              (str_name name)
                              (Nkexp.to_string e1) sgn (Nkexp.to_string e2) (stop -. start);
                            printf out "Witness trace:\n%s\n%!" (Trace.to_string cex);
-                           [Success(name,Some(cex))]
+                           [Success(name,[cex])]
                          | true, Some cex ->
                               printf out "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m%s <<< (expected: %s %s %s)\n%!"
                                 (str_name name)
                                 (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
                               printf out "Counterexample trace:\n%s\n%!" (Trace.to_string cex);
-                              [Fail(name,Some(cex))]
+                              [Fail(name,[cex])]
                          | false, None ->
                             printf out  "## >>> Check \u{001b}[31mFAILED.\u{001b}[0m%s <<< (expected: %s %s %s)\n%!"
                               (str_name name)
                               (Nkexp.to_string e1) sgn (Nkexp.to_string e2);
-                            [Fail(name,None)]
+                            [Fail(name,[])]
                          )
   | Prints s -> Printf.printf "%s\n%!" s; ((env,m),[])
   | Print e ->
@@ -301,6 +303,14 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
       let a = fst l |> expect_nk |> Nka.autom in
       let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> printf out "%s\n%!" in
       ((env, snd l), [])
+  | Simulate (name, pkt, e) ->
+      let l = (eval (env,m) e) in
+      let a = fst l |> expect_nk |> Nka.autom in
+      let init = match pkt with None -> Sp.skip | Some p -> Sp.of_pk p in
+      let traces = Nka.simulate_init a init (Field.get_fields ()) in
+      printf out "## Simulated %d trace(s)\n%!" (List.length traces);
+      List.iteri (fun i t -> printf out "--- trace %d ---\n%s\n%!" (i+1) (Trace.to_string t)) traces;
+      ((env, snd l), [Success(name, traces)])
   | For (v, i_0, i_n, cmd) ->
       let indexes = List.init (i_n - i_0 + 1) (fun i -> i_0 + i) in
       List.fold_left (fun ((env,m),res) i ->

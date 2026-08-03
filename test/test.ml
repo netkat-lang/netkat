@@ -115,6 +115,61 @@ let backward_regression_union_unconditional_branch () =
   Alcotest.(check string) "backward((a=0 + c<-0).dup) = skip"
     "skip" (Sp.to_string (Nka.backward e))
 
+(* Tests for Nka.simulate_init: it explores states reachable from the given
+   symbolic input, and returns one representative concrete trace per
+   distinct automaton state with non-empty output -- i.e. it exercises every
+   state, not every value-combination within a single relation. The number
+   of traces returned is therefore bounded by the (finite) number of
+   automaton states, not by how many rule-branches happen to feed into any
+   one of them. *)
+
+let fsw = Field.get_or_assign_fid "sw"
+let fpt = Field.get_or_assign_fid "pt"
+
+(* sw=1.dup.pt<-10 + sw=2.dup.pt<-20.dup.pt<-99
+   Two branches of different depth reach two DIFFERENT non-empty-output
+   states (residual "pt<-10" after 1 hop, residual "pt<-99" after 2 hops),
+   so simulate must return exactly 2 traces, one per state. Hand-verified:
+   the sw=1 branch's witness is [sw=1,pt=0];[sw=1,pt=0];[sw=1,pt=10] (packet
+   unchanged across the one dup, then pt<-10 applied as the final,
+   dup-free tail); the sw=2 branch's witness is
+   [sw=2,pt=0];[sw=2,pt=0];[sw=2,pt=20];[sw=2,pt=99] (pt<-20 applied before
+   the second dup, pt<-99 applied as the final tail). *)
+let simulate_regression_two_states () =
+  let e =
+    Nk.union_pair
+      (Nk.seq [ Nk.filter true fsw v1; Nk.dup; Nk.modif fpt (Value.of_int 10) ])
+      (Nk.seq
+         [ Nk.filter true fsw v2; Nk.dup; Nk.modif fpt (Value.of_int 20);
+           Nk.dup; Nk.modif fpt (Value.of_int 99) ])
+  in
+  let a = Nka.autom e in
+  let traces = Nka.simulate_init a Sp.skip (Field.get_fields ()) in
+  let strs = List.map Trace.to_string traces |> List.sort compare in
+  (* Other fields (a,b,c,d) registered by earlier tests in this same process
+     are also picked up by Field.get_fields () and filled in via
+     Value.choose; only sw/pt are actually constrained by this expression. *)
+  Alcotest.(check (list string)) "simulate finds one trace per distinct state, both branches"
+    (List.sort compare
+       [ "[a=0,b=0,c=0,d=0,sw=1,pt=0];[a=0,b=0,c=0,d=0,sw=1,pt=0];[a=0,b=0,c=0,d=0,sw=1,pt=10]";
+         "[a=0,b=0,c=0,d=0,sw=2,pt=0];[a=0,b=0,c=0,d=0,sw=2,pt=0];[a=0,b=0,c=0,d=0,sw=2,pt=20];[a=0,b=0,c=0,d=0,sw=2,pt=99]" ])
+    strs
+
+(* a<-1 + a<-2 + a<-3
+   All three branches are unconditional mods with no test, so they all have
+   overlapping domains; Sts.add merges any transitions sharing a target
+   state, so this automaton has exactly one non-trivial state (the shared
+   terminal residual), regardless of how many rule-branches feed into it.
+   simulate must therefore return exactly 1 trace here, not 3 -- pinning
+   down that simulate exercises automaton states, not every value
+   enumerable from a single (possibly multi-valued) transition relation. *)
+let simulate_regression_merged_state_gives_one_trace () =
+  let e = Nk.union [ Nk.modif fa v1; Nk.modif fa v2; Nk.modif fa v3 ] in
+  let a = Nka.autom e in
+  let traces = Nka.simulate_init a Sp.skip (Field.get_fields ()) in
+  Alcotest.(check int) "simulate on a<-1+a<-2+a<-3 gives exactly 1 trace (one merged state)"
+    1 (List.length traces)
+
 let () =
   Alcotest.run "Stub"
   [
@@ -134,6 +189,12 @@ let () =
         Alcotest.test_case "dup" `Quick backward_regression_dup;
         Alcotest.test_case "dup_then_filter" `Quick backward_regression_dup_then_filter;
         Alcotest.test_case "union_unconditional_branch" `Quick backward_regression_union_unconditional_branch;
+      ]
+    );
+    ( "nka_simulate_tests",
+      [
+        Alcotest.test_case "two_states" `Quick simulate_regression_two_states;
+        Alcotest.test_case "merged_state_gives_one_trace" `Quick simulate_regression_merged_state_gives_one_trace;
       ]
     );
   ]

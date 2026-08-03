@@ -39,7 +39,7 @@ install: build
 	dune install
 
 test:
-	dune runtest
+	dune exec test/test.exe -- -e
 
 parse:
 	bin/parse_all

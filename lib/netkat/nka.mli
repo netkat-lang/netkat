@@ -43,6 +43,17 @@ val accept : t -> Trace.t -> bool
     if the automaton is equivalent to Drop. *)
 val rep : t -> Field.S.t -> Trace.t
 
+(** [simulate_init a init fields] explores states reachable from the symbolic
+    input [init], and returns one representative concrete trace per distinct
+    state with non-empty output -- i.e. it exercises every state of the
+    automaton, rather than a single witness ([rep]) or a summarized output
+    set ([forward_init]). The number of traces returned is bounded by the
+    (finite) number of automaton states. *)
+val simulate_init : t -> Sp.t -> Field.S.t -> Trace.t list
+
+(** [simulate a fields] is [simulate_init a Sp.skip fields]. *)
+val simulate : t -> Field.S.t -> Trace.t list
+
 (** Computes a trace in the symmetric difference of the trace sets for the two
     automata. If the automata are language equivalent, returns [None]. *)
 val xor_rep : t -> t -> Field.S.t -> Trace.t option

@@ -1,6 +1,6 @@
 (** The module for interpreting nkpl commands from strings. *)
 
-type result = Success of string option * Trace.t option | Fail of string option * Trace.t option
+type result = Success of string option * Trace.t list | Fail of string option * Trace.t list
 
 (** Parse a string as a nkpl program. *)
 val parse_string : (string -> unit) -> Env.t -> string -> Nkcmd.t option
