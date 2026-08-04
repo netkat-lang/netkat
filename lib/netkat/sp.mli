@@ -65,6 +65,14 @@ val xor : t -> t -> t
 (** [rep sp fields] is a packet in the SP [sp] with fields [fields]. *)
 val rep : t -> Field.S.t -> Pk.t
 
+(** [rep_over diversify sp fields] is like [rep], but enumerates every
+    non-drop branch of [sp] for fields in [diversify] (bounding the
+    resulting list to the product of branching factors of exactly those
+    fields), while still picking a single arbitrary representative for
+    every other field, as [rep] does. With [diversify] empty, this is
+    [rep] wrapped in a singleton list. *)
+val rep_over : Field.S.t -> t -> Field.S.t -> Pk.t list
+
 (*---------- Output ------------------ *)
 (** [to_exp sp] is the NetKAT expression corresponding to the SP [sp]. *)
 val to_exp : t -> Nk.t

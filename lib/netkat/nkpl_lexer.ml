@@ -53,6 +53,8 @@ let to_string t = match t with
 | ARROW -> "ARROW"
 | RBRACE -> "RBRACE"
 | LBRACE -> "LBRACE"
+| LCURLY -> "LCURLY"
+| RCURLY -> "RCURLY"
 |COM -> "COM"
 
 let can_end_cmd t = match t with
@@ -130,6 +132,8 @@ and raw_token buf =
   | ')' ->  RPAR
   | '[' ->  LBRACE
   | ']' ->  RBRACE
+  | '{' ->  LCURLY
+  | '}' ->  RCURLY
   | '|'
   | '+' ->  PLUS
   | '-' ->  DIFF

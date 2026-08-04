@@ -19,6 +19,7 @@ end
 
 module StateSet = Set.Make(State)
 module PairMap = Map.Make(StatePair)
+module PairSet = Set.Make(StatePair)
 module StateMap = Map.Make(State)
 module NkMap = Map.Make(Nk)
 
@@ -131,17 +132,56 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       r (qrem@q') v'
   in r [(a.start, Sp.skip, [])] (StateMap.singleton a.start Sp.skip)
 
-  (** [simulate_init a init fields] is [rep], generalized to not stop at the
-      first witness: it explores every state reachable (via BFS) from the
-      symbolic input [init], and backs out one concrete trace for every
-      state with non-empty output, i.e. one representative witness per
-      distinct state in the automaton, rather than a single witness ([rep])
-      or the summarized final output set ([forward_init]). A [witnessed] set
-      ensures each state contributes at most one trace, even though multiple
-      queue entries (from different predecessors, or discovered at
-      different points) may target it -- the number of traces returned is
-      therefore bounded by the (finite) number of automaton states. *)
-let simulate_init (a: t) (init: Sp.t) (fields: Field.S.t) : Trace.t list =
+  (** Default cap on how many rounds [simulate_init] will unroll self-loops
+      (e.g. the [net = (hop.dup)*] shape) looking for new witnesses, before
+      giving up even if it hasn't reached a fixed point. This is a genuine
+      safety net, not just a formality: a real cycle in the underlying
+      topology graph (not merely a syntactic self-loop) could otherwise
+      keep producing longer and longer distinct real paths forever. *)
+  let default_max_rounds = 50
+
+  (* [destutter t] collapses consecutive duplicate packets in [t]. Backing
+     out a path that passes through a state whose own output is the
+     identity relation (as happens on every additional loop unroll of
+     [net]'s trivial [epsilon(net) = top]) reproduces the same packet
+     again with nothing new -- without collapsing that, "one more loop
+     unroll" would look like "a new, longer trace" forever, and the
+     round-based search below would never detect a fixed point. *)
+  let destutter (t: Trace.t) : Trace.t =
+    match t with
+    | [] -> []
+    | hd :: tl ->
+      List.fold_left (fun acc pk -> match acc with
+        | p :: _ when Pk.compare p pk = 0 -> acc
+        | _ -> pk :: acc) [hd] tl
+      |> List.rev
+
+  (** [simulate_init ?max_rounds a init diversify fields] explores states
+      reachable from the symbolic input [init], unrolling self-loops round
+      by round (rather than stopping after the first traversal, as a
+      single reachability-bounded BFS would), and backs out one concrete
+      trace per behaviorally-distinct branch of every state's own output
+      at every round -- rather than a single witness ([rep]) or the
+      summarized final output set ([forward_init]).
+
+      This matters for self-loops: e.g. for [net = (hop.dup)*], [net]'s own
+      epsilon is always [top] (zero iterations is always valid), so the
+      *first* round only ever witnesses that trivial zero-hop case;
+      [hop]'s real, dev-branching behavior lives entirely on the self-loop
+      edge [net -> net], one round per additional hop. A single BFS pass
+      bounded by input-reachability would prune that edge away as
+      contributing nothing new (since [net]'s reaching set is already
+      [top] from initialization), so this instead re-examines every
+      outgoing edge every round regardless, and stops only when a round's
+      witnesses (after [destutter]) add nothing new to what's already been
+      found, or after [max_rounds] rounds, whichever comes first.
+
+      At each round, every state's own output is enumerated via
+      [Sp.rep_over diversify], so fields in [diversify] contribute one
+      trace per branch (bounding growth to the product of branching
+      factors of exactly those fields) while every other field picks a
+      single arbitrary representative, as [rep] does. *)
+  let simulate_init ?(max_rounds = default_max_rounds) (a: t) (init: Sp.t) (diversify: Field.S.t) (fields: Field.S.t) : Trace.t list =
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t =
     match spps with
     | [] -> partial
@@ -149,36 +189,54 @@ let simulate_init (a: t) (init: Sp.t) (fields: Field.S.t) : Trace.t list =
         let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
         backout pk' rem (pk'::partial) in
 
-  let rec r (q: (State.t * Sp.t * (Spp.t list)) list) (visited: Sp.t StateMap.t)
-            (witnessed: StateSet.t) (traces: Trace.t list) : Trace.t list =
-    match q with
-    | [] -> traces
-    | (state, sp, spps) :: qrem ->
-      if Sp.eq sp Sp.drop then r qrem visited witnessed traces else
+  (* One round: for every active (state, reaching-packet, path-so-far)
+     entry, try to witness that state's own output, and compute the next
+     round's frontier by following every outgoing edge one more hop. *)
+  let round (frontier: (State.t * Sp.t * (Spp.t list)) list) (traces: Trace.S.t) =
+    List.fold_left (fun (traces_acc, next_acc) (state, sp, spps) ->
+      if Sp.eq sp Sp.drop then (traces_acc, next_acc) else
       let ob = StateMap.find state a.obs in
       let out = Spp.push sp ob in
-      let already_witnessed = StateSet.mem state witnessed in
-      let traces' =
-        if (not (Sp.eq out Sp.drop)) && not already_witnessed then
+      let traces_acc' =
+        if Sp.eq out Sp.drop then traces_acc
+        else
           let refined = Spp.seq_pair (Spp.of_sp sp) ob in
-          let pk = Sp.rep out fields in
-          (backout pk (refined::spps) [pk]) :: traces
-        else traces in
-      let witnessed' = if Sp.eq out Sp.drop then witnessed else StateSet.add state witnessed in
-      let unseen s p = match StateMap.find_opt s visited with
-                       | None -> p
-                       | Some p' -> Sp.diff p p' in
+          let pks = Sp.rep_over diversify out fields in
+          List.fold_left (fun acc pk ->
+            Trace.S.add (destutter (backout pk (refined::spps) [pk])) acc
+          ) traces_acc pks
+      in
       let next = StateMap.find state a.trans |> StateMap.bindings in
-      let refine spp = Spp.seq_pair (Spp.of_sp sp) spp in
-      let q' = List.map (fun (s, spp) -> s, unseen s (Spp.push sp spp), (refine spp)::spps) next
-               |> List.filter (fun (_, sp, _) -> not (Sp.eq sp Sp.drop)) in
-      let v' = List.fold_left (fun a (s, sp, _) -> match StateMap.find_opt s a with
-                                                   | None -> StateMap.add s sp a
-                                                   | Some sp' -> StateMap.add s (Sp.union_pair sp sp') a) visited q' in
-      r (qrem@q') v' witnessed' traces'
-  in r [(a.start, init, [])] (StateMap.singleton a.start init) StateSet.empty []
+      let next_acc' = List.fold_left (fun acc (s, spp) ->
+        let full_sp = Spp.push sp spp in
+        if Sp.eq full_sp Sp.drop then acc
+        else (s, full_sp, (Spp.seq_pair (Spp.of_sp sp) spp) :: spps) :: acc
+      ) next_acc next in
+      (traces_acc', next_acc')
+    ) (traces, []) frontier
+  in
+  (* Deliberately NOT stopping early just because one round found nothing
+     new: a round can legitimately be "quiet" (e.g. an intermediate state
+     whose own output is still bottom, dup not yet consumed) while later
+     rounds still have real witnesses ahead -- picking a safe number of
+     consecutive quiet rounds to tolerate before concluding "truly done"
+     is guesswork that risks the same premature-termination bug this
+     replaced. [frontier = []] is unconditionally correct (nothing left to
+     explore); [max_rounds] is the only other stopping condition, and is
+     what actually bounds self-loops that never empty their own frontier.
+     [Trace.S] dedup (after [destutter]) guarantees the final result is
+     correct regardless of how many redundant rounds run past a real
+     fixed point -- the only cost of not stopping early is some wasted
+     work in that case. *)
+  let rec go frontier rounds_left traces =
+    if frontier = [] || rounds_left <= 0 then traces
+    else
+      let (traces', next_frontier) = round frontier traces in
+      go next_frontier (rounds_left - 1) traces'
+  in
+  Trace.S.elements (go [(a.start, init, [])] max_rounds Trace.S.empty)
 
-let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip fields
+let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip Field.S.empty fields
 
 (* This idea was fundamentally flawed...
 let xor (a1: t) (a2: t) =

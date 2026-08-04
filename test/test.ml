@@ -130,11 +130,11 @@ let fpt = Field.get_or_assign_fid "pt"
    Two branches of different depth reach two DIFFERENT non-empty-output
    states (residual "pt<-10" after 1 hop, residual "pt<-99" after 2 hops),
    so simulate must return exactly 2 traces, one per state. Hand-verified:
-   the sw=1 branch's witness is [sw=1,pt=0];[sw=1,pt=0];[sw=1,pt=10] (packet
-   unchanged across the one dup, then pt<-10 applied as the final,
-   dup-free tail); the sw=2 branch's witness is
-   [sw=2,pt=0];[sw=2,pt=0];[sw=2,pt=20];[sw=2,pt=99] (pt<-20 applied before
-   the second dup, pt<-99 applied as the final tail). *)
+   the sw=1 branch's witness is [sw=1,pt=0];[sw=1,pt=10] (packet unchanged
+   across the one dup -- collapsed by destutter -- then pt<-10 applied as
+   the final, dup-free tail); the sw=2 branch's witness is
+   [sw=2,pt=0];[sw=2,pt=20];[sw=2,pt=99] (pt<-20 applied before the second
+   dup, pt<-99 applied as the final tail). *)
 let simulate_regression_two_states () =
   let e =
     Nk.union_pair
@@ -144,15 +144,15 @@ let simulate_regression_two_states () =
            Nk.dup; Nk.modif fpt (Value.of_int 99) ])
   in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a Sp.skip (Field.get_fields ()) in
+  let traces = Nka.simulate_init a Sp.skip Field.S.empty (Field.get_fields ()) in
   let strs = List.map Trace.to_string traces |> List.sort compare in
   (* Other fields (a,b,c,d) registered by earlier tests in this same process
      are also picked up by Field.get_fields () and filled in via
      Value.choose; only sw/pt are actually constrained by this expression. *)
   Alcotest.(check (list string)) "simulate finds one trace per distinct state, both branches"
     (List.sort compare
-       [ "[a=0,b=0,c=0,d=0,sw=1,pt=0];[a=0,b=0,c=0,d=0,sw=1,pt=0];[a=0,b=0,c=0,d=0,sw=1,pt=10]";
-         "[a=0,b=0,c=0,d=0,sw=2,pt=0];[a=0,b=0,c=0,d=0,sw=2,pt=0];[a=0,b=0,c=0,d=0,sw=2,pt=20];[a=0,b=0,c=0,d=0,sw=2,pt=99]" ])
+       [ "[a=0,b=0,c=0,d=0,sw=1,pt=0];[a=0,b=0,c=0,d=0,sw=1,pt=10]";
+         "[a=0,b=0,c=0,d=0,sw=2,pt=0];[a=0,b=0,c=0,d=0,sw=2,pt=20];[a=0,b=0,c=0,d=0,sw=2,pt=99]" ])
     strs
 
 (* a<-1 + a<-2 + a<-3
@@ -166,9 +166,57 @@ let simulate_regression_two_states () =
 let simulate_regression_merged_state_gives_one_trace () =
   let e = Nk.union [ Nk.modif fa v1; Nk.modif fa v2; Nk.modif fa v3 ] in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a Sp.skip (Field.get_fields ()) in
+  let traces = Nka.simulate_init a Sp.skip Field.S.empty (Field.get_fields ()) in
   Alcotest.(check int) "simulate on a<-1+a<-2+a<-3 gives exactly 1 trace (one merged state)"
     1 (List.length traces)
+
+(* Same a<-1 + a<-2 + a<-3 automaton as above, but with field [a] passed as
+   a diversify set: since the single merged self-loop's own output relation
+   branches on [a] (the three mods have overlapping domains and share a
+   target, so Sts.add unions them into one multi-valued transition), asking
+   to diversify over [a] must enumerate all three branches -- one trace per
+   value -- rather than the single arbitrary representative from
+   [simulate_regression_merged_state_gives_one_trace]. This is the fix for
+   the case where the real behavioral diversity of a *(hop.dup)⋆-style
+   network policy lives entirely inside one collapsed relation, not across
+   distinct automaton states. *)
+let simulate_regression_diversify_enumerates_merged_branches () =
+  let e = Nk.union [ Nk.modif fa v1; Nk.modif fa v2; Nk.modif fa v3 ] in
+  let a = Nka.autom e in
+  let traces = Nka.simulate_init a Sp.skip (Field.S.singleton fa) (Field.get_fields ()) in
+  let strs = List.map Trace.to_string traces |> List.sort compare in
+  (* Other fields registered by earlier tests in this same process (b,c,d,
+     and sw,pt from simulate_regression_two_states) are also picked up by
+     Field.get_fields () and filled in via Value.choose; only a is actually
+     diversified/constrained by this expression. *)
+  Alcotest.(check (list string)) "simulate with diversify={a} enumerates all 3 branches of the merged relation"
+    (List.sort compare
+       [ "[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=1,b=0,c=0,d=0,sw=0,pt=0]";
+         "[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=2,b=0,c=0,d=0,sw=0,pt=0]";
+         "[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=3,b=0,c=0,d=0,sw=0,pt=0]" ])
+    strs
+
+(* ((a<-1 + a<-2).dup)*, diversify={a}
+   Mirrors the shape of a real (hop.dup)* network policy at small scale:
+   the automaton has exactly one real, self-looping state, whose own
+   epsilon is always top (zero iterations is always valid), and whose
+   self-loop edge carries the real, a-branching behavior. This pins down
+   that simulate_init unrolls the self-loop round by round (finding the
+   genuine 2-hop path "a=0;a=1;a=2", not just the two 1-hop witnesses),
+   and that max_rounds genuinely bounds how many rounds it unrolls:
+   max_rounds=1 only ever sees the trivial zero-hop witness; max_rounds=2
+   additionally sees both 1-hop witnesses (but not yet the 2-hop one,
+   which needs the self-loop traversed twice); the default cap (50) finds
+   all 4 (further rounds add nothing new, since ONLY two values exist for
+   a, so every additional hop just revisits a value already witnessed at
+   a shorter depth). *)
+let simulate_regression_max_rounds_bounds_self_loop_unrolling () =
+  let e = Nk.star (Nk.seq [ Nk.union_pair (Nk.modif fa v1) (Nk.modif fa v2); Nk.dup ]) in
+  let a = Nka.autom e in
+  let count mr = List.length (Nka.simulate_init ~max_rounds:mr a Sp.skip (Field.S.singleton fa) (Field.get_fields ())) in
+  Alcotest.(check int) "max_rounds=1 only finds the trivial zero-hop witness" 1 (count 1);
+  Alcotest.(check int) "max_rounds=2 additionally finds both 1-hop witnesses" 3 (count 2);
+  Alcotest.(check int) "default max_rounds finds the 2-hop witness too" 4 (count 50)
 
 let () =
   Alcotest.run "Stub"
@@ -195,6 +243,8 @@ let () =
       [
         Alcotest.test_case "two_states" `Quick simulate_regression_two_states;
         Alcotest.test_case "merged_state_gives_one_trace" `Quick simulate_regression_merged_state_gives_one_trace;
+        Alcotest.test_case "diversify_enumerates_merged_branches" `Quick simulate_regression_diversify_enumerates_merged_branches;
+        Alcotest.test_case "max_rounds_bounds_self_loop_unrolling" `Quick simulate_regression_max_rounds_bounds_self_loop_unrolling;
       ]
     );
   ]

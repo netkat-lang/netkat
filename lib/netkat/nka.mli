@@ -43,15 +43,24 @@ val accept : t -> Trace.t -> bool
     if the automaton is equivalent to Drop. *)
 val rep : t -> Field.S.t -> Trace.t
 
-(** [simulate_init a init fields] explores states reachable from the symbolic
-    input [init], and returns one representative concrete trace per distinct
-    state with non-empty output -- i.e. it exercises every state of the
-    automaton, rather than a single witness ([rep]) or a summarized output
-    set ([forward_init]). The number of traces returned is bounded by the
-    (finite) number of automaton states. *)
-val simulate_init : t -> Sp.t -> Field.S.t -> Trace.t list
+(** [simulate_init ?max_rounds a init diversify fields] explores states
+    reachable from the symbolic input [init], unrolling self-loops (e.g.
+    the [net = (hop.dup)*] shape) round by round rather than stopping
+    after the first traversal, and returns one representative concrete
+    trace per behaviorally-distinct branch of every state's own output at
+    every round, rather than a single witness ([rep]) or a summarized
+    output set ([forward_init]). For each state examined, its own output
+    is enumerated via [Sp.rep_over diversify], so fields in [diversify]
+    contribute one trace per branch (bounding the growth to the product of
+    branching factors of exactly those fields) while every other field
+    picks a single arbitrary representative, as [rep] does. Exploration
+    stops once a round's witnesses add nothing new (after collapsing
+    consecutive duplicate packets), or after [max_rounds] rounds (default
+    50), whichever comes first -- the latter is a genuine safety net for
+    real cycles in the underlying topology graph, not just a formality. *)
+val simulate_init : ?max_rounds:int -> t -> Sp.t -> Field.S.t -> Field.S.t -> Trace.t list
 
-(** [simulate a fields] is [simulate_init a Sp.skip fields]. *)
+(** [simulate a fields] is [simulate_init a Sp.skip Field.S.empty fields]. *)
 val simulate : t -> Field.S.t -> Trace.t list
 
 (** Computes a trace in the symmetric difference of the trace sets for the two

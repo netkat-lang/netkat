@@ -16,7 +16,7 @@ let add_macro s e = Hashtbl.replace macros s e
 %token RANGESUM IMPORT CHECK PRINT TIKZ EQUIV NEQUIV LEQ FOR DO IN DOTDOT
 %token ARROW LAMBDA
 %token PLUS DIFF AND DOT STAR NEG XOR
-%token FWD BWD EXISTS FORALL REP SIMULATE LBRACE RBRACE COM
+%token FWD BWD EXISTS FORALL REP SIMULATE LBRACE RBRACE LCURLY RCURLY COM
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token NEWLINE
@@ -59,7 +59,7 @@ nkpl_cmd:
   | var=IDENT; TST; e=nk_exp { add_macro var e; Nkcmd.Let (var,e) }
   | var=IDENT; TST; v=NUM { add_constant var v; Nkcmd.VLet (var, Value.of_int v) }
   | REP; e=nk_exp { Nkcmd.Rep e }
-  | SIMULATE; tag=check_tag; p=packet_opt; e=nk_exp { Nkcmd.Simulate (tag, p, e) }
+  | SIMULATE; tag=check_tag; mr=max_rounds_opt; fs=fields_opt; p=packet_opt; e=nk_exp { Nkcmd.Simulate (tag, mr, fs, p, e) }
   | FOR; var=IDENT; IN; i_0=NUM; DOTDOT; i_n=NUM; DO; c=nkpl_cmd { Nkcmd.For (var, i_0, i_n, c) }
   (*| e=nk_exp { print_string ">> EXPR\n"; Nkcmd.Print e } *)
   ;
@@ -83,6 +83,17 @@ packet:
 packet_opt:
   | { None }
   | p=packet { Some p }
+
+field_name:
+  | f=IDENT { Field.get_or_assign_fid f }
+
+fields_opt:
+  | { [] }
+  | LCURLY; fs=separated_list(COM, field_name); RCURLY { fs }
+
+max_rounds_opt:
+  | { None }
+  | n=NUM { Some n }
 
 nk_exp:
   | FWD; e=nk_exp { Nkexp.fwd e }

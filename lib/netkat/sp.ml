@@ -258,6 +258,40 @@ let rep (spref : t) (fields : Field.S.t) : Pk.t =
             r sp' (Field.M.add f v partial) in
   r spref Field.M.empty
 
+(** [rep_over diversify sp fields] is like [rep], but for every field tested
+    in [sp] that's a member of [diversify], it enumerates every non-drop
+    branch (each explicit value, plus the default "any other value" case,
+    each contributing exactly one representative the same way [rep] would)
+    instead of picking just one. This bounds the resulting enumeration to
+    the product of branching factors of exactly the named fields, rather
+    than every field [sp] happens to test. With [diversify] empty, this
+    returns a singleton list containing the same packet [rep] would. *)
+let rep_over (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
+  let fillin = Field.S.fold (fun f a -> match Field.M.find_opt f a with
+                                        | None -> Field.M.add f Value.choose a
+                                        | Some _ -> a) fields in
+  let rec r (sp: t) (partial: Pk.t) : Pk.t list =
+      match !sp with
+      | Skip -> [fillin partial]
+      | Drop -> []
+      | Union (f, vm, d, _) ->
+          if Field.S.mem f diversify then
+            let default_reps =
+              if not (eq d drop) then r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
+              else [] in
+            let explicit_reps =
+              Value.M.bindings vm
+              |> List.concat_map (fun (v, sp') ->
+                   if eq sp' drop then [] else r sp' (Field.M.add f v partial)) in
+            default_reps @ explicit_reps
+          else
+            if not (eq d drop) then
+              r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
+            else
+              let v, sp' = List.find (fun (v, p) -> not (eq p drop)) (Value.M.bindings vm) in
+              r sp' (Field.M.add f v partial) in
+  r spref Field.M.empty
+
 let rec of_pk (pk: Pk.t) =
   if Field.M.is_empty pk then
     skip

@@ -303,11 +303,14 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
       let a = fst l |> expect_nk |> Nka.autom in
       let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> printf out "%s\n%!" in
       ((env, snd l), [])
-  | Simulate (name, pkt, e) ->
+  | Simulate (name, mr, fs, pkt, e) ->
       let l = (eval (env,m) e) in
       let a = fst l |> expect_nk |> Nka.autom in
       let init = match pkt with None -> Sp.skip | Some p -> Sp.of_pk p in
-      let traces = Nka.simulate_init a init (Field.get_fields ()) in
+      let diversify = Field.S.of_list fs in
+      let traces = match mr with
+        | None -> Nka.simulate_init a init diversify (Field.get_fields ())
+        | Some n -> Nka.simulate_init ~max_rounds:n a init diversify (Field.get_fields ()) in
       printf out "## Simulated %d trace(s)\n%!" (List.length traces);
       List.iteri (fun i t -> printf out "--- trace %d ---\n%s\n%!" (i+1) (Trace.to_string t)) traces;
       ((env, snd l), [Success(name, traces)])
