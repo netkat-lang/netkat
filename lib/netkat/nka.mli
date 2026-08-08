@@ -43,25 +43,48 @@ val accept : t -> Trace.t -> bool
     if the automaton is equivalent to Drop. *)
 val rep : t -> Field.S.t -> Trace.t
 
-(** [simulate_init ?max_rounds a init diversify fields] explores states
+(** How [simulate_init] should enumerate a given diversify field's values.
+    [BestEffort] takes whatever [Sp.diversify_keys] finds locally at each
+    state -- which can under-enumerate a field whose live values are
+    hidden behind a non-drop default or an as-yet-untested branch at that
+    specific state, since there's nothing in the state's own output to
+    recover them from. [Exhaustive] instead enumerates against that
+    field's full set of values anywhere reachable from [simulate_init]'s
+    own [init], computed once up front rather than per state. [Explicit
+    vs] enumerates against the caller-supplied [vs] instead of a computed
+    domain. *)
+type diversify_mode = BestEffort | Exhaustive | Explicit of Value.S.t
+
+(** [simulate_init ?max_rounds a init modes fields] explores states
     reachable from the symbolic input [init], unrolling self-loops (e.g.
     the [net = (hop.dup)*] shape) round by round rather than stopping
     after the first traversal, and returns one representative concrete
     trace per behaviorally-distinct branch of every state's own output at
     every round, rather than a single witness ([rep]) or a summarized
     output set ([forward_init]). For each state examined, its own output
-    is enumerated via [Sp.rep_over diversify], so fields in [diversify]
-    contribute one trace per branch (bounding the growth to the product of
-    branching factors of exactly those fields) while every other field
-    picks a single arbitrary representative, as [rep] does. Exploration
-    stops once a round's witnesses add nothing new (after collapsing
-    consecutive duplicate packets), or after [max_rounds] rounds (default
-    50), whichever comes first -- the latter is a genuine safety net for
-    real cycles in the underlying topology graph, not just a formality. *)
-val simulate_init : ?max_rounds:int -> t -> Sp.t -> Field.S.t -> Field.S.t -> Trace.t list
+    is enumerated via [Sp.rep_over] over the fields named in [modes], so
+    those fields contribute one trace per branch (bounding the growth to
+    the product of branching factors of exactly those fields, per their
+    own [diversify_mode]) while every other field picks a single
+    arbitrary representative, as [rep] does. Exploration stops once a
+    round's witnesses add nothing new (after collapsing consecutive
+    duplicate packets), or after [max_rounds] rounds (default 50),
+    whichever comes first -- the latter is a genuine safety net for real
+    cycles in the underlying topology graph, not just a formality. *)
+val simulate_init : ?max_rounds:int -> t -> Sp.t -> diversify_mode Field.M.t -> Field.S.t -> Trace.t list
 
-(** [simulate a fields] is [simulate_init a Sp.skip Field.S.empty fields]. *)
+(** [simulate a fields] is [simulate_init a Sp.skip Field.M.empty fields]. *)
 val simulate : t -> Field.S.t -> Trace.t list
+
+(** [forward_over a init] is the union, over every state of [a], of the
+    portion of that state's own output reachable from [init] -- the
+    automaton-native analogue of [forward_init], computed directly from
+    [a]'s own [states]/[trans]/[obs] rather than by re-deriving them from
+    an [Nk.t] expression. An unconditional fixed point (no bound needed):
+    [a]'s state space is already finite. Used by [simulate_init] to build
+    the domain for an [Exhaustive] field without needing the original
+    [Nk.t] expression [a] was built from. *)
+val forward_over : t -> Sp.t -> Sp.t
 
 (** Computes a trace in the symmetric difference of the trace sets for the two
     automata. If the automata are language equivalent, returns [None]. *)

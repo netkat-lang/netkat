@@ -23,6 +23,11 @@ let v1 = Value.of_int 1
 let v2 = Value.of_int 2
 let v3 = Value.of_int 3
 
+(* [Nka.simulate_init] takes one [Nka.diversify_mode] per diversify field
+   rather than a plain [Field.S.t]; this wraps a set into the all
+   -[BestEffort] map most tests below just want (the previous behavior). *)
+let best_effort fs = Field.S.fold (fun f m -> Field.M.add f Nka.BestEffort m) fs Field.M.empty
+
 (* c<-3 + (c!=1 + dup*.b<-0).c=2.dup
    Hand-derivation: the c<-3 branch contributes "c=3" (b free); the other
    branch's two sub-cases are "c=2" (via c!=1, b free) and "c=2 & b=0" (via
@@ -61,6 +66,33 @@ let forward_regression_distribute_over_union () =
   Alcotest.(check string)
     "forward(d<-0 + (b<-2 + dup*.c!=3).(dup + a=0)) = b=2 ∪ b≠2.(c≠3 ∪ c=3.d=0)"
     "b=2 ∪ b≠2⋅(c≠3 ∪ c=3⋅d=0)" (Sp.to_string (Nka.forward e))
+
+(* Nka.forward_over is an automaton-native reimplementation of the same
+   fixed point Nka.forward_init computes over an Nk.t expression directly
+   (needed because Nka.simulate_init only has the already-built automaton
+   on hand, not the original expression) -- so it had better agree with
+   forward_init on every expression, not just the trivial ones. Reuses
+   both expressions above (one with a union-of-diamonds shape, one with a
+   star and a distributed union) as a cross-check against the
+   already-trusted forward_init, independent of any hand-derivation. *)
+let forward_over_regression_matches_forward_init () =
+  let check name e =
+    let a = Nka.autom e in
+    Alcotest.(check bool) (name ^ ": forward_over a init = forward_init e init")
+      true (Sp.eq (Nka.forward_over a Sp.skip) (Nka.forward_init e Sp.skip)) in
+  check "diamond_union"
+    (Nk.union_pair (Nk.modif fc v3)
+      (Nk.seq
+         [ Nk.union_pair (Nk.filter false fc v1)
+             (Nk.seq [ Nk.star Nk.dup; Nk.modif fb v0 ]);
+           Nk.filter true fc v2;
+           Nk.dup ]));
+  check "distribute_over_union"
+    (Nk.union_pair (Nk.modif fd v0)
+      (Nk.seq
+         [ Nk.union_pair (Nk.modif fb v2)
+             (Nk.seq [ Nk.star Nk.dup; Nk.filter false fc v3 ]);
+           Nk.union_pair Nk.dup (Nk.filter true fa v0) ]))
 
 (* Regression tests for the Nka.backward algorithm (KATch paper, Figure 8(ii)).
 
@@ -144,7 +176,7 @@ let simulate_regression_two_states () =
            Nk.dup; Nk.modif fpt (Value.of_int 99) ])
   in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a Sp.skip Field.S.empty (Field.get_fields ()) in
+  let traces = Nka.simulate_init a Sp.skip (best_effort Field.S.empty) (Field.get_fields ()) in
   let strs = List.map Trace.to_string traces |> List.sort compare in
   (* Other fields (a,b,c,d) registered by earlier tests in this same process
      are also picked up by Field.get_fields () and filled in via
@@ -166,7 +198,7 @@ let simulate_regression_two_states () =
 let simulate_regression_merged_state_gives_one_trace () =
   let e = Nk.union [ Nk.modif fa v1; Nk.modif fa v2; Nk.modif fa v3 ] in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a Sp.skip Field.S.empty (Field.get_fields ()) in
+  let traces = Nka.simulate_init a Sp.skip (best_effort Field.S.empty) (Field.get_fields ()) in
   Alcotest.(check int) "simulate on a<-1+a<-2+a<-3 gives exactly 1 trace (one merged state)"
     1 (List.length traces)
 
@@ -183,7 +215,7 @@ let simulate_regression_merged_state_gives_one_trace () =
 let simulate_regression_diversify_enumerates_merged_branches () =
   let e = Nk.union [ Nk.modif fa v1; Nk.modif fa v2; Nk.modif fa v3 ] in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a Sp.skip (Field.S.singleton fa) (Field.get_fields ()) in
+  let traces = Nka.simulate_init a Sp.skip (best_effort (Field.S.singleton fa)) (Field.get_fields ()) in
   let strs = List.map Trace.to_string traces |> List.sort compare in
   (* Other fields registered by earlier tests in this same process (b,c,d,
      and sw,pt from simulate_regression_two_states) are also picked up by
@@ -224,7 +256,7 @@ let simulate_regression_diversify_enumerates_merged_branches () =
 let simulate_regression_max_rounds_bounds_self_loop_unrolling () =
   let e = Nk.star (Nk.seq [ Nk.union_pair (Nk.modif fa v1) (Nk.modif fa v2); Nk.dup ]) in
   let a = Nka.autom e in
-  let count mr = List.length (Nka.simulate_init ~max_rounds:mr a Sp.skip (Field.S.singleton fa) (Field.get_fields ())) in
+  let count mr = List.length (Nka.simulate_init ~max_rounds:mr a Sp.skip (best_effort (Field.S.singleton fa)) (Field.get_fields ())) in
   Alcotest.(check int) "max_rounds=1 only finds the trivial zero-hop witness" 1 (count 1);
   Alcotest.(check int) "max_rounds=2 additionally finds both 1-hop witnesses" 3 (count 2);
   Alcotest.(check int) "default max_rounds finds both orderings of the 2-hop witness too" 5 (count 50)
@@ -244,7 +276,7 @@ let simulate_regression_diverse_origins_survive_shared_mod () =
   let init = Sp.union_pair (Sp.of_pk (Field.M.singleton fa v1)) (Sp.of_pk (Field.M.singleton fa v3)) in
   let e = Nk.seq [ Nk.dup; Nk.modif fa v0; Nk.dup ] in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a init (Field.S.singleton fa) (Field.get_fields ()) in
+  let traces = Nka.simulate_init a init (best_effort (Field.S.singleton fa)) (Field.get_fields ()) in
   let strs = List.map Trace.to_string traces |> List.sort compare in
   Alcotest.(check (list string)) "both origins survive the shared a<-0 Mod, one round later"
     (List.sort compare
@@ -266,7 +298,7 @@ let simulate_regression_untested_diversify_field_stays_free () =
   let init = Sp.union_pair (Sp.of_pk (Field.M.singleton fa v1)) (Sp.of_pk (Field.M.singleton fa v3)) in
   let e = Nk.seq [ Nk.dup; Nk.modif fa v0; Nk.dup; Nk.union_pair (Nk.modif fb v2) (Nk.modif fb v3) ] in
   let a = Nka.autom e in
-  let traces = Nka.simulate_init a init (Field.S.of_list [fa; fb]) (Field.get_fields ()) in
+  let traces = Nka.simulate_init a init (best_effort (Field.S.of_list [fa; fb])) (Field.get_fields ()) in
   let strs = List.map Trace.to_string traces |> List.sort compare in
   Alcotest.(check (list string)) "all four (origin x b-branch) combinations survive"
     (List.sort compare
@@ -275,6 +307,90 @@ let simulate_regression_untested_diversify_field_stays_free () =
          "[a=3,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=2,c=0,d=0,sw=0,pt=0]";
          "[a=3,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=3,c=0,d=0,sw=0,pt=0]" ])
     strs
+
+(* (b=2.c<-10 + b!=2), diversify={b}
+   Direct regression test for the wildcard-collapsing bug in
+   Sp.diversify_keys: this automaton has exactly one state, and its own
+   output tests [b] against exactly one explicit value (2, the branch that
+   also sets c<-10) with a non-drop default covering everything else
+   (b<>2, identity) -- there is nothing in that state's own output to
+   recover which OTHER values of [b] the default region actually covers.
+   Best-effort diversify_keys tags the whole default region with one
+   arbitrary value (Value.val_outside {2} = 0), so plain diversify={b}
+   finds only 2 of however many values of [b] actually reach this state
+   (2 and 0) -- 1 and 3 are silently dropped. Passing
+   [Nka.Explicit {0;1;2;3}] for [b] instead forces every value in that
+   declared domain not already explicit to get its own copy of the
+   default region's continuation, recovering all four. *)
+let simulate_regression_explicit_domain_recovers_default_values () =
+  let e = Nk.union_pair
+      (Nk.seq [ Nk.filter true fb v2; Nk.modif fc (Value.of_int 10) ])
+      (Nk.filter false fb v2) in
+  let a = Nka.autom e in
+  let b_values traces =
+    List.map (fun tr -> Field.M.find fb (List.hd tr) |> Value.to_int) traces
+    |> List.sort_uniq Int.compare in
+  let best_effort_traces = Nka.simulate_init a Sp.skip (best_effort (Field.S.singleton fb)) (Field.get_fields ()) in
+  Alcotest.(check (list int)) "best-effort finds only the explicit branch and the default's one arbitrary tag"
+    [0; 2] (b_values best_effort_traces);
+  let explicit = Field.M.singleton fb (Nka.Explicit (Value.S.of_list [ v0; v1; v2; v3 ])) in
+  let explicit_traces = Nka.simulate_init a Sp.skip explicit (Field.get_fields ()) in
+  Alcotest.(check (list int)) "Explicit {0,1,2,3} recovers all four values hidden behind the default"
+    [0; 1; 2; 3] (b_values explicit_traces)
+
+(* sw=1.(b=2.c<-10 + b!=2).dup + sw=2.(b=0 + b=1 + b=3).dup.d<-9, diversify={b}
+   Companion to the [Explicit] test above, for [Exhaustive]: the same
+   wildcard-collapsing shape reaches one state (gated behind, and so
+   distinguished by, sw=1), but this time [b]'s other values (0, 1, 3) are
+   never given to simulate_init directly -- they only become explicit on
+   a completely separate branch gated behind sw=2, reaching a different
+   automaton state, mirroring a real network where a field's fuller
+   domain becomes explicit somewhere else in the topology, not in a
+   caller-supplied set. The sw=1/sw=2 gating matters: without it, the two
+   branches' overlapping domains on [b] (sw=1's "b<>2" default and sw=2's
+   "b in {0,1,3}" both cover b=0,1,3) make Sts.add -- which keeps a
+   state's outgoing transitions disjoint by construction -- merge them
+   into one combined target for that overlap, which would incidentally
+   make [b] explicit there even under BestEffort and defeat the test.
+   Gating on the otherwise-unused field [sw] keeps the two branches'
+   domains disjoint, so they reach genuinely separate states, and [b]'s
+   own local under-enumeration at the sw=1 state survives untouched.
+   [Exhaustive] must recover the full domain via
+   [forward_over]/[Sp.collect_values] over the whole automaton, not by
+   being told. *)
+let simulate_regression_exhaustive_domain_recovers_default_values () =
+  let e = Nk.union_pair
+      (Nk.seq [
+         Nk.filter true fsw v1;
+         Nk.union_pair
+           (Nk.seq [ Nk.filter true fb v2; Nk.modif fc (Value.of_int 10) ])
+           (Nk.filter false fb v2);
+         Nk.dup ])
+      (Nk.seq [
+         Nk.filter true fsw v2;
+         Nk.union [ Nk.filter true fb v0; Nk.filter true fb v1; Nk.filter true fb v3 ];
+         Nk.dup;
+         Nk.modif fd (Value.of_int 9) ])
+  in
+  let a = Nka.autom e in
+  (* Only the sw=1 branch is the one under test -- the sw=2 branch already
+     has b fully explicit on its own and would make any b-value trivially
+     findable regardless of BestEffort/Exhaustive. sw itself is never
+     modified anywhere, so it reliably distinguishes the two branches at
+     every packet in a trace, unlike a field one of the branches modifies
+     partway through (backing out through a Mod makes its prior value
+     arbitrary again, as established earlier this session). *)
+  let b_values_at_sw1 traces =
+    List.filter (fun tr -> Field.M.find fsw (List.hd tr) |> Value.to_int = 1) traces
+    |> List.map (fun tr -> Field.M.find fb (List.hd tr) |> Value.to_int)
+    |> List.sort_uniq Int.compare in
+  let best_effort_traces = Nka.simulate_init a Sp.skip (best_effort (Field.S.singleton fb)) (Field.get_fields ()) in
+  Alcotest.(check (list int)) "best-effort still under-enumerates the sw=1 branch on its own"
+    [0; 2] (b_values_at_sw1 best_effort_traces);
+  let exhaustive = Field.M.singleton fb Nka.Exhaustive in
+  let exhaustive_traces = Nka.simulate_init a Sp.skip exhaustive (Field.get_fields ()) in
+  Alcotest.(check (list int)) "Exhaustive recovers all four values via the separate sw=2 branch"
+    [0; 1; 2; 3] (b_values_at_sw1 exhaustive_traces)
 
 let () =
   Alcotest.run "Stub"
@@ -288,6 +404,7 @@ let () =
       [
         Alcotest.test_case "diamond_union" `Quick forward_regression_diamond_union;
         Alcotest.test_case "distribute_over_union" `Quick forward_regression_distribute_over_union;
+        Alcotest.test_case "forward_over_matches_forward_init" `Quick forward_over_regression_matches_forward_init;
       ]
     );
     ( "nka_backward_regressions",
@@ -305,6 +422,8 @@ let () =
         Alcotest.test_case "max_rounds_bounds_self_loop_unrolling" `Quick simulate_regression_max_rounds_bounds_self_loop_unrolling;
         Alcotest.test_case "diverse_origins_survive_shared_mod" `Quick simulate_regression_diverse_origins_survive_shared_mod;
         Alcotest.test_case "untested_diversify_field_stays_free" `Quick simulate_regression_untested_diversify_field_stays_free;
+        Alcotest.test_case "explicit_domain_recovers_default_values" `Quick simulate_regression_explicit_domain_recovers_default_values;
+        Alcotest.test_case "exhaustive_domain_recovers_default_values" `Quick simulate_regression_exhaustive_domain_recovers_default_values;
       ]
     );
   ]

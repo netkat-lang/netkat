@@ -312,7 +312,21 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
       in
       let l = (eval (env,m1) e) in
       let a = fst l |> expect_nk |> Nka.autom in
-      let diversify = Field.S.of_list fs in
+      (* Resolves each field's syntax-level dmode (bare "@f"/"@f=best_effort",
+         "@f=exhaustive", or "@f=[v1,v2,...]") into an actual
+         Nka.diversify_mode -- a [DExplicit]'s values may be named constants
+         (Dvar), which can only be resolved now, against the current [env],
+         not at parse time. *)
+      let resolve_dvalue = function
+        | Dnum v -> v
+        | Dvar s -> Env.lookup_val env s |> expect_val
+      in
+      let resolve_dmode = function
+        | DBestEffort -> Nka.BestEffort
+        | DExhaustive -> Nka.Exhaustive
+        | DExplicit vs -> Nka.Explicit (Value.S.of_list (List.map resolve_dvalue vs))
+      in
+      let diversify = List.fold_left (fun m (f, dm) -> Field.M.add f (resolve_dmode dm) m) Field.M.empty fs in
       let traces = match mr with
         | None -> Nka.simulate_init a init diversify (Field.get_fields ())
         | Some n -> Nka.simulate_init ~max_rounds:n a init diversify (Field.get_fields ()) in

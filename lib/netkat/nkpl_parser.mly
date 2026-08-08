@@ -17,6 +17,7 @@ let add_macro s e = Hashtbl.replace macros s e
 %token ARROW LAMBDA
 %token PLUS DIFF AND DOT STAR NEG XOR
 %token FWD BWD EXISTS FORALL REP SIMULATE LBRACE RBRACE LCURLY RCURLY COM
+%token EXHAUSTIVE BESTEFFORT
 %token NTST TST MOD
 %token SKIP DROP DUP
 %token NEWLINE
@@ -85,9 +86,32 @@ packet_opt:
 field_name:
   | f=IDENT { Field.get_or_assign_fid f }
 
+(* A value in an [Explicit] diversify-field domain, e.g. the [Medical_Device]
+   in "@dev=[Medical_Device,Provider_Host]" -- may be a literal NUM or a
+   named constant (an IDENT, e.g. a prior "Medical_Device = 5" binding),
+   resolved later against the current Env when the simulate command
+   actually runs (mirroring how "@dev=Medical_Device" filters elsewhere
+   defer to Env rather than resolving at parse time -- see
+   Nkcmd.Dnum/Dvar). *)
+dvalue:
+  | v=NUM { Nkcmd.Dnum (Value.of_int v) }
+  | v=IDENT { Nkcmd.Dvar v }
+
+(* One field in a simulate command's "{...}" diversify-field list, with an
+   optional mode annotation: bare "@f" and "@f=best_effort" both mean
+   [Nkcmd.DBestEffort] (the same, previously-only behavior); "@f=exhaustive"
+   means [Nkcmd.DExhaustive]; "@f=[v1,v2,...]" means [Nkcmd.DExplicit],
+   enumerating against exactly that caller-given domain. See
+   Nka.diversify_mode, which these ultimately get resolved to. *)
+diversify_field:
+  | f=field_name { (f, Nkcmd.DBestEffort) }
+  | f=field_name; TST; BESTEFFORT { (f, Nkcmd.DBestEffort) }
+  | f=field_name; TST; EXHAUSTIVE { (f, Nkcmd.DExhaustive) }
+  | f=field_name; TST; LBRACE; vs=separated_list(COM, dvalue); RBRACE { (f, Nkcmd.DExplicit vs) }
+
 fields_opt:
   | { [] }
-  | LCURLY; fs=separated_list(COM, field_name); RCURLY { fs }
+  | LCURLY; fs=separated_list(COM, diversify_field); RCURLY { fs }
 
 max_rounds_opt:
   | { None }

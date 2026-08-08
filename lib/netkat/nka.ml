@@ -140,6 +140,51 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       keep producing longer and longer distinct real paths forever. *)
   let default_max_rounds = 50
 
+  (** How [simulate_init] should enumerate a given diversify field's
+      values: [BestEffort] takes whatever [Sp.diversify_keys] finds
+      locally at each state, which can under-enumerate a field whose live
+      values are hidden behind a non-drop default or an as-yet-untested
+      branch (there's no way to recover those from a single state's own
+      output alone); [Exhaustive] instead enumerates against that field's
+      full set of values anywhere reachable from [init] (computed once via
+      [forward_over] and [Sp.collect_values], not per state); [Explicit]
+      enumerates against a caller-supplied set instead of discovering one,
+      for a field whose relevant values are known up front and cheaper to
+      just state. *)
+  type diversify_mode = BestEffort | Exhaustive | Explicit of Value.S.t
+
+  (** [forward_over a init] is the union, over every state of [a], of the
+      portion of that state's own output reachable from [init] -- the
+      automaton-native analogue of [forward_init], computed directly from
+      [a]'s own [states]/[trans]/[obs] rather than by re-deriving them
+      from an [Nk.t] expression (which [simulate_init] doesn't have --
+      only the already-built automaton). Unlike [simulate_init]'s own
+      round-based exploration, this is an unconditional fixed point (no
+      [max_rounds] needed): [a]'s state space is already finite, so the
+      standard forward-dataflow worklist below is guaranteed to terminate,
+      the same way [backward_final]'s does. *)
+  let forward_over (a: t) (init: Sp.t) : Sp.t =
+    let get m q = match StateMap.find_opt q m with None -> Sp.drop | Some sp -> sp in
+    let rec loop (todo: State.t list) (done_: Sp.t StateMap.t) (todo_map: Sp.t StateMap.t) =
+      match todo with
+      | [] ->
+          StateMap.bindings done_
+          |> List.map (fun (q, sp) -> Spp.push sp (StateMap.find q a.obs))
+          |> Sp.union
+      | q :: rem ->
+          let p = Sp.diff (get todo_map q) (get done_ q) in
+          if Sp.eq p Sp.drop then loop rem done_ todo_map
+          else
+            let done_' = StateMap.add q (Sp.union_pair p (get done_ q)) done_ in
+            let todo_map_reset = StateMap.add q Sp.drop todo_map in
+            let next = StateMap.find q a.trans |> StateMap.bindings in
+            let todo_map' = List.fold_left
+              (fun m (s, spp) -> StateMap.add s (Sp.union_pair (get m s) (Spp.push p spp)) m)
+              todo_map_reset next in
+            loop (List.map fst next @ rem) done_' todo_map'
+    in
+    loop [a.start] StateMap.empty (StateMap.singleton a.start init)
+
   (* [destutter t] collapses consecutive duplicate packets in [t]. Backing
      out a path that passes through a state whose own output is the
      identity relation (as happens on every additional loop unroll of
@@ -156,7 +201,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
         | _ -> pk :: acc) [hd] tl
       |> List.rev
 
-  (** [simulate_init ?max_rounds a init diversify fields] explores states
+  (** [simulate_init ?max_rounds a init modes fields] explores states
       reachable from the symbolic input [init], unrolling self-loops round
       by round (rather than stopping after the first traversal, as a
       single reachability-bounded BFS would), and backs out one concrete
@@ -166,14 +211,15 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
 
       Exploration keeps a single merged [Sp.t] per automaton state (one
       frontier entry per reachable state, exactly as [forward_init]'s own
-      bookkeeping does), not one per live [diversify] combination. What
+      bookkeeping does), not one per live diversify combination (i.e. per
+      combination of values for a field with an entry in [modes]). What
       makes that sound is a "shadow field" tagged onto [init] once, up
-      front, for every field in [diversify]: for each such field [f], a
-      fresh field [shadow_of f] (never referenced anywhere else) is set to
-      match [f]'s value wherever [f] is live in [init], via
-      [Sp.tag_origin]. [a]'s own transitions never touch [shadow_of f], so
-      it rides along unmodified for the rest of exploration. That's what
-      defeats the ambiguous-[Mod] bug: if two origins (e.g.
+      front, for every such field: for each field [f] with an entry in
+      [modes], a fresh field [shadow_of f] (never referenced anywhere
+      else) is set to match [f]'s value wherever [f] is live in [init],
+      via [Sp.tag_origin]. [a]'s own transitions never touch [shadow_of
+      f], so it rides along unmodified for the rest of exploration. That's
+      what defeats the ambiguous-[Mod] bug: if two origins (e.g.
       [@dev=Medical_Device] and [@dev=Provider_Host]) later both hit a
       shared [Mod] that overwrites [dev], the composed relation
       [backout] inverts still has [shadow_of dev] as a live domain
@@ -190,11 +236,37 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       tags exactly those), so it's protected against a many-to-one
       collapse of its own from that point on, the same as a field already
       live at [init]. Every state's own output is enumerated via
-      [Sp.rep_over] over [diversify] plus every shadow field, so genuine
-      branches of [diversify] fields (not just shadow-distinguished
-      origins) still contribute one trace per branch, while every other
-      field picks a single arbitrary representative, as [rep] does. *)
-  let simulate_init ?(max_rounds = default_max_rounds) (a: t) (init: Sp.t) (diversify: Field.S.t) (fields: Field.S.t) : Trace.t list =
+      [Sp.rep_over] over every field named in [modes] plus every shadow
+      field, so genuine branches of those fields (not just
+      shadow-distinguished origins) still contribute one trace per branch,
+      while every other field picks a single arbitrary representative, as
+      [rep] does.
+
+      [modes] additionally says, per field, how thoroughly to enumerate
+      it. [BestEffort] (the previous, only behavior) can under-enumerate a
+      field whose live values are hidden behind a non-drop default or an
+      untested branch at the specific state being examined -- there's
+      nothing in that state's own output to recover them from.
+      [Exhaustive] fields are instead enumerated against their full set of
+      values anywhere reachable from [init], computed once up front (not
+      per state) via [forward_over] and [Sp.collect_values] -- grouped
+      into a single traversal for every [Exhaustive] field at once, rather
+      than one per field. [Explicit vs] fields are enumerated against the
+      caller-supplied [vs] instead of a computed domain. Both feed into
+      [Sp.rep_over]/[Sp.tag_origin] via their own [domains] argument, so
+      an [Exhaustive] or [Explicit] field is protected against under
+      -enumeration at both the shadow-tagging and the final-witnessing
+      step, not just one. *)
+  let simulate_init ?(max_rounds = default_max_rounds) (a: t) (init: Sp.t) (modes: diversify_mode Field.M.t) (fields: Field.S.t) : Trace.t list =
+  let diversify = Field.M.fold (fun f _ s -> Field.S.add f s) modes Field.S.empty in
+  let exhaustive_fields =
+    Field.M.fold (fun f m s -> match m with Exhaustive -> Field.S.add f s | _ -> s) modes Field.S.empty in
+  let explicit_domains =
+    Field.M.fold (fun f m acc -> match m with Explicit vs -> Field.M.add f vs acc | _ -> acc) modes Field.M.empty in
+  let domains =
+    if Field.S.is_empty exhaustive_fields then explicit_domains
+    else Field.M.fold Field.M.add (Sp.collect_values exhaustive_fields (forward_over a init)) explicit_domains
+  in
   let shadow_of =
     Field.S.fold (fun f m ->
       Field.M.add f (Field.get_or_assign_fid ("$origin$" ^ Field.get_or_fail_fid f)) m
@@ -206,7 +278,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
      to catch a field that's only just become live. *)
   let retag (sp: Sp.t) : Sp.t =
     let needing_tag = Field.M.filter (fun f f' -> Sp.is_tested f sp && not (Sp.is_tested f' sp)) shadow_of in
-    if Field.M.is_empty needing_tag then sp else Sp.tag_origin needing_tag sp
+    if Field.M.is_empty needing_tag then sp else Sp.tag_origin ~domains needing_tag sp
   in
   let init' = retag init in
   let strip_shadows (t: Trace.t) : Trace.t =
@@ -253,7 +325,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
         if Sp.eq out Sp.drop then traces_acc
         else
           let refined = Spp.seq_pair (Spp.of_sp sp) ob in
-          let pks = Sp.rep_over diversify_and_shadows out fields in
+          let pks = Sp.rep_over ~domains diversify_and_shadows out fields in
           List.fold_left (fun acc pk ->
             Trace.S.add (strip_shadows (destutter (backout pk (refined::spps) [pk]))) acc
           ) traces_acc pks
@@ -287,7 +359,7 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
   in
   Trace.S.elements (go [(a.start, init', [])] max_rounds Trace.S.empty)
 
-let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip Field.S.empty fields
+let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip Field.M.empty fields
 
 (* This idea was fundamentally flawed...
 let xor (a1: t) (a2: t) =

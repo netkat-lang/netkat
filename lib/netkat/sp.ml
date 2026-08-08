@@ -265,33 +265,93 @@ let rec of_pk (pk: Pk.t) =
     let f,v = Field.M.min_binding pk in
     mk (f, Value.M.singleton v (of_pk (Field.M.remove f pk)), drop)
 
-(** [diversify_keys diversify spref] finds every live combination of values
-    for fields in [diversify] that [spref] actually tests somewhere,
-    regardless of what other fields those tests happen to be nested
-    beneath. Unlike a traversal that picks just one branch of every
+(** [diversify_keys ?domains diversify spref] finds every live combination
+    of values for fields in [diversify] that [spref] actually tests
+    somewhere, regardless of what other fields those tests happen to be
+    nested beneath. Unlike a traversal that picks just one branch of every
     non-diversified field it meets (as [rep] does), this always recurses
     into every branch of every field -- diversified or not -- so a
     diversify field's live values can never be hidden behind a fork on some
-    other field it isn't related to. A diversify field [spref] never
-    branches on at all is simply absent from every returned [Pk.t] rather
-    than filled in with an arbitrary [Value.choose] default. Branches of a
-    non-diversified field are traversed but never tagged, and results are
-    deduped, since two different values of a field we're not distinguishing
-    shouldn't yield two separate combinations. *)
-let diversify_keys (diversify : Field.S.t) (spref : t) : Pk.t list =
+    other field it isn't related to. Branches of a non-diversified field
+    are traversed but never tagged, and results are deduped, since two
+    different values of a field we're not distinguishing shouldn't yield
+    two separate combinations.
+
+    Without [domains], a diversify field is tagged with at most one value
+    per branch actually present in [spref] -- in particular, a non-drop
+    default branch (matching every value *not* tested explicitly) is
+    tagged with one arbitrary such value, and a field [spref] never
+    branches on at all is simply absent from a returned [Pk.t]. Both are
+    genuine information loss whenever that default/untested region
+    actually covers more than one value the caller cares about
+    distinguishing -- there's no way to recover them from [spref] alone,
+    since it just doesn't test the field there. [domains] plugs that gap
+    for whichever fields have an entry: instead of collapsing a field's
+    default/untested region to one value, every value in its declared
+    domain not already explicit gets its own copy of that region's
+    continuation, and a field absent from a combo entirely is expanded
+    into one copy per domain value too. The caller is responsible for
+    [domains] actually being trustworthy (e.g. collected globally via
+    [collect_values] over everywhere the field could ever be live, not
+    just within [spref]) -- this has no way to check that itself. *)
+let diversify_keys ?(domains = Field.M.empty) (diversify : Field.S.t) (spref : t) : Pk.t list =
   let rec go (sp: t) : Pk.t list =
     match !sp with
     | Skip -> [Field.M.empty]
     | Drop -> []
     | Union (f, vm, d, _) ->
         let tag v ks = if Field.S.mem f diversify then List.map (Field.M.add f v) ks else ks in
-        let from_default = if eq d drop then [] else tag (Value.val_outside (Value.keys vm)) (go d) in
+        let explicit_keys = Value.keys vm in
+        let from_default =
+          if eq d drop then []
+          else
+            match Field.M.find_opt f domains with
+            | Some domain ->
+                let rest = go d in
+                Value.S.diff domain explicit_keys |> Value.S.elements
+                |> List.concat_map (fun v -> tag v rest)
+            | None -> tag (Value.val_outside explicit_keys) (go d)
+        in
         let from_explicit =
           Value.M.bindings vm
           |> List.concat_map (fun (v, sp') -> if eq sp' drop then [] else tag v (go sp')) in
         List.sort_uniq Pk.compare (from_default @ from_explicit)
   in
-  go spref
+  let expand_untested (combos: Pk.t list) : Pk.t list =
+    Field.M.fold (fun f domain acc ->
+      if not (Field.S.mem f diversify) then acc else
+      List.concat_map (fun combo ->
+        if Field.M.mem f combo then [combo]
+        else Value.S.elements domain |> List.map (fun v -> Field.M.add f v combo)
+      ) acc
+    ) domains combos
+  in
+  go spref |> expand_untested
+
+(** [collect_values targets spref] is, for each field in [targets], the set
+    of values [spref] tests it against anywhere -- one combined traversal
+    covering every field in [targets] at once, rather than one traversal
+    per field. A field of [targets] that [spref] never tests is simply
+    absent from the result (no entry, not an entry mapped to the empty
+    set). Meant to build a [domains] argument for [diversify_keys] (and
+    everything built on it) from a [spref] that's a full, global reachable
+    set (e.g. from [Nka.forward_over]), not from a single state's own
+    local output -- collecting from the latter would just rediscover the
+    same local blind spots [domains] exists to fix. *)
+let collect_values (targets: Field.S.t) (spref: t) : Value.S.t Field.M.t =
+  let add f v acc =
+    Field.M.update f (function None -> Some (Value.S.singleton v) | Some s -> Some (Value.S.add v s)) acc in
+  let rec go (sp: t) (acc: Value.S.t Field.M.t) : Value.S.t Field.M.t =
+    match !sp with
+    | Skip | Drop -> acc
+    | Union (f, vm, d, _) ->
+        let acc = if eq d drop then acc else go d acc in
+        Value.M.fold (fun v sp' acc ->
+          let acc = if eq sp' drop then acc else go sp' acc in
+          if Field.S.mem f targets then add f v acc else acc
+        ) vm acc
+  in
+  go spref Field.M.empty
 
 (** [is_tested f spref] is [true] iff [spref] branches on [f] anywhere. *)
 let is_tested (target: Field.t) (spref: t) : bool =
@@ -305,14 +365,15 @@ let is_tested (target: Field.t) (spref: t) : bool =
   in
   go spref
 
-(** [restrict_over diversify sp] partitions [sp] into one sub-SP per live
-    combination of values for the fields in [diversify], each sub-SP being
-    the exact restriction of [sp] to that combination -- fields outside
-    [diversify] (and diversify fields [sp] never actually tests) are left
-    fully symbolic in each result rather than resolved to a representative
-    value, as [rep_over] would. *)
-let restrict_over (diversify : Field.S.t) (spref : t) : t list =
-  diversify_keys diversify spref
+(** [restrict_over ?domains diversify sp] partitions [sp] into one sub-SP
+    per live combination of values for the fields in [diversify], each
+    sub-SP being the exact restriction of [sp] to that combination --
+    fields outside [diversify] (and diversify fields [sp] never actually
+    tests, unless covered by [domains]) are left fully symbolic in each
+    result rather than resolved to a representative value, as [rep_over]
+    would. See [diversify_keys] for what [domains] does. *)
+let restrict_over ?(domains = Field.M.empty) (diversify : Field.S.t) (spref : t) : t list =
+  diversify_keys ~domains diversify spref
   |> List.map (fun combo -> intersect_pair spref (of_pk combo))
   |> List.filter (fun r -> not (eq r drop))
 
@@ -332,33 +393,36 @@ let rep (spref : t) (fields : Field.S.t) : Pk.t =
             r sp' (Field.M.add f v partial) in
   r spref Field.M.empty
 
-(** [rep_over diversify sp fields] is like [rep], but returns one packet per
-    live combination of [diversify] fields in [sp] instead of just one.
-    Built from [restrict_over] (which finds every live combination via a
-    full traversal, regardless of what other fields those combinations are
-    nested beneath) followed by [rep] on each resulting restriction (which
-    picks a single arbitrary value for every remaining field). This bounds
-    the resulting list to the product of branching factors of exactly the
-    named fields, the same as picking branches directly would, but without
-    a naive single-pass traversal's risk of missing a diversify field's
-    value because it sits behind a branch of some unrelated field that
-    traversal chose not to take. With [diversify] empty, this returns a
-    singleton list containing the same packet [rep] would. *)
-let rep_over (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
-  restrict_over diversify spref
+(** [rep_over ?domains diversify sp fields] is like [rep], but returns one
+    packet per live combination of [diversify] fields in [sp] instead of
+    just one. Built from [restrict_over] (which finds every live
+    combination via a full traversal, regardless of what other fields
+    those combinations are nested beneath) followed by [rep] on each
+    resulting restriction (which picks a single arbitrary value for every
+    remaining field). This bounds the resulting list to the product of
+    branching factors of exactly the named fields, the same as picking
+    branches directly would, but without a naive single-pass traversal's
+    risk of missing a diversify field's value because it sits behind a
+    branch of some unrelated field that traversal chose not to take. With
+    [diversify] empty, this returns a singleton list containing the same
+    packet [rep] would. See [diversify_keys] for what [domains] does. *)
+let rep_over ?(domains = Field.M.empty) (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
+  restrict_over ~domains diversify spref
   |> List.map (fun sub -> rep sub fields)
 
-(** [tag_origin shadow_of sp] returns [sp] with an extra constraint added
-    alongside every live combination of [shadow_of]'s domain fields: each
-    shadow field [shadow_of f] is set to the same value as [f] wherever [f]
-    is live. Fields in [shadow_of]'s domain that [sp] never tests are left
-    alone (there's no value to copy). The shadow fields are ordinary fields
-    as far as [Sp.t] is concerned -- nothing here marks them specially --
-    the caller is responsible for choosing fields nothing else uses and for
-    stripping them back out of any packet before it's shown to anyone. *)
-let tag_origin (shadow_of : Field.t Field.M.t) (spref : t) : t =
+(** [tag_origin ?domains shadow_of sp] returns [sp] with an extra
+    constraint added alongside every live combination of [shadow_of]'s
+    domain fields: each shadow field [shadow_of f] is set to the same
+    value as [f] wherever [f] is live. Fields in [shadow_of]'s domain that
+    [sp] never tests are left alone (there's no value to copy, unless
+    covered by [domains] -- see [diversify_keys]). The shadow fields are
+    ordinary fields as far as [Sp.t] is concerned -- nothing here marks
+    them specially -- the caller is responsible for choosing fields
+    nothing else uses and for stripping them back out of any packet before
+    it's shown to anyone. *)
+let tag_origin ?(domains = Field.M.empty) (shadow_of : Field.t Field.M.t) (spref : t) : t =
   let diversify = Field.M.fold (fun f _ s -> Field.S.add f s) shadow_of Field.S.empty in
-  diversify_keys diversify spref
+  diversify_keys ~domains diversify spref
   |> List.map (fun combo ->
        let shadow_combo = Field.M.fold (fun f v acc -> Field.M.add (Field.M.find f shadow_of) v acc) combo Field.M.empty in
        intersect_pair (intersect_pair spref (of_pk combo)) (of_pk shadow_combo))

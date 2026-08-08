@@ -19,6 +19,8 @@ let to_string t = match t with
 | TIKZ -> "TIKZ"
 | REP -> "REP"
 | SIMULATE -> "SIMULATE"
+| EXHAUSTIVE -> "EXHAUSTIVE"
+| BESTEFFORT -> "BESTEFFORT"
 | FOR -> "FOR"
 | FWD -> "FWD"
 | BWD -> "BWD"
@@ -124,6 +126,8 @@ and raw_token buf =
   | "forall" ->  FORALL
   | "rep" ->  REP
   | "simulate" ->  SIMULATE
+  | "exhaustive" ->  EXHAUSTIVE
+  | "best_effort" ->  BESTEFFORT
   | "for" ->  FOR
   | "do" ->  DO
   | ".." ->  DOTDOT

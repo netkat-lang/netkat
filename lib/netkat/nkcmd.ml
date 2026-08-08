@@ -1,5 +1,23 @@
 (** Representation of a Netkat command *)
 
+(** A value in a diversify field's [DExplicit] domain, e.g. the
+    [Medical_Device] in "@dev=[Medical_Device,Provider_Host]" -- either a
+    literal ([Dnum]) or a named constant ([Dvar], e.g. a prior
+    "Medical_Device = 5" binding) not resolved until the simulate command
+    actually runs, against whatever [Env.t] is current then. *)
+type dvalue =
+  | Dnum of Value.t
+  | Dvar of string
+
+(** How a simulate command's "{...}" list asks for one field to be
+    enumerated -- the not-yet-resolved, syntax-level counterpart of
+    [Nka.diversify_mode] (resolving [DExplicit]'s [dvalue list] against an
+    [Env.t] is what turns this into an actual [Nka.diversify_mode]). *)
+type dmode =
+  | DBestEffort
+  | DExhaustive
+  | DExplicit of dvalue list
+
 type t =
   | Import of string
   | Check of string option * bool * Nkexp.t * Nkexp.t
@@ -9,8 +27,19 @@ type t =
   | Let of string * Nkexp.t
   | VLet of string * Value.t
   | Rep of Nkexp.t
-  | Simulate of string option * int option * Field.t list * Nkexp.t option * Nkexp.t
+  | Simulate of string option * int option * (Field.t * dmode) list * Nkexp.t option * Nkexp.t
   | For of string * int * int * t
+
+let dvalue_to_string = function
+  | Dnum v -> Value.to_string v
+  | Dvar s -> s
+
+let diversify_field_to_string (f, m) =
+  let fname = Field.get_or_fail_fid f in
+  match m with
+  | DBestEffort -> fname
+  | DExhaustive -> fname ^ "=exhaustive"
+  | DExplicit vs -> fname ^ "=[" ^ (String.concat "," (List.map dvalue_to_string vs)) ^ "]"
 
 (** Pretty print the netkat expression. *)
 let rec to_string t =
@@ -26,7 +55,7 @@ let rec to_string t =
   | Simulate (tag, mr, fs, pkt, e) ->
     "simulate " ^ (match tag with None -> "" | Some s -> "\"" ^ s ^ "\" ")
     ^ (match mr with None -> "" | Some n -> string_of_int n ^ " ")
-    ^ (if fs = [] then "" else "{" ^ (String.concat ", " (List.map Field.get_or_fail_fid fs)) ^ "} ")
+    ^ (if fs = [] then "" else "{" ^ (String.concat ", " (List.map diversify_field_to_string fs)) ^ "} ")
     ^ (match pkt with None -> "" | Some p -> "[" ^ (Nkexp.to_string p) ^ "] ")
     ^ (Nkexp.to_string e)
   | For (v, i_0, i_n, cmd) -> Printf.sprintf "for %s ∈ %d..%d do %s" v i_0 i_n (to_string cmd)
