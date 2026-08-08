@@ -157,87 +157,135 @@ let rep (a: t) (fields: Field.S.t) : Trace.t =
       |> List.rev
 
   (** [simulate_init ?max_rounds a init diversify fields] explores states
-      reachable from the symbolic input [init] by pure recursion, one hop
-      per recursive call, and backs out one concrete trace per
-      behaviorally-distinct branch of every visited state's own output --
-      rather than a single witness ([rep]) or the summarized final output
-      set ([forward_init]).
+      reachable from the symbolic input [init], unrolling self-loops round
+      by round (rather than stopping after the first traversal, as a
+      single reachability-bounded BFS would), and backs out one concrete
+      trace per behaviorally-distinct branch of every visited state's own
+      output -- rather than a single witness ([rep]) or the summarized
+      final output set ([forward_init]).
 
-      [init] is first split by [Sp.restrict_over diversify] into one
-      branch per live combination of [diversify] fields (e.g. two branches
-      for [@dev=Medical_Device + @dev=Provider_Host]), each still fully
-      symbolic on every other field, and each branch is explored
-      completely independently, splitting further on any later hop that
-      introduces new [diversify] branching (e.g. a hub that dispatches on a
-      second field). This is what fixes the ambiguous-[Mod] bug: if two
-      origins later both hit a shared [Mod] that overwrites the
-      diversified field, they'd share one [spps] history if merged, and
-      [backout]'s inversion of that many-to-one [Mod] would be genuinely
-      ambiguous -- [Sp.rep] always resolves it to the same (lowest) value,
-      silently dropping every trace from the other origin. Because each
-      branch keeps its own precondition baked into its own [spps] chain
-      via [Spp.of_sp sp], [backout] (which still just uses [Sp.rep],
-      unbranched) always has exactly one valid preimage to find.
+      Exploration keeps a single merged [Sp.t] per automaton state (one
+      frontier entry per reachable state, exactly as [forward_init]'s own
+      bookkeeping does), not one per live [diversify] combination. What
+      makes that sound is a "shadow field" tagged onto [init] once, up
+      front, for every field in [diversify]: for each such field [f], a
+      fresh field [shadow_of f] (never referenced anywhere else) is set to
+      match [f]'s value wherever [f] is live in [init], via
+      [Sp.tag_origin]. [a]'s own transitions never touch [shadow_of f], so
+      it rides along unmodified for the rest of exploration. That's what
+      defeats the ambiguous-[Mod] bug: if two origins (e.g.
+      [@dev=Medical_Device] and [@dev=Provider_Host]) later both hit a
+      shared [Mod] that overwrites [dev], the composed relation
+      [backout] inverts still has [shadow_of dev] as a live domain
+      constraint, so inverting it against a specific witnessed packet has
+      exactly one valid preimage, even though [backout] still just uses
+      plain, unbranched [Sp.rep]. [shadow_of f] is stripped from every
+      returned packet before it's ever seen outside this function.
 
-      Deliberately no deduplication/merging of branches by [(state, sp)]:
-      that's tempting (it would bound growth for a self-loop that
-      re-diversifies every hop) but unsound in general, since two branches
-      can converge to the same [(state, sp)] one round before either was
-      due to be witnessed, silently dropping whichever one merging
-      discards -- and no fixed amount of extra history recorded per branch
-      fixes this in general (there's always a pathological example needing
-      more). The only fully general fix is to never discard a branch's
-      history, which means the branching factor is genuinely unbounded for
-      a pathological self-loop that keeps re-introducing the same
-      diversify ambiguity every hop -- [max_rounds] is what keeps that
-      tractable, not merging, so it needs to be set no larger than what
-      the branching factor can actually afford, not just "large enough to
-      see every real hop". Every state's own output is enumerated via
-      [Sp.rep_over diversify], so fields in [diversify] contribute one
-      trace per branch there too, while every other field picks a single
-      arbitrary representative, as [rep] does. *)
+      A field that only becomes live partway through [a] (e.g. a hub that
+      dispatches on a second field) isn't shadow-tagged at [init], since
+      there's nothing to tag before it's live -- but it's re-tagged the
+      moment it *does* become live (every round, [retag] checks every
+      diversify field for "live now, but its shadow isn't set yet" and
+      tags exactly those), so it's protected against a many-to-one
+      collapse of its own from that point on, the same as a field already
+      live at [init]. Every state's own output is enumerated via
+      [Sp.rep_over] over [diversify] plus every shadow field, so genuine
+      branches of [diversify] fields (not just shadow-distinguished
+      origins) still contribute one trace per branch, while every other
+      field picks a single arbitrary representative, as [rep] does. *)
   let simulate_init ?(max_rounds = default_max_rounds) (a: t) (init: Sp.t) (diversify: Field.S.t) (fields: Field.S.t) : Trace.t list =
+  let shadow_of =
+    Field.S.fold (fun f m ->
+      Field.M.add f (Field.get_or_assign_fid ("$origin$" ^ Field.get_or_fail_fid f)) m
+    ) diversify Field.M.empty in
+  let shadow_fields = Field.M.fold (fun _ f' s -> Field.S.add f' s) shadow_of Field.S.empty in
+  let diversify_and_shadows = Field.S.union diversify shadow_fields in
+  (* Tag whichever diversify fields are live now but not yet shadowed --
+     called on [init] once, up front, and again on every round's [full_sp]
+     to catch a field that's only just become live. *)
+  let retag (sp: Sp.t) : Sp.t =
+    let needing_tag = Field.M.filter (fun f f' -> Sp.is_tested f sp && not (Sp.is_tested f' sp)) shadow_of in
+    if Field.M.is_empty needing_tag then sp else Sp.tag_origin needing_tag sp
+  in
+  let init' = retag init in
+  let strip_shadows (t: Trace.t) : Trace.t =
+    List.map (fun pk -> Field.S.fold Field.M.remove shadow_fields pk) t in
+  (* When backing out through a hop where a diversify field [f] is live
+     with more than one option (e.g. a self-loop that re-picks [f] every
+     round, once its forward [Sp.t] has reached a fixed point), plain
+     [Sp.rep] would tie-break arbitrarily -- independently of which
+     shadow-tagged origin [pk] actually belongs to. That produces
+     spurious, asymmetric detours: one origin's tie-break happens to
+     agree with its own history, another's doesn't, so backing out
+     "invents" an extra hop through a value the *other* origin never
+     actually had, purely as an artifact of [Value]'s ordering. Since
+     [shadow_of f] never changes once tagged, [pk]'s current value for it
+     *is* this lineage's own history for [f]; sticking to it whenever
+     it's still a live option (falling back to plain [Sp.rep] only when
+     it isn't, e.g. [f] not tested at all yet) keeps every hop consistent
+     with the origin already being reconstructed. *)
+  let bias_to_origin (pk: Pk.t) (sp: Sp.t) : Sp.t =
+    Field.M.fold (fun f f' acc ->
+      match Field.M.find_opt f' pk with
+      | None -> acc
+      | Some v ->
+          let narrowed = Sp.intersect_pair acc (Sp.of_pk (Field.M.singleton f v)) in
+          if Sp.eq narrowed Sp.drop then acc else narrowed
+    ) shadow_of sp in
   let rec backout (pk: Pk.t) (spps: Spp.t list) (partial: Trace.t) : Trace.t =
     match spps with
     | [] -> partial
     | spp::rem ->
-        let pk' = Sp.rep (Spp.pull spp (Sp.of_pk pk)) fields in
+        let preimage = bias_to_origin pk (Spp.pull spp (Sp.of_pk pk)) in
+        let pk' = Sp.rep preimage fields in
         backout pk' rem (pk'::partial) in
 
-  (* Explore one branch: witness [state]'s own output (if any), then --
-     unless the hop budget is spent -- recurse into every outgoing edge,
-     splitting again on whatever new [diversify] combinations that edge's
-     own transition introduces. *)
-  let rec explore (state: State.t) (sp: Sp.t) (spps: Spp.t list) (rounds_left: int) (traces: Trace.S.t) : Trace.S.t =
-    if Sp.eq sp Sp.drop then traces
-    else
+  (* One round: for every active (state, reaching-set, path-so-far) entry,
+     try to witness that state's own output, and compute the next round's
+     frontier by following every outgoing edge one more hop. *)
+  let round (frontier: (State.t * Sp.t * (Spp.t list)) list) (traces: Trace.S.t) =
+    List.fold_left (fun (traces_acc, next_acc) (state, sp, spps) ->
+      if Sp.eq sp Sp.drop then (traces_acc, next_acc) else
       let ob = StateMap.find state a.obs in
       let out = Spp.push sp ob in
-      let traces' =
-        if Sp.eq out Sp.drop then traces
+      let traces_acc' =
+        if Sp.eq out Sp.drop then traces_acc
         else
           let refined = Spp.seq_pair (Spp.of_sp sp) ob in
-          let pks = Sp.rep_over diversify out fields in
+          let pks = Sp.rep_over diversify_and_shadows out fields in
           List.fold_left (fun acc pk ->
-            Trace.S.add (destutter (backout pk (refined::spps) [pk])) acc
-          ) traces pks
+            Trace.S.add (strip_shadows (destutter (backout pk (refined::spps) [pk]))) acc
+          ) traces_acc pks
       in
-      if rounds_left <= 1 then traces'
-      else
-        let next = StateMap.find state a.trans |> StateMap.bindings in
-        List.fold_left (fun acc (s, spp) ->
-          let full_sp = Spp.push sp spp in
-          if Sp.eq full_sp Sp.drop then acc
-          else
-            let entry = (Spp.seq_pair (Spp.of_sp sp) spp) :: spps in
-            Sp.restrict_over diversify full_sp
-            |> List.fold_left (fun acc2 sub_sp -> explore s sub_sp entry (rounds_left - 1) acc2) acc
-        ) traces' next
+      let next = StateMap.find state a.trans |> StateMap.bindings in
+      let next_acc' = List.fold_left (fun acc (s, spp) ->
+        let full_sp = retag (Spp.push sp spp) in
+        if Sp.eq full_sp Sp.drop then acc
+        else (s, full_sp, (Spp.seq_pair (Spp.of_sp sp) spp) :: spps) :: acc
+      ) next_acc next in
+      (traces_acc', next_acc')
+    ) (traces, []) frontier
   in
-  Trace.S.elements (
-    Sp.restrict_over diversify init
-    |> List.fold_left (fun acc sp -> explore a.start sp [] max_rounds acc) Trace.S.empty
-  )
+  (* Deliberately NOT stopping early just because one round found nothing
+     new: a round can legitimately be "quiet" (e.g. an intermediate state
+     whose own output is still bottom, dup not yet consumed) while later
+     rounds still have real witnesses ahead -- picking a safe number of
+     consecutive quiet rounds to tolerate before concluding "truly done"
+     is guesswork that risks premature termination. [frontier = []] is
+     unconditionally correct (nothing left to explore); [max_rounds] is
+     the only other stopping condition, and is what actually bounds
+     self-loops that never empty their own frontier. [Trace.S] dedup
+     (after [destutter]) guarantees the final result is correct regardless
+     of how many redundant rounds run past a real fixed point -- the only
+     cost of not stopping early is some wasted work in that case. *)
+  let rec go frontier rounds_left traces =
+    if frontier = [] || rounds_left <= 0 then traces
+    else
+      let (traces', next_frontier) = round frontier traces in
+      go next_frontier (rounds_left - 1) traces'
+  in
+  Trace.S.elements (go [(a.start, init', [])] max_rounds Trace.S.empty)
 
 let simulate (a: t) (fields: Field.S.t) : Trace.t list = simulate_init a Sp.skip Field.S.empty fields
 

@@ -293,6 +293,18 @@ let diversify_keys (diversify : Field.S.t) (spref : t) : Pk.t list =
   in
   go spref
 
+(** [is_tested f spref] is [true] iff [spref] branches on [f] anywhere. *)
+let is_tested (target: Field.t) (spref: t) : bool =
+  let rec go (sp: t) : bool =
+    match !sp with
+    | Skip | Drop -> false
+    | Union (f, vm, d, _) ->
+        Field.compare f target = 0
+        || (not (eq d drop) && go d)
+        || Value.M.bindings vm |> List.exists (fun (_, sp') -> not (eq sp' drop) && go sp')
+  in
+  go spref
+
 (** [restrict_over diversify sp] partitions [sp] into one sub-SP per live
     combination of values for the fields in [diversify], each sub-SP being
     the exact restriction of [sp] to that combination -- fields outside
@@ -335,6 +347,22 @@ let rep (spref : t) (fields : Field.S.t) : Pk.t =
 let rep_over (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
   restrict_over diversify spref
   |> List.map (fun sub -> rep sub fields)
+
+(** [tag_origin shadow_of sp] returns [sp] with an extra constraint added
+    alongside every live combination of [shadow_of]'s domain fields: each
+    shadow field [shadow_of f] is set to the same value as [f] wherever [f]
+    is live. Fields in [shadow_of]'s domain that [sp] never tests are left
+    alone (there's no value to copy). The shadow fields are ordinary fields
+    as far as [Sp.t] is concerned -- nothing here marks them specially --
+    the caller is responsible for choosing fields nothing else uses and for
+    stripping them back out of any packet before it's shown to anyone. *)
+let tag_origin (shadow_of : Field.t Field.M.t) (spref : t) : t =
+  let diversify = Field.M.fold (fun f _ s -> Field.S.add f s) shadow_of Field.S.empty in
+  diversify_keys diversify spref
+  |> List.map (fun combo ->
+       let shadow_combo = Field.M.fold (fun f v acc -> Field.M.add (Field.M.find f shadow_of) v acc) combo Field.M.empty in
+       intersect_pair (intersect_pair spref (of_pk combo)) (of_pk shadow_combo))
+  |> union
 
 let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string

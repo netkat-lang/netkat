@@ -201,31 +201,33 @@ let simulate_regression_diversify_enumerates_merged_branches () =
    the automaton has exactly one real, self-looping state, whose own
    epsilon is always top (zero iterations is always valid), and whose
    self-loop edge carries the real, a-branching behavior. This pins down
-   that simulate_init unrolls the self-loop round by round, and that
-   max_rounds genuinely bounds how many rounds it unrolls: max_rounds=1
-   only ever sees the trivial zero-hop witness; max_rounds=2 additionally
-   sees both 1-hop witnesses; max_rounds=3 additionally sees both 2-hop
-   witnesses ("a=1;a=2" and "a=2;a=1" -- genuinely distinct traces, not
-   the same one twice).
-
-   This loop deliberately never reaches a fixed point: simulate_init
-   makes no attempt to merge branches that reconverge on the same
-   (state, sp) (doing so safely in general isn't possible -- see
-   simulate_init's docstring), so every additional round finds exactly
-   two more new traces -- the two strictly-alternating sequences of that
-   length (any non-alternating sequence, e.g. "a=1;a=1;a=2", destutters
-   down to something already found at a shorter depth, but the two
-   alternating ones never do). The branching factor is genuinely
-   2^rounds, so this is also why the real default_max_rounds (50) is
-   deliberately not exercised here -- it would mean actually producing
-   on the order of 2^50 raw traces before destuttering them down to 50. *)
+   that simulate_init unrolls the self-loop round by round (finding the
+   genuine 2-hop path "a=0;a=1;a=2", not just the two 1-hop witnesses),
+   and that max_rounds genuinely bounds how many rounds it unrolls:
+   max_rounds=1 only ever sees the trivial zero-hop witness; max_rounds=2
+   additionally sees both 1-hop witnesses (but not yet the 2-hop one,
+   which needs the self-loop traversed twice); the default cap (50) finds
+   all 5 (the zero-hop witness, both 1-hop witnesses, and both orderings
+   of the 2-hop witness). Further rounds add nothing new: from round 2 on,
+   the self-loop's own forward [Sp.t] has reached a fixed point where both
+   values of [a] are simultaneously live, so backing out through any
+   number of additional rounds keeps reconstructing a history consistent
+   with whichever origin the witness being backed out belongs to (see
+   [simulate_init]'s [bias_to_origin]), and duplicate, longer
+   reconstructions of an already-found trace just destutter back down to
+   it rather than growing into a genuinely new, longer one. Since
+   exploration keeps a single merged [Sp.t] per automaton state (no
+   per-diversify-combination frontier splitting), the frontier here never
+   grows past one entry regardless of max_rounds -- unlike a design that
+   split per combination, which would double its frontier every round on
+   this exact shape. *)
 let simulate_regression_max_rounds_bounds_self_loop_unrolling () =
   let e = Nk.star (Nk.seq [ Nk.union_pair (Nk.modif fa v1) (Nk.modif fa v2); Nk.dup ]) in
   let a = Nka.autom e in
   let count mr = List.length (Nka.simulate_init ~max_rounds:mr a Sp.skip (Field.S.singleton fa) (Field.get_fields ())) in
   Alcotest.(check int) "max_rounds=1 only finds the trivial zero-hop witness" 1 (count 1);
   Alcotest.(check int) "max_rounds=2 additionally finds both 1-hop witnesses" 3 (count 2);
-  Alcotest.(check int) "max_rounds=3 additionally finds both (distinct) 2-hop witnesses" 5 (count 3)
+  Alcotest.(check int) "default max_rounds finds both orderings of the 2-hop witness too" 5 (count 50)
 
 (* [@a=1 + @a=3] simulated on (dup.a<-0.dup), diversify={a}
    Direct regression test for the ambiguous-shared-Mod bug: two distinct

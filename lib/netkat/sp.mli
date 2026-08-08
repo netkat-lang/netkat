@@ -83,6 +83,18 @@ val rep_over : Field.S.t -> t -> Field.S.t -> Pk.t list
     [rep_over] does. *)
 val restrict_over : Field.S.t -> t -> t list
 
+(** [tag_origin shadow_of sp] returns [sp] with each shadow field
+    [shadow_of f] additionally set to match [f]'s value, wherever [f] (a
+    key of [shadow_of]) is live in [sp]. Fields of [shadow_of]'s domain
+    never tested in [sp] are left alone. Intended for fields that stay
+    unmodified for the rest of an exploration, so a later many-to-one
+    rewrite of [f] doesn't erase which of [f]'s original values a given
+    branch came from. *)
+val tag_origin : Field.t Field.M.t -> t -> t
+
+(** [is_tested f sp] is [true] iff [sp] branches on [f] anywhere. *)
+val is_tested : Field.t -> t -> bool
+
 (*---------- Output ------------------ *)
 (** [to_exp sp] is the NetKAT expression corresponding to the SP [sp]. *)
 val to_exp : t -> Nk.t
