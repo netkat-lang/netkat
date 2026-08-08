@@ -201,22 +201,78 @@ let simulate_regression_diversify_enumerates_merged_branches () =
    the automaton has exactly one real, self-looping state, whose own
    epsilon is always top (zero iterations is always valid), and whose
    self-loop edge carries the real, a-branching behavior. This pins down
-   that simulate_init unrolls the self-loop round by round (finding the
-   genuine 2-hop path "a=0;a=1;a=2", not just the two 1-hop witnesses),
-   and that max_rounds genuinely bounds how many rounds it unrolls:
-   max_rounds=1 only ever sees the trivial zero-hop witness; max_rounds=2
-   additionally sees both 1-hop witnesses (but not yet the 2-hop one,
-   which needs the self-loop traversed twice); the default cap (50) finds
-   all 4 (further rounds add nothing new, since ONLY two values exist for
-   a, so every additional hop just revisits a value already witnessed at
-   a shorter depth). *)
+   that simulate_init unrolls the self-loop round by round, and that
+   max_rounds genuinely bounds how many rounds it unrolls: max_rounds=1
+   only ever sees the trivial zero-hop witness; max_rounds=2 additionally
+   sees both 1-hop witnesses; max_rounds=3 additionally sees both 2-hop
+   witnesses ("a=1;a=2" and "a=2;a=1" -- genuinely distinct traces, not
+   the same one twice).
+
+   This loop deliberately never reaches a fixed point: simulate_init
+   makes no attempt to merge branches that reconverge on the same
+   (state, sp) (doing so safely in general isn't possible -- see
+   simulate_init's docstring), so every additional round finds exactly
+   two more new traces -- the two strictly-alternating sequences of that
+   length (any non-alternating sequence, e.g. "a=1;a=1;a=2", destutters
+   down to something already found at a shorter depth, but the two
+   alternating ones never do). The branching factor is genuinely
+   2^rounds, so this is also why the real default_max_rounds (50) is
+   deliberately not exercised here -- it would mean actually producing
+   on the order of 2^50 raw traces before destuttering them down to 50. *)
 let simulate_regression_max_rounds_bounds_self_loop_unrolling () =
   let e = Nk.star (Nk.seq [ Nk.union_pair (Nk.modif fa v1) (Nk.modif fa v2); Nk.dup ]) in
   let a = Nka.autom e in
   let count mr = List.length (Nka.simulate_init ~max_rounds:mr a Sp.skip (Field.S.singleton fa) (Field.get_fields ())) in
   Alcotest.(check int) "max_rounds=1 only finds the trivial zero-hop witness" 1 (count 1);
   Alcotest.(check int) "max_rounds=2 additionally finds both 1-hop witnesses" 3 (count 2);
-  Alcotest.(check int) "default max_rounds finds the 2-hop witness too" 4 (count 50)
+  Alcotest.(check int) "max_rounds=3 additionally finds both (distinct) 2-hop witnesses" 5 (count 3)
+
+(* [@a=1 + @a=3] simulated on (dup.a<-0.dup), diversify={a}
+   Direct regression test for the ambiguous-shared-Mod bug: two distinct
+   diversify origins (a=1, a=3) both flow through an unconditional a<-0
+   Mod that erases the very field distinguishing them, with ANOTHER dup
+   after the Mod -- so witnessing happens one round later than the Mod
+   itself, not immediately at the Mod's own state. The buggy
+   implementation inverted a<-0 via a single, unbranched Sp.rep (or, in an
+   intermediate attempt, deduplicated frontier entries that reconverged on
+   the same (state, sp) one round before either was due to be witnessed),
+   either way deterministically dropping one origin's trace. Correct
+   behavior finds both. *)
+let simulate_regression_diverse_origins_survive_shared_mod () =
+  let init = Sp.union_pair (Sp.of_pk (Field.M.singleton fa v1)) (Sp.of_pk (Field.M.singleton fa v3)) in
+  let e = Nk.seq [ Nk.dup; Nk.modif fa v0; Nk.dup ] in
+  let a = Nka.autom e in
+  let traces = Nka.simulate_init a init (Field.S.singleton fa) (Field.get_fields ()) in
+  let strs = List.map Trace.to_string traces |> List.sort compare in
+  Alcotest.(check (list string)) "both origins survive the shared a<-0 Mod, one round later"
+    (List.sort compare
+       [ "[a=1,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0]";
+         "[a=3,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0]" ])
+    strs
+
+(* [@a=1 + @a=3] simulated on (dup.a<-0.dup.(b<-2+b<-3)), diversify={a,b}
+   Direct regression test for the untested-diversify-field bug: [b] is a
+   diversify field but is never tested anywhere near the origin -- it only
+   becomes live several hops later (mirroring a hub-dispatch-style policy
+   that branches on a second field partway through). The buggy
+   Sp.restrict_over (built by reusing Sp.rep_over and filtering) filled in
+   [b] with an arbitrary Value.choose default the moment it split on [a],
+   permanently excluding every [b] value but that one from the rest of the
+   exploration. Correct behavior finds all four (origin x branch)
+   combinations, not just whichever [b] default got picked early. *)
+let simulate_regression_untested_diversify_field_stays_free () =
+  let init = Sp.union_pair (Sp.of_pk (Field.M.singleton fa v1)) (Sp.of_pk (Field.M.singleton fa v3)) in
+  let e = Nk.seq [ Nk.dup; Nk.modif fa v0; Nk.dup; Nk.union_pair (Nk.modif fb v2) (Nk.modif fb v3) ] in
+  let a = Nka.autom e in
+  let traces = Nka.simulate_init a init (Field.S.of_list [fa; fb]) (Field.get_fields ()) in
+  let strs = List.map Trace.to_string traces |> List.sort compare in
+  Alcotest.(check (list string)) "all four (origin x b-branch) combinations survive"
+    (List.sort compare
+       [ "[a=1,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=2,c=0,d=0,sw=0,pt=0]";
+         "[a=1,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=3,c=0,d=0,sw=0,pt=0]";
+         "[a=3,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=2,c=0,d=0,sw=0,pt=0]";
+         "[a=3,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=0,c=0,d=0,sw=0,pt=0];[a=0,b=3,c=0,d=0,sw=0,pt=0]" ])
+    strs
 
 let () =
   Alcotest.run "Stub"
@@ -245,6 +301,8 @@ let () =
         Alcotest.test_case "merged_state_gives_one_trace" `Quick simulate_regression_merged_state_gives_one_trace;
         Alcotest.test_case "diversify_enumerates_merged_branches" `Quick simulate_regression_diversify_enumerates_merged_branches;
         Alcotest.test_case "max_rounds_bounds_self_loop_unrolling" `Quick simulate_regression_max_rounds_bounds_self_loop_unrolling;
+        Alcotest.test_case "diverse_origins_survive_shared_mod" `Quick simulate_regression_diverse_origins_survive_shared_mod;
+        Alcotest.test_case "untested_diversify_field_stays_free" `Quick simulate_regression_untested_diversify_field_stays_free;
       ]
     );
   ]

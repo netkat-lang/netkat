@@ -73,6 +73,14 @@ val rep : t -> Field.S.t -> Pk.t
     [rep] wrapped in a singleton list. *)
 val rep_over : Field.S.t -> t -> Field.S.t -> Pk.t list
 
+(** [restrict_over diversify sp] partitions [sp] into one sub-SP per live
+    combination of values for fields in [diversify], each being the exact
+    restriction of [sp] to that combination -- fields outside [diversify]
+    (and diversify fields [sp] never actually tests) are left fully
+    symbolic in each result, not resolved to a representative value as
+    [rep_over] does. *)
+val restrict_over : Field.S.t -> t -> t list
+
 (*---------- Output ------------------ *)
 (** [to_exp sp] is the NetKAT expression corresponding to the SP [sp]. *)
 val to_exp : t -> Nk.t

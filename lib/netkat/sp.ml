@@ -299,6 +299,42 @@ let rec of_pk (pk: Pk.t) =
     let f,v = Field.M.min_binding pk in
     mk (f, Value.M.singleton v (of_pk (Field.M.remove f pk)), drop)
 
+(** [diversify_keys diversify spref] finds every live combination of values
+    for fields in [diversify] that [spref] actually tests somewhere. Unlike
+    [rep_over]'s traversal, a diversify field [spref] never branches on at
+    all is simply absent from every returned [Pk.t] rather than filled in
+    with an arbitrary [Value.choose] default -- filling it in would wrongly
+    pin a field [spref] never constrained, when [restrict_over] needs it to
+    stay free. Branches of a non-diversified field are still traversed (to
+    find diversify tests nested underneath) but never tagged, and results
+    are deduped, since two different values of a field we're not
+    distinguishing shouldn't yield two separate combinations. *)
+let diversify_keys (diversify : Field.S.t) (spref : t) : Pk.t list =
+  let rec go (sp: t) : Pk.t list =
+    match !sp with
+    | Skip -> [Field.M.empty]
+    | Drop -> []
+    | Union (f, vm, d, _) ->
+        let tag v ks = if Field.S.mem f diversify then List.map (Field.M.add f v) ks else ks in
+        let from_default = if eq d drop then [] else tag (Value.val_outside (Value.keys vm)) (go d) in
+        let from_explicit =
+          Value.M.bindings vm
+          |> List.concat_map (fun (v, sp') -> if eq sp' drop then [] else tag v (go sp')) in
+        List.sort_uniq Pk.compare (from_default @ from_explicit)
+  in
+  go spref
+
+(** [restrict_over diversify sp] partitions [sp] into one sub-SP per live
+    combination of values for the fields in [diversify], each sub-SP being
+    the exact restriction of [sp] to that combination -- fields outside
+    [diversify] (and diversify fields [sp] never actually tests) are left
+    fully symbolic in each result rather than resolved to a representative
+    value, as [rep_over] would. *)
+let restrict_over (diversify : Field.S.t) (spref : t) : t list =
+  diversify_keys diversify spref
+  |> List.map (fun combo -> intersect_pair spref (of_pk combo))
+  |> List.filter (fun r -> not (eq r drop))
+
 let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string
 
