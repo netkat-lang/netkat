@@ -17,8 +17,8 @@ type t =
   | Diff of t * t
   | Xor of t * t
   | Neg of t
-  | Fwd of Pk.t option * t
-  | Bwd of Pk.t option * t
+  | Fwd of t option * t
+  | Bwd of t option * t
   | Exists of field * t
   | Forall of field * t
   | Var of string
@@ -85,10 +85,10 @@ let rec compare (t1:t) (t2:t) =
   | Xor (t1,t2), Xor (t3,t4) -> if compare t1 t3 = 0 then compare t1 t3 else compare t2 t4 (* TODO XXX - typo? *)
   | Xor _, _ -> -1
   | _, Xor _ -> 1
-  | Fwd (a1,s1), Fwd (a2,s2) -> if Option.compare Pk.compare a1 a2 = 0 then compare s1 s2 else Option.compare Pk.compare a1 a1
+  | Fwd (a1,s1), Fwd (a2,s2) -> if Option.compare compare a1 a2 = 0 then compare s1 s2 else Option.compare compare a1 a2
   | Fwd _, _ -> -1
   | _, Fwd _ -> 1
-  | Bwd (a1,s1), Bwd (a2,s2) -> if Option.compare Pk.compare a1 a2 = 0 then compare s1 s2 else Option.compare Pk.compare a1 a1
+  | Bwd (a1,s1), Bwd (a2,s2) -> if Option.compare compare a1 a2 = 0 then compare s1 s2 else Option.compare compare a1 a2
   | Bwd _, _ -> -1
   | _, Bwd _ -> 1
   | Exists (f1,s1), Exists (f2,s2) -> if f1 = f2 then compare s1 s2 else Field.compare f1 f2
@@ -214,8 +214,8 @@ let to_string (e: t) : string =
     | Var x -> x
     | Xor (t1,t2) -> (to_string_parent (prec e) t1) ^ " ⊕ " ^ (to_string_parent (prec e) t2)
     | Diff (t1,t2) ->  (to_string_parent (prec e) t1) ^ " - " ^ (to_string_parent (prec e) t2)
-    | Fwd (po,e) -> "forward " ^ (match po with Some(p) -> (Pk.to_string p)^" " | None -> "") ^ (to_string_parent (prec e) e)
-    | Bwd (po,e) -> "backward " ^ (match po with Some(p) -> (Pk.to_string p)^" " | None -> "") ^ (to_string_parent (prec e) e)
+    | Fwd (po,e) -> "forward " ^ (match po with Some(p) -> "[" ^ (to_string_parent 0 p) ^ "] " | None -> "") ^ (to_string_parent (prec e) e)
+    | Bwd (po,e) -> "backward " ^ (match po with Some(p) -> "[" ^ (to_string_parent 0 p) ^ "] " | None -> "") ^ (to_string_parent (prec e) e)
     | Forall (f,e) -> "forall " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Exists (f,e) -> "exists " ^ (Field.get_or_fail_fid f) ^ " " ^ (to_string_parent (prec e) e)
     | Lambda (s, e) -> Printf.sprintf "(λ %s ⇒ %s)" s (to_string_parent (prec e) e)
@@ -234,8 +234,8 @@ let rec to_nested e =
     | Dup -> Dup
     | Var x -> Var x
     | Star e -> Star (to_nested e)
-    | Fwd (po,e) -> Fwd (po,to_nested e)
-    | Bwd (po,e) -> Bwd (po,to_nested e)
+    | Fwd (po,e) -> Fwd (Option.map to_nested po, to_nested e)
+    | Bwd (po,e) -> Bwd (Option.map to_nested po, to_nested e)
     | Neg e -> Neg (to_nested e)
     | Seq([]) -> Seq([])
     | Seq([e]) -> to_nested e

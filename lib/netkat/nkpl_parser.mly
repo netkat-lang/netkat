@@ -69,16 +69,14 @@ check_tag:
   | s=FILENAME { Some s }
   ;
 
-field:
-  | f=IDENT; TST; v=NUM { (Field.get_or_assign_fid f, Value.of_int v) }
-
-fields:
-  | { Pk.empty }
-  | f=field; fs=fields { let (a,b) = f in Pk.add fs a b }
-  | f=field; COM; fs=fields { let (a,b) = f in Pk.add fs a b }
-
+(* A NetKAT expression denoting the set of initial/final packets for
+   forward/backward/simulate -- e.g. "[@dev=Router]" for a single packet
+   (a Filter is as much an nk_exp as anything else), or
+   "[@dev=Router + @dev=Office_Host]" to start from several sources at
+   once. See Nka.forward, which turns this filter expression into the
+   Sp.t (symbolic packet set) it denotes. *)
 packet:
-  | LBRACE; fs=fields; RBRACE { fs }
+  | LBRACE; e=nk_exp; RBRACE { e }
 
 packet_opt:
   | { None }

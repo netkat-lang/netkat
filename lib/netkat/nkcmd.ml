@@ -9,7 +9,7 @@ type t =
   | Let of string * Nkexp.t
   | VLet of string * Value.t
   | Rep of Nkexp.t
-  | Simulate of string option * int option * Field.t list * Pk.t option * Nkexp.t
+  | Simulate of string option * int option * Field.t list * Nkexp.t option * Nkexp.t
   | For of string * int * int * t
 
 (** Pretty print the netkat expression. *)
@@ -27,7 +27,7 @@ let rec to_string t =
     "simulate " ^ (match tag with None -> "" | Some s -> "\"" ^ s ^ "\" ")
     ^ (match mr with None -> "" | Some n -> string_of_int n ^ " ")
     ^ (if fs = [] then "" else "{" ^ (String.concat ", " (List.map Field.get_or_fail_fid fs)) ^ "} ")
-    ^ (match pkt with None -> "" | Some p -> (Pk.to_string p) ^ " ")
+    ^ (match pkt with None -> "" | Some p -> "[" ^ (Nkexp.to_string p) ^ "] ")
     ^ (Nkexp.to_string e)
   | For (v, i_0, i_n, cmd) -> Printf.sprintf "for %s ∈ %d..%d do %s" v i_0 i_n (to_string cmd)
 
@@ -54,9 +54,11 @@ match e with
 | App(e1,e2)
 | Xor(e1,e2) -> Field.M.union (fun k v1 v2 -> Some(Value.S.union v1 v2)) (get_field_vals_from_exp env e1) (get_field_vals_from_exp env e2)
 | Star(e)
-| Neg(e)
-| Fwd(_,e)
-| Bwd(_,e) -> get_field_vals_from_exp env e
+| Neg(e) -> get_field_vals_from_exp env e
+| Fwd(po,e)
+| Bwd(po,e) ->
+  let po_vals = match po with None -> Field.M.empty | Some p -> get_field_vals_from_exp env p in
+  Field.M.union (fun k v1 v2 -> Some(Value.S.union v1 v2)) po_vals (get_field_vals_from_exp env e)
 | Exists(f,e)
 | Forall(f,e) -> Field.M.add f Value.S.empty (get_field_vals_from_exp env e) (* TODO - not sure if this is right *)
 | Var(_)
@@ -75,7 +77,9 @@ let rec get_field_vals (env: Env.t) c : Value.S.t Field.M.t =
   | Let(_, e) -> get_field_vals_from_exp env e
   | VLet(_, v) -> Field.M.empty (* TODO - is this right? *)
   | Rep(e) -> get_field_vals_from_exp env e
-  | Simulate(_, _, _, _, e) -> get_field_vals_from_exp env e
+  | Simulate(_, _, _, pkt, e) ->
+    let pkt_vals = match pkt with None -> Field.M.empty | Some p -> get_field_vals_from_exp env p in
+    Field.M.union (fun k v1 v2 -> Some(Value.S.union v1 v2)) pkt_vals (get_field_vals_from_exp env e)
   | For(_, _, _, cmd) -> get_field_vals env cmd
 
 let get_field_vals_from_cmds (env: Env.t) cl : Value.S.t Field.M.t =

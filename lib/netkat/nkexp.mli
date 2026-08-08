@@ -17,8 +17,8 @@ type t =
   | Diff of t * t
   | Xor of t * t
   | Neg of t
-  | Fwd of Pk.t option * t
-  | Bwd of Pk.t option * t
+  | Fwd of t option * t
+  | Bwd of t option * t
   | Exists of field * t
   | Forall of field * t
   | Var of string

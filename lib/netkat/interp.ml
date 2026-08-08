@@ -98,14 +98,16 @@ let rec eval ((env: Env.t), (m: Value.S.t Field.M.t option)) (e: Nkexp.t) : (Env
       let l = eval (env,m) e in
       (Env.Expr(Nka.forward (fst l |> expect_nk) |> Sp.to_exp), snd l)
     | Nkexp.Fwd (Some(p),e) ->
-      let l = eval (env,m) e in
-      (Env.Expr(Nka.forward_init (fst l |> expect_nk) (Sp.of_pk p) |> Sp.to_exp), snd l)
+      let lp = eval (env,m) p in
+      let l = eval (env, snd lp) e in
+      (Env.Expr(Nka.forward_init (fst l |> expect_nk) (Nka.forward (fst lp |> expect_nk)) |> Sp.to_exp), snd l)
     | Nkexp.Bwd (None,e) ->
       let l = eval (env,m) e in
       (Env.Expr(Nka.backward (fst l |> expect_nk) |> Sp.to_exp), snd l)
     | Nkexp.Bwd (Some(p),e) ->
-      let l = eval (env,m) e in
-      (Env.Expr(Nka.backward_final (fst l |> expect_nk) (Sp.of_pk p) |> Sp.to_exp), snd l)
+      let lp = eval (env,m) p in
+      let l = eval (env, snd lp) e in
+      (Env.Expr(Nka.backward_final (fst l |> expect_nk) (Nka.forward (fst lp |> expect_nk)) |> Sp.to_exp), snd l)
     | Nkexp.Forall (f,e) -> begin
                       match e with
                       | Nkexp.Drop
@@ -304,9 +306,12 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
       let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> printf out "%s\n%!" in
       ((env, snd l), [])
   | Simulate (name, mr, fs, pkt, e) ->
-      let l = (eval (env,m) e) in
+      let (init, m1) = match pkt with
+        | None -> (Sp.skip, m)
+        | Some p -> let lp = eval (env,m) p in (Nka.forward (fst lp |> expect_nk), snd lp)
+      in
+      let l = (eval (env,m1) e) in
       let a = fst l |> expect_nk |> Nka.autom in
-      let init = match pkt with None -> Sp.skip | Some p -> Sp.of_pk p in
       let diversify = Field.S.of_list fs in
       let traces = match mr with
         | None -> Nka.simulate_init a init diversify (Field.get_fields ())
