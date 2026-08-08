@@ -258,40 +258,6 @@ let rep (spref : t) (fields : Field.S.t) : Pk.t =
             r sp' (Field.M.add f v partial) in
   r spref Field.M.empty
 
-(** [rep_over diversify sp fields] is like [rep], but for every field tested
-    in [sp] that's a member of [diversify], it enumerates every non-drop
-    branch (each explicit value, plus the default "any other value" case,
-    each contributing exactly one representative the same way [rep] would)
-    instead of picking just one. This bounds the resulting enumeration to
-    the product of branching factors of exactly the named fields, rather
-    than every field [sp] happens to test. With [diversify] empty, this
-    returns a singleton list containing the same packet [rep] would. *)
-let rep_over (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
-  let fillin = Field.S.fold (fun f a -> match Field.M.find_opt f a with
-                                        | None -> Field.M.add f Value.choose a
-                                        | Some _ -> a) fields in
-  let rec r (sp: t) (partial: Pk.t) : Pk.t list =
-      match !sp with
-      | Skip -> [fillin partial]
-      | Drop -> []
-      | Union (f, vm, d, _) ->
-          if Field.S.mem f diversify then
-            let default_reps =
-              if not (eq d drop) then r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
-              else [] in
-            let explicit_reps =
-              Value.M.bindings vm
-              |> List.concat_map (fun (v, sp') ->
-                   if eq sp' drop then [] else r sp' (Field.M.add f v partial)) in
-            default_reps @ explicit_reps
-          else
-            if not (eq d drop) then
-              r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
-            else
-              let v, sp' = List.find (fun (v, p) -> not (eq p drop)) (Value.M.bindings vm) in
-              r sp' (Field.M.add f v partial) in
-  r spref Field.M.empty
-
 let rec of_pk (pk: Pk.t) =
   if Field.M.is_empty pk then
     skip
@@ -300,15 +266,18 @@ let rec of_pk (pk: Pk.t) =
     mk (f, Value.M.singleton v (of_pk (Field.M.remove f pk)), drop)
 
 (** [diversify_keys diversify spref] finds every live combination of values
-    for fields in [diversify] that [spref] actually tests somewhere. Unlike
-    [rep_over]'s traversal, a diversify field [spref] never branches on at
-    all is simply absent from every returned [Pk.t] rather than filled in
-    with an arbitrary [Value.choose] default -- filling it in would wrongly
-    pin a field [spref] never constrained, when [restrict_over] needs it to
-    stay free. Branches of a non-diversified field are still traversed (to
-    find diversify tests nested underneath) but never tagged, and results
-    are deduped, since two different values of a field we're not
-    distinguishing shouldn't yield two separate combinations. *)
+    for fields in [diversify] that [spref] actually tests somewhere,
+    regardless of what other fields those tests happen to be nested
+    beneath. Unlike a traversal that picks just one branch of every
+    non-diversified field it meets (as [rep] does), this always recurses
+    into every branch of every field -- diversified or not -- so a
+    diversify field's live values can never be hidden behind a fork on some
+    other field it isn't related to. A diversify field [spref] never
+    branches on at all is simply absent from every returned [Pk.t] rather
+    than filled in with an arbitrary [Value.choose] default. Branches of a
+    non-diversified field are traversed but never tagged, and results are
+    deduped, since two different values of a field we're not distinguishing
+    shouldn't yield two separate combinations. *)
 let diversify_keys (diversify : Field.S.t) (spref : t) : Pk.t list =
   let rec go (sp: t) : Pk.t list =
     match !sp with
@@ -334,6 +303,38 @@ let restrict_over (diversify : Field.S.t) (spref : t) : t list =
   diversify_keys diversify spref
   |> List.map (fun combo -> intersect_pair spref (of_pk combo))
   |> List.filter (fun r -> not (eq r drop))
+
+let rep (spref : t) (fields : Field.S.t) : Pk.t =
+  let fillin = Field.S.fold (fun f a -> match Field.M.find_opt f a with
+                                        | None -> Field.M.add f Value.choose a
+                                        | Some _ -> a) fields in
+  let rec r (sp: t) (partial: Pk.t) =
+      match !sp with
+      | Skip -> fillin partial
+      | Drop -> failwith "Cannot take representative of Sp.Drop!"
+      | Union (f, vm, d, _) ->
+          if not (eq d drop) then
+            r d (Field.M.add f (Value.val_outside (Value.keys vm)) partial)
+          else
+            let v, sp' = List.find (fun (v, p) -> not (eq p drop)) (Value.M.bindings vm) in
+            r sp' (Field.M.add f v partial) in
+  r spref Field.M.empty
+
+(** [rep_over diversify sp fields] is like [rep], but returns one packet per
+    live combination of [diversify] fields in [sp] instead of just one.
+    Built from [restrict_over] (which finds every live combination via a
+    full traversal, regardless of what other fields those combinations are
+    nested beneath) followed by [rep] on each resulting restriction (which
+    picks a single arbitrary value for every remaining field). This bounds
+    the resulting list to the product of branching factors of exactly the
+    named fields, the same as picking branches directly would, but without
+    a naive single-pass traversal's risk of missing a diversify field's
+    value because it sits behind a branch of some unrelated field that
+    traversal chose not to take. With [diversify] empty, this returns a
+    singleton list containing the same packet [rep] would. *)
+let rep_over (diversify : Field.S.t) (spref : t) (fields : Field.S.t) : Pk.t list =
+  restrict_over diversify spref
+  |> List.map (fun sub -> rep sub fields)
 
 let to_exp sp = to_exp_inner !sp
 let to_string t = to_exp t |> Nk.to_string
