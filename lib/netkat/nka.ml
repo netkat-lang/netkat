@@ -80,18 +80,27 @@ let autom (e: Nk.t) : t =
     let num0 = NkMap.empty in
     loop [Nk.drop; e] StateSet.empty num0 StateMap.empty StateMap.empty
 
-let accept (a: t) (trace: Trace.t) : bool =
+(* [List.length (accept_path a trace |> Option.get)] always equals
+   [List.length (Trace.pairs trace)]: one entry per pair, the state that
+   pair's own transition (trans, or obs for the trace's last pair) was
+   evaluated from. Returns [None] if [trace] is rejected -- an interior
+   pair has no matching [trans] edge, or the trace's last pair fails the
+   [obs] of the state it's evaluated from. *)
+let accept_path (a: t) (trace: Trace.t) : State.t list option =
   let pairs = Trace.pairs trace in
   let rec acc state rem =
     match rem with
     | [] -> failwith "Unreachable"
-    | [p] -> Spp.mem (StateMap.find state a.obs) p
+    | [p] -> if Spp.mem (StateMap.find state a.obs) p then Some [state] else None
     | p::rem' ->
         let sm = StateMap.find state a.trans in
         match List.find_map (fun (s,spp) -> if Spp.mem spp p then Some s else None) (StateMap.bindings sm) with
-        | None -> false
-        | Some s -> acc s rem' in
+        | None -> None
+        | Some s -> Option.map (fun rest -> state :: rest) (acc s rem') in
   acc a.start pairs
+
+let accept (a: t) (trace: Trace.t) : bool =
+  Option.is_some (accept_path a trace)
 
   (** [rep a fields] computes a trace in the trace language of [a], using the
       packet fields in [fields]. The strategy is to peform a BFS, keeping a list

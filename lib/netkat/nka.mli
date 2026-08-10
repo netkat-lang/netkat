@@ -36,6 +36,16 @@ val to_string : t -> string
     derivatives. *)
 val autom : Nk.t -> t
 
+(** [accept_path a trace] walks [a] against [trace] exactly like [accept],
+    but returns the sequence of states the walk was at for each pair of
+    [Trace.pairs trace] (in order) when [trace] is accepted, rather than a
+    bare boolean -- see its own doc comment in nka.ml for the exact shape.
+    Useful to a caller that needs to know which automaton state governed
+    each step of an already-accepted trace (e.g. to ground per-state/edge
+    facts derived from [trans]/[obs] against a concrete trace), not just
+    whether the trace is accepted at all. *)
+val accept_path : t -> Trace.t -> State.t list option
+
 (** Decides whether the given trace is accepted by the automaton. *)
 val accept : t -> Trace.t -> bool
 
