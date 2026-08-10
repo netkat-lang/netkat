@@ -318,3 +318,29 @@ function
 | List ((Atom "forall")::f::r::_) -> Forall (Field.get_or_assign_fid (to_string f), of_sexp r)
 | x -> failwith (Printf.sprintf "Nkexp.of_sexp: cannot convert s-expression: %s" (Sexplib0.Sexp.to_string x))
 
+(* Nk.t is a strict subset of Nkexp.t: every one of its 11 constructors
+   (Drop/Skip/Dup/Filter/Mod/Seq/Union/Star/Intersect/Diff/Xor) has an
+   exact structural counterpart here, and Nkexp.t's own remaining
+   constructors (VFilter/VMod/Neg/Fwd/Bwd/Exists/Forall/Var/Num/Lambda/
+   App) are exactly the ones that need a real Env to resolve (named
+   constants, quantifiers, closures, ...) -- something an already-fully-
+   evaluated Nk.t never carries. So converting this direction is a
+   total, no-failure-case embedding, unlike of_sexp above (which can
+   fail on a malformed s-expression) -- useful wherever an Nk.t needs
+   re-rendering through Nkexp.to_string (e.g. to match how some other,
+   not-yet-evaluated Nkexp.t is already being displayed) instead of
+   Nk.to_string. *)
+let rec of_nk (e : Nk.t) : t =
+  match e with
+  | Nk.Drop -> Drop
+  | Nk.Skip -> Skip
+  | Nk.Dup -> Dup
+  | Nk.Filter (b, f, v) -> Filter (b, f, v)
+  | Nk.Mod (f, v) -> Mod (f, v)
+  | Nk.Seq es -> Seq (List.map of_nk es)
+  | Nk.Union es -> Union (List.map of_nk es)
+  | Nk.Star e0 -> Star (of_nk e0)
+  | Nk.Intersect es -> Intersect (List.map of_nk es)
+  | Nk.Diff (e1, e2) -> Diff (of_nk e1, of_nk e2)
+  | Nk.Xor (e1, e2) -> Xor (of_nk e1, of_nk e2)
+

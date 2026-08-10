@@ -124,3 +124,7 @@ val of_sexp : Sexplib0.Sexp.t -> t
 
 (** Make s-expression from netkat expression. *)
 val to_sexp : t -> Sexplib0.Sexp.t
+
+(** Embeds an already-evaluated [Nk.t] as an [Nkexp.t] -- total, since
+    Nk.t's constructors are an exact structural subset of Nkexp.t's. *)
+val of_nk : Nk.t -> t
