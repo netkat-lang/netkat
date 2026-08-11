@@ -22,3 +22,12 @@ val get_or_assign_fid : string -> t
 val get_or_fail_fid : t -> string
 
 val to_string : t -> string
+
+(** Clears every field name<->id assignment made so far, so a caller
+    that wants a fresh, independent field-id space (e.g. a test runner
+    isolating one test from another's field registrations) can start
+    over. Existing [t] values from before the reset become meaningless
+    (a later [get_or_assign_fid] can reassign their same integer to an
+    unrelated name) -- callers must not mix ids minted before and after
+    a reset. *)
+val reset : unit -> unit

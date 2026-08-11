@@ -29,3 +29,7 @@ let get_or_fail_fid (n: t) : string =
   | None -> failwith ("unknown field index: " ^ string_of_int n)
 
 let to_string = string_of_int
+
+let reset () =
+  Hashtbl.reset fields;
+  Hashtbl.reset field_labels
