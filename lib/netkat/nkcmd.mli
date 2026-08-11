@@ -33,8 +33,14 @@ type t =
 (** Pretty prints the netkat expression. *)
 val to_string : t -> string
 
+(** Every field referenced anywhere in the command, mapped to whatever
+    concrete values it's tested/modified against that [Env.t] can
+    resolve (a name it can't resolve -- including [Env.empty], safe to
+    pass when the caller has no meaningful environment -- still shows up
+    as a field, just with an empty value set rather than raising). *)
 val get_field_vals : Env.t -> t -> Value.S.t Field.M.t
 
+(** [get_field_vals], unioned over a whole command list. *)
 val get_field_vals_from_cmds : Env.t -> t list -> Value.S.t Field.M.t
 
 val expect_val : Env.nk_val -> Value.t

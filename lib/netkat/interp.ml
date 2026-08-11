@@ -306,12 +306,17 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
       let () = Nka.rep a (Field.get_fields ()) |> Trace.to_string |> printf out "%s\n%!" in
       ((env, snd l), [])
   | Simulate (name, mr, fs, pkt, e) ->
-      let (init, m1) = match pkt with
-        | None -> (Sp.skip, m)
-        | Some p -> let lp = eval (env,m) p in (Nka.forward (fst lp |> expect_nk), snd lp)
+      let field_set_of nk = Field.M.fold (fun f _ acc -> Field.S.add f acc) (Nk.get_field_vals nk) Field.S.empty in
+      let (init, pkt_fields, m1) = match pkt with
+        | None -> (Sp.skip, Field.S.empty, m)
+        | Some p ->
+          let lp = eval (env,m) p in
+          let p_nk = fst lp |> expect_nk in
+          (Nka.forward p_nk, field_set_of p_nk, snd lp)
       in
       let l = (eval (env,m1) e) in
-      let a = fst l |> expect_nk |> Nka.autom in
+      let net_nk = fst l |> expect_nk in
+      let a = Nka.autom net_nk in
       (* Resolves each field's syntax-level dmode (bare "@f"/"@f=best_effort",
          "@f=exhaustive", or "@f=[v1,v2,...]") into an actual
          Nka.diversify_mode -- a [DExplicit]'s values may be named constants
@@ -327,9 +332,23 @@ and interp out (bn: string) ((env: Env.t), (m: Value.S.t Field.M.t option)) (c: 
         | DExplicit vs -> Nka.Explicit (Value.S.of_list (List.map resolve_dvalue vs))
       in
       let diversify = List.fold_left (fun m (f, dm) -> Field.M.add f (resolve_dmode dm) m) Field.M.empty fs in
+      (* Scoped to exactly the fields this simulate command can actually
+         reference -- "net_nk"/"pkt"'s own already-evaluated Nk.t (via
+         Nk.get_field_vals, which needs no Env at all: an Nk.t's
+         Filter/Mod always carry a literal, already-resolved value, never
+         a named constant still waiting on one), plus the diversify list's
+         own fields directly -- not Field.get_fields () (every field ever
+         registered anywhere in the whole process). simulate_init's own
+         representative-packet materialization/dedup is sensitive to
+         exactly which fields it's given, so an unrelated field registered
+         elsewhere in the same process (e.g. by a wholly separate
+         check/spec) would silently perturb this simulate's own
+         distinct-trace count. *)
+      let fs_fields = List.fold_left (fun acc (f,_) -> Field.S.add f acc) Field.S.empty fs in
+      let relevant_fields = Field.S.union (field_set_of net_nk) (Field.S.union pkt_fields fs_fields) in
       let traces = match mr with
-        | None -> Nka.simulate_init a init diversify (Field.get_fields ())
-        | Some n -> Nka.simulate_init ~max_rounds:n a init diversify (Field.get_fields ()) in
+        | None -> Nka.simulate_init a init diversify relevant_fields
+        | Some n -> Nka.simulate_init ~max_rounds:n a init diversify relevant_fields in
       printf out "## Simulated %d trace(s)\n%!" (List.length traces);
       List.iteri (fun i t -> printf out "--- trace %d ---\n%s\n%!" (i+1) (Trace.to_string t)) traces;
       ((env, snd l), [Success(name, traces)])
