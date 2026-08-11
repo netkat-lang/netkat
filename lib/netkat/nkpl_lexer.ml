@@ -138,6 +138,7 @@ and raw_token buf =
   | ']' ->  RBRACE
   | '{' ->  LCURLY
   | '}' ->  RCURLY
+  | '\\' ->  LAMBDA
   | '|'
   | '+' ->  PLUS
   | '-' ->  DIFF
@@ -150,6 +151,8 @@ and raw_token buf =
   | '=' ->  TST
   | '^' ->  XOR
   | "dup" ->  DUP
+  | "=>"
+  | "->" ->  ARROW
   | ":="
   | "<-" ->  MOD
   | "==" ->  EQUIV
